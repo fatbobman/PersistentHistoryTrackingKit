@@ -6,11 +6,11 @@ import PackageDescription
 let package = Package(
     name: "PersistentHistoryTrackKit",
     platforms: [
-        .iOS(.v11),
-        .macOS(.v10_13),
+        .iOS(.v13),
+        .macOS(.v10_15),
         .macCatalyst(.v13),
-        .tvOS(.v11),
-        .watchOS(.v4)
+        .tvOS(.v13),
+        .watchOS(.v6)
     ],
     products: [
         // Products define the executables and libraries a package produces, and make them visible to other packages.

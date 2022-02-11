@@ -21,18 +21,26 @@ import OSLog
 class PersistentHistoryTrackKitLogger: PersistentHistoryTrackKitLoggerProtocol {
     private let subsystem: String
     private let category: String
+    var enable: Bool
+    var level: Int
 
     @available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *)
     private lazy var logger = Logger(subsystem: subsystem, category: category)
 
-    init(subsystem: String = "", category: String = "PersistentHistoryTrackKit") {
+    init(enable: Bool = true,
+         level: Int = 1,
+         subsystem: String = "",
+         category: String = "PersistentHistoryTrackKit") {
         self.subsystem = subsystem
         self.category = category
+        self.enable = enable
+        self.level = level
     }
 
     #if canImport(OSLog)
-    func log(type: PersistentHistroyTrackKitLogType, message: String) {
+    func log(type: PersistentHistroyTrackKitLogType, messageLevel: Int, message: String) {
         if #available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *) {
+            guard enable, messageLevel <= level else { return }
             switch type {
             case .debug:
                 logger.debug("\(message)")
@@ -46,7 +54,7 @@ class PersistentHistoryTrackKitLogger: PersistentHistoryTrackKitLoggerProtocol {
                 logger.fault("\(message)")
             }
         } else {
-            printLogToConsole(type: type, message: message)
+            printLogToConsole(type: type, messageLevel: messageLevel, message: message)
         }
     }
     #else
@@ -55,7 +63,8 @@ class PersistentHistoryTrackKitLogger: PersistentHistoryTrackKitLoggerProtocol {
     }
     #endif
 
-    private func printLogToConsole(type: PersistentHistroyTrackKitLogType, message: String) {
+    private func printLogToConsole(type: PersistentHistroyTrackKitLogType, messageLevel: Int, message: String) {
+        guard enable, messageLevel <= level else { return }
         let type = type.rawValue.uppercased()
         print("\(type) : \(message)")
     }

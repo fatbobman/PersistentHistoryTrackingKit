@@ -1,5 +1,5 @@
 //
-//  PersistentHistoryTrackLoggerProtocol.swift
+//  LoggerProtocol.swift
 //
 //
 //  Created by Yang Xu on 2022/2/10
@@ -16,11 +16,15 @@ import Foundation
 /// 开发者可以创建符合该协议的类型，以便让 PersistentHistoryTrackKi t与你已有的日志模块协同工作。
 /// 日志输出的开关和细节控制均在 PersistentHistoryTrackKit 上
 public protocol PersistentHistoryTrackKitLoggerProtocol {
+    /// 是否输出日志
+    var enable: Bool { get set }
+    /// 输出内容精度。1最小。数字越大内容越多
+    var level: Int { get set }
     /// 输出日志。开发者可以将 LogType 转换成自己使用的日志模块对应的 Type
-    func log(type: PersistentHistroyTrackKitLogType, message: String)
+    func log(type: PersistentHistroyTrackKitLogType, messageLevel: Int, message: String)
 }
 
 /// 日志类型。尽管定义了5中类型，不过当前只会使用其中的 debug 和 error。
-public enum PersistentHistroyTrackKitLogType:String {
+public enum PersistentHistroyTrackKitLogType: String {
     case debug, info, notice, error, fault
 }
