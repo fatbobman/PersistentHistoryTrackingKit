@@ -16,6 +16,8 @@ import Foundation
 import OSLog
 #endif
 
+/// PersistentHistoryTrackKit 日志的默认实现。
+/// 如果开发者没有使用自定义的日志实现，则 PersistentHistoryTrackKit 会默认使用本实现
 class PersistentHistoryTrackKitLogger: PersistentHistoryTrackKitLoggerProtocol {
     private let subsystem: String
     private let category: String
