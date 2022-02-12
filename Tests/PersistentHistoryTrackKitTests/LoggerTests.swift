@@ -33,7 +33,7 @@ class LoggerTests: XCTestCase {
 struct Logger: PersistentHistoryTrackKitLoggerProtocol {
     var enable: Bool
     var level: Int
-    func log(type: PersistentHistroyTrackKitLogType,messageLevel: Int, message: String) {
+    func log(type: PersistentHistoryTrackKitLogType,messageLevel: Int, message: String) {
         guard enable, messageLevel <= level else { return }
         print(type.rawValue, message)
     }

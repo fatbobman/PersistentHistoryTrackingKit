@@ -21,8 +21,8 @@ import OSLog
 class PersistentHistoryTrackKitLogger: PersistentHistoryTrackKitLoggerProtocol {
     private let subsystem: String
     private let category: String
-    var enable: Bool
-    var level: Int
+    let enable: Bool
+    let level: Int
 
     @available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *)
     private lazy var logger = Logger(subsystem: subsystem, category: category)
@@ -38,7 +38,7 @@ class PersistentHistoryTrackKitLogger: PersistentHistoryTrackKitLoggerProtocol {
     }
 
     #if canImport(OSLog)
-    func log(type: PersistentHistroyTrackKitLogType, messageLevel: Int, message: String) {
+    func log(type: PersistentHistoryTrackKitLogType, messageLevel: Int, message: String) {
         if #available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *) {
             guard enable, messageLevel <= level else { return }
             switch type {
@@ -58,12 +58,12 @@ class PersistentHistoryTrackKitLogger: PersistentHistoryTrackKitLoggerProtocol {
         }
     }
     #else
-    func log(type: PersistentHistroyTrackKitLogType, message: String) {
+    func log(type: PersistentHistoryTrackKitLogType, message: String) {
         printLogToConsole(type: type, message: message)
     }
     #endif
 
-    private func printLogToConsole(type: PersistentHistroyTrackKitLogType, messageLevel: Int, message: String) {
+    private func printLogToConsole(type: PersistentHistoryTrackKitLogType, messageLevel: Int, message: String) {
         guard enable, messageLevel <= level else { return }
         let type = type.rawValue.uppercased()
         print("\(type) : \(message)")

@@ -14,10 +14,10 @@
 import Foundation
 import CoreData
 
-protocol PersistentHistoryTrackKitCleanerProtocol{
+public protocol PersistentHistoryTrackKitCleanerProtocol{
     var backgroundContext:NSManagedObjectContext{get}
     var authors:[String]{get}
     var logger:PersistentHistoryTrackKitLoggerProtocol?{get}
-    var timastampManager:TransactionTimestampManager{get}
-    func cleanTransaction(before timestamp:Date?) -> Int
+    var timestampManager:TransactionTimestampManagerProtocol{get}
+    func cleanTransaction(before timestamp:Date?)
 }

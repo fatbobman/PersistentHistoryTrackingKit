@@ -13,7 +13,7 @@
 import Foundation
 
 /// 保存和获取时间戳的管理协议。
-protocol TransactionTimestampManagerProtocol {
+public protocol TransactionTimestampManagerProtocol {
     /// 从给定的 author 列表中，获取可以安全删除的时间戳。
     /// Cleaner 将依据该时间戳 ，指示 Core Data 删除该时间戳之前的 Transaction。
     /// - Returns: 可以安全删除的日期。当返回值为 nil 时，将不会对 Transaction 进行清理

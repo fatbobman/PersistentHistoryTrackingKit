@@ -17,14 +17,14 @@ import Foundation
 /// 日志输出的开关和细节控制均在 PersistentHistoryTrackKit 上
 public protocol PersistentHistoryTrackKitLoggerProtocol {
     /// 是否输出日志
-    var enable: Bool { get set }
+    var enable: Bool { get }
     /// 输出内容精度。1最小。数字越大内容越多
-    var level: Int { get set }
+    var level: Int { get }
     /// 输出日志。开发者可以将 LogType 转换成自己使用的日志模块对应的 Type
-    func log(type: PersistentHistroyTrackKitLogType, messageLevel: Int, message: String)
+    func log(type: PersistentHistoryTrackKitLogType, messageLevel: Int, message: String)
 }
 
 /// 日志类型。尽管定义了5中类型，不过当前只会使用其中的 debug 和 error。
-public enum PersistentHistroyTrackKitLogType: String {
+public enum PersistentHistoryTrackKitLogType: String {
     case debug, info, notice, error, fault
 }
