@@ -14,6 +14,6 @@ import CoreData
 import Foundation
 
 protocol PersistentHistoryTrackKitMergerProtocol {
-    var backgroundContext: NSManagedObjectContext { get }
-    func callAsFunction(merge transactions: [NSPersistentHistoryTransaction], into contexts: [NSManagedObjectContext])
+    /// 将 transaction 合并到指定的托管对象上下文。可以多个上下文，之间用 ，分隔
+    func callAsFunction(merge transactions: [NSPersistentHistoryTransaction], into contexts: NSManagedObjectContext...)
 }

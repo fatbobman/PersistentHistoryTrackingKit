@@ -14,13 +14,11 @@ import CoreData
 import Foundation
 
 struct PersistentHistoryTrackKitMerger: PersistentHistoryTrackKitMergerProtocol {
-    var backgroundContext: NSManagedObjectContext
-    func callAsFunction(merge transactions: [NSPersistentHistoryTransaction], into contexts: [NSManagedObjectContext]) {
-        backgroundContext.performAndWait {
-            for transaction in transactions {
-                let userInfo = transaction.objectIDNotification().userInfo ?? [:]
-                NSManagedObjectContext.mergeChanges(fromRemoteContextSave: userInfo, into: contexts)
-            }
+    func callAsFunction(merge transactions: [NSPersistentHistoryTransaction],
+                        into contexts: NSManagedObjectContext...) {
+        for transaction in transactions {
+            let userInfo = transaction.objectIDNotification().userInfo ?? [:]
+            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: userInfo, into: contexts)
         }
     }
 }

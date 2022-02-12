@@ -15,37 +15,18 @@ import CoreData
 import XCTest
 
 class FetcherTest: XCTestCase {
-    let storeURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)
+    let storeURL = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask)
         .first?
         .appendingPathComponent("PersistentHistoryKitTestDB.sqlite") ?? URL(fileURLWithPath: "")
 
-    override func setUp() {
-        // 删除之前的数据库文件
-        try? FileManager.default.removeItem(at: storeURL)
-    }
-
     override func tearDown() async throws {
-        try await Task.sleep(seconds: 1)
-        print("wait a moment")
-    }
-
-    func testContainer() throws {
-        let container = CoreDataHelper.createNSPersistentContainer()
-        let context = container.viewContext
-        context.transactionAuthor = AppActor.app1.rawValue
-        context.name = "viewContext"
-
-        let event = Event(context: context)
-        event.timestamp = Date()
-
-        context.saveIfChanged()
-        let request = NSFetchRequest<Event>(entityName: "Event")
-        let count = try context.fetch(request).count
-        XCTAssertEqual(count, 1)
+        try FileManager.default.removeItem(at: storeURL)
+        try FileManager.default.removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-wal"))
+        try FileManager.default.removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-shm"))
     }
 
     /// 使用两个协调器，模拟在app group的情况下，从不同的app或app extension中操作数据库。
-    func testFetchInAppGroup() async throws {
+    func testFetcherInAppGroup() async throws {
         // given
         let container1 = CoreDataHelper.createNSPersistentContainer(storeURL: storeURL)
         let container2 = CoreDataHelper.createNSPersistentContainer(storeURL: storeURL)
@@ -83,7 +64,7 @@ class FetcherTest: XCTestCase {
     }
 
     @available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *)
-    func testFetchInBatchOperation() async throws {
+    func testFetcherInBatchOperation() async throws {
         // given
         let container = CoreDataHelper.createNSPersistentContainer(storeURL: storeURL)
         let viewContext = container.viewContext

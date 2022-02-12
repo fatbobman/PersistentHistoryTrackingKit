@@ -19,14 +19,10 @@ class CleanerTests: XCTestCase {
         .first?
         .appendingPathComponent("TestDB.sqlite") ?? URL(fileURLWithPath: "")
 
-    override func setUp() {
-        // 删除之前的数据库文件
-        try? FileManager.default.removeItem(at: storeURL)
-    }
-
     override func tearDown() async throws {
-        try await Task.sleep(seconds: 1)
-        print("wait a moment")
+        try FileManager.default.removeItem(at: storeURL)
+        try FileManager.default.removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-wal"))
+        try FileManager.default.removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-shm"))
     }
 
     func testCleanerInAppGroup() throws {
