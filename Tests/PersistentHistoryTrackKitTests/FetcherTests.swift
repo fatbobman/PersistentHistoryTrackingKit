@@ -1,5 +1,5 @@
 //
-//  FetcherTest.swift
+//  FetcherTests.swift
 //
 //
 //  Created by Yang Xu on 2022/2/11
@@ -14,11 +14,16 @@
 import XCTest
 
 class FetcherTest: XCTestCase {
-    let storeURL = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first!.appendingPathComponent("Test.sqlite")
+    let storeURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!.appendingPathComponent("PersistentHistoryKitTestDB.sqlite")
 
     override func setUp() {
         // 删除之前的数据库文件
         try? FileManager.default.removeItem(at: storeURL)
+    }
+
+    override func tearDown() async throws {
+        try await Task.sleep(seconds: 1)
+        print("wait a moment")
     }
 
     func testContainer() {
@@ -74,7 +79,7 @@ class FetcherTest: XCTestCase {
         XCTAssertEqual(eventCounts, 2)
     }
 
-    func testFetchInBatchUpdate() async throws {
+    func testFetchInBatchOperation() async throws {
         // given
         let container = CoreDataHelper.createNSPersistentContainer(storeURL: storeURL)
         let viewContext = container.viewContext
@@ -107,7 +112,7 @@ class FetcherTest: XCTestCase {
         }
 
         // then
-        let transactions = try fetcher.fetchTransactions(from: Date().addingTimeInterval(-1000000))
+        let transactions = try fetcher.fetchTransactions(from: Date().addingTimeInterval(-2))
         XCTAssertEqual(transactions.count, 1)
         XCTAssertEqual(transactions.first?.changes?.count, 9)
 

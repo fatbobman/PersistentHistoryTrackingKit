@@ -14,34 +14,28 @@ import CoreData
 import Foundation
 
 struct PersistentHistoryTrackKitCleaner: PersistentHistoryTrackKitCleanerProtocol {
-    init(backgroundContext: NSManagedObjectContext,
-         authors: [String],
-         logger: PersistentHistoryTrackKitLoggerProtocol?,
-         timestampManager: TransactionTimestampManager) {
+    init(
+        backgroundContext: NSManagedObjectContext,
+        authors: [String]
+    ) {
         self.backgroundContext = backgroundContext
         self.authors = authors
-        self.logger = logger
-        self.timestampManager = timestampManager
     }
 
     let backgroundContext: NSManagedObjectContext
     let authors: [String]
-    let logger: PersistentHistoryTrackKitLoggerProtocol?
-    let timestampManager: TransactionTimestampManagerProtocol
 
-    func cleanTransaction(before timestamp: Date?) {
-        guard let timestamp = timestamp else {
-            logger?.log(type: .debug, messageLevel: 2, message: "There are no transactions that need to be deleted")
-            return
+    func cleanTransaction(before timestamp: Date?) throws {
+        guard let timestamp = timestamp else { return }
+        try backgroundContext.performAndWait {
+            let request = getRequest(before: timestamp)
+            try backgroundContext.execute(request)
         }
-        let request = getRequest(before: timestamp)
-        // clean transactions in context
-        executeRequest(for: request)
     }
 
-    // make a request for delete all transactions before timestamp
+    // make a request for delete transactions before timestamp
     private func getRequest(before timestamp: Date) -> NSPersistentStoreRequest {
-        let needToDeleteHistoryRequest = NSPersistentHistoryChangeRequest.deleteHistory(before: timestamp)
+        let historyStoreRequest = NSPersistentHistoryChangeRequest.deleteHistory(before: timestamp)
         if let fetchRequest = NSPersistentHistoryTransaction.fetchRequest {
             var predicates = [NSPredicate]()
             for author in authors {
@@ -52,24 +46,8 @@ struct PersistentHistoryTrackKitCleaner: PersistentHistoryTrackKitCleanerProtoco
             }
             let compoundPredicate = NSCompoundPredicate(orPredicateWithSubpredicates: predicates)
             fetchRequest.predicate = compoundPredicate
-            needToDeleteHistoryRequest.fetchRequest = fetchRequest
+            historyStoreRequest.fetchRequest = fetchRequest
         }
-        return needToDeleteHistoryRequest
-    }
-
-    // delete transactions
-    private func executeRequest(for request: NSPersistentStoreRequest) {
-        backgroundContext.performAndWait {
-            do {
-                try backgroundContext.execute(request)
-                logger?.log(type: .debug, messageLevel: 2, message: "Delete Transactions Success")
-                // 重置所有 author 的最后更新时间戳
-                for author in authors {
-                    timestampManager.updateLastHistoryTransactionTimestamp(for: author, to: nil)
-                }
-            } catch {
-                logger?.log(type: .fault, messageLevel: 1, message: "Delete Transactions Error : \(error.localizedDescription)")
-            }
-        }
+        return historyStoreRequest
     }
 }

@@ -19,7 +19,8 @@ import Foundation
 struct TransactionTimestampManager: TransactionTimestampManagerProtocol {
     /// 用于保存的 UserDefaults 实例。对于 AppGroup，应该使用可用于全体成员的实例。如：UserDefaults(suiteName: Settings.AppGroup.groupID)
     private let userDefaults: UserDefaults
-    /// transaction 最长可以保存的时间（秒）。如果在改时间内仍无法获取到全部的 author 更新时间戳，将返回从当前时间剪去该秒数的日期 Date().addingTimeInterval(-1 * abs(maximumDuration))
+    /// transaction 最长可以保存的时间（秒）。如果在改时间内仍无法获取到全部的 author 更新时间戳，
+    /// 将返回从当前时间剪去该秒数的日期 Date().addingTimeInterval(-1 * abs(maximumDuration))
     private let maximumDuration: TimeInterval
     /// 在 UserDefaults 中保存时间戳 Key 的前缀。
     private let uniqueString: String
@@ -64,8 +65,10 @@ struct TransactionTimestampManager: TransactionTimestampManagerProtocol {
 
     /// 创建 author 的 Transaction 合并更新的时间戳管理器。
     /// - Parameters:
-    ///   - userDefaults: 用于保存的 UserDefaults 实例。对于 AppGroup，应该使用可用于全体成员的实例。如：UserDefaults(suiteName: Settings.AppGroup.groupID)
-    ///   - maximumDuration: transaction 最长可以保存的时间（秒）。如果在改时间内仍无法获取到全部的 author 更新时间戳，将返回从当前时间剪去该秒数的日期 Date().addingTimeInterval(-1 * abs(maximumDuration))。默认值为 604,800 秒（7日）。
+    ///   - userDefaults: 用于保存的 UserDefaults 实例。
+    ///   对于 AppGroup，应该使用可用于全体成员的实例。如：UserDefaults(suiteName: Settings.AppGroup.groupID)
+    ///   - maximumDuration: transaction 最长可以保存的时间（秒）。如果在改时间内仍无法获取到全部的 author 更新时间戳，
+    ///   将返回从当前时间剪去该秒数的日期 Date().addingTimeInterval(-1 * abs(maximumDuration))。默认值为 604,800 秒（7日）。
     ///   - uniqueString: 在 UserDefaults 中保存时间戳 Key 的前缀。默认值为："PersistentHistoryTrackKit.lastToken."
     init(userDefaults: UserDefaults,
          maximumDuration: TimeInterval = 60 * 60 * 24 * 7, // 7 days

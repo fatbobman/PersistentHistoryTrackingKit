@@ -43,7 +43,7 @@ struct PersistentHistoryTrackFetcher: PersistentHistoryTrackKitFetcherProtocol {
     /// - Parameter date: 获取从该日期之后产生的 transaction
     /// - Returns: NSPersistentHistoryChangeRequest
     private func createFetchRequest(from date: Date) -> NSPersistentHistoryChangeRequest {
-        let historyFetchRequest = NSPersistentHistoryChangeRequest.fetchHistory(after: date)
+        let historyChangeRequest = NSPersistentHistoryChangeRequest.fetchHistory(after: date)
         if let fetchRequest = NSPersistentHistoryTransaction.fetchRequest {
             var predicates = [NSPredicate]()
             for author in allAuthors where author != currentAuthor {
@@ -54,8 +54,8 @@ struct PersistentHistoryTrackFetcher: PersistentHistoryTrackKitFetcherProtocol {
             }
             let compoundPredicate = NSCompoundPredicate(type: .or, subpredicates: predicates)
             fetchRequest.predicate = compoundPredicate
-            historyFetchRequest.fetchRequest = fetchRequest
+            historyChangeRequest.fetchRequest = fetchRequest
         }
-        return historyFetchRequest
+        return historyChangeRequest
     }
 }
