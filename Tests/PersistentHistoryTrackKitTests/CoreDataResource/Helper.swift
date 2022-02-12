@@ -45,7 +45,7 @@ class CoreDataHelper {
 
         let timestampAttribute = NSAttributeDescription()
 
-        if #available(macOS 12.0, *) {
+        if #available(macOS 12.0, iOS 15.0, tvOS 15.0, watchOS 8.0, *) {
             timestampAttribute.type = .date
         } else {
             timestampAttribute.attributeType = .dateAttributeType

@@ -12,6 +12,7 @@
 
 @testable import PersistentHistoryTrackKit
 import XCTest
+import CoreData
 
 class FetcherTest: XCTestCase {
     let storeURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!.appendingPathComponent("PersistentHistoryKitTestDB.sqlite")
@@ -79,6 +80,7 @@ class FetcherTest: XCTestCase {
         XCTAssertEqual(eventCounts, 2)
     }
 
+    @available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *)
     func testFetchInBatchOperation() async throws {
         // given
         let container = CoreDataHelper.createNSPersistentContainer(storeURL: storeURL)

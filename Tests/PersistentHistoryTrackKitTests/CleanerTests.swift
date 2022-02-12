@@ -12,6 +12,7 @@
 
 @testable import PersistentHistoryTrackKit
 import XCTest
+import CoreData
 
 class CleanerTests: XCTestCase {
     let storeURL = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first!.appendingPathComponent("TestDB.sqlite")
@@ -65,6 +66,7 @@ class CleanerTests: XCTestCase {
         XCTAssertEqual(transactionsAfterClean.count, 0)
     }
 
+    @available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *)
     func testCleanerInBatchOperation() throws {
         // given
         let container = CoreDataHelper.createNSPersistentContainer(storeURL: storeURL)
