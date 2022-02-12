@@ -17,4 +17,3 @@ protocol PersistentHistoryTrackKitMergerProtocol {
     var backgroundContext: NSManagedObjectContext { get }
     func callAsFunction(merge transactions: [NSPersistentHistoryTransaction], into contexts: [NSManagedObjectContext])
 }
-

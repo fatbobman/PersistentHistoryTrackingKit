@@ -10,12 +10,14 @@
 //  微信公共号: 肘子的Swift记事本
 //
 
+import CoreData
 @testable import PersistentHistoryTrackKit
 import XCTest
-import CoreData
 
 class FetcherTest: XCTestCase {
-    let storeURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!.appendingPathComponent("PersistentHistoryKitTestDB.sqlite")
+    let storeURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)
+        .first?
+        .appendingPathComponent("PersistentHistoryKitTestDB.sqlite") ?? URL(fileURLWithPath: "")
 
     override func setUp() {
         // 删除之前的数据库文件
@@ -27,7 +29,7 @@ class FetcherTest: XCTestCase {
         print("wait a moment")
     }
 
-    func testContainer() {
+    func testContainer() throws {
         let container = CoreDataHelper.createNSPersistentContainer()
         let context = container.viewContext
         context.transactionAuthor = AppActor.app1.rawValue
@@ -38,7 +40,7 @@ class FetcherTest: XCTestCase {
 
         context.saveIfChanged()
         let request = NSFetchRequest<Event>(entityName: "Event")
-        let count = try! context.fetch(request).count
+        let count = try context.fetch(request).count
         XCTAssertEqual(count, 1)
     }
 

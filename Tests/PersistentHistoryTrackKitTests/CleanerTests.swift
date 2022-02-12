@@ -10,12 +10,14 @@
 //  微信公共号: 肘子的Swift记事本
 //
 
+import CoreData
 @testable import PersistentHistoryTrackKit
 import XCTest
-import CoreData
 
 class CleanerTests: XCTestCase {
-    let storeURL = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first!.appendingPathComponent("TestDB.sqlite")
+    let storeURL = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask)
+        .first?
+        .appendingPathComponent("TestDB.sqlite") ?? URL(fileURLWithPath: "")
 
     override func setUp() {
         // 删除之前的数据库文件
@@ -35,7 +37,10 @@ class CleanerTests: XCTestCase {
         let fetcher = PersistentHistoryTrackFetcher(backgroundContext: app1backgroundContext,
                                                     currentAuthor: AppActor.app1.rawValue,
                                                     allAuthors: [AppActor.app1.rawValue, AppActor.app2.rawValue])
-        let cleaner = PersistentHistoryTrackKitCleaner(backgroundContext: app1backgroundContext, authors: [AppActor.app1.rawValue, AppActor.app2.rawValue])
+        let cleaner = PersistentHistoryTrackKitCleaner(
+            backgroundContext: app1backgroundContext,
+            authors: [AppActor.app1.rawValue, AppActor.app2.rawValue]
+        )
 
         let app1viewContext = container1.viewContext
         app1viewContext.transactionAuthor = AppActor.app1.rawValue
