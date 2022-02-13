@@ -16,18 +16,14 @@ import XCTest
 class LoggerTests: XCTestCase {
     func testLogger() throws {
         // given
-        let logger = PersistentHistoryTrackKitLogger(enable: true,
-                                                     level: 2)
+        let logger = PersistentHistoryTrackKitLogger()
         // when
-        logger.log(type: .info, messageLevel: 1, message: "hello")
+        logger.log(type: .info, message: "hello")
     }
 }
 
 struct MyLogger: PersistentHistoryTrackKitLoggerProtocol {
-    var enable: Bool
-    var level: Int
-    func log(type: PersistentHistoryTrackKitLogType, messageLevel: Int, message: String) {
-        guard enable, messageLevel <= level else { return }
+    func log(type: PersistentHistoryTrackKitLogType, message: String) {
         print("[\(type.rawValue.uppercased())] : message")
     }
 }
