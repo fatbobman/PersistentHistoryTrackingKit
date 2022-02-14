@@ -14,9 +14,10 @@ import CoreData
 import Foundation
 
 public final class PersistentHistoryTrackKit {
-    internal init(logLevel: Int, enableLog: Bool, currentAuthor: String, allAuthor: [String], contexts: [NSManagedObjectContext], userDefaults: UserDefaults, maximumDuration: TimeInterval, uniqueString: String, logger: PersistentHistoryTrackKitLoggerProtocol, fetcher: PersistentHistoryTrackFetcher, merger: PersistentHistoryTrackKitMerger, cleaner: PersistentHistoryTrackKitCleaner?, timestampManager: TransactionTimestampManager, task: Task<Void, Never>? = nil, coordinator: NSPersistentStoreCoordinator, backgroundContext: NSManagedObjectContext) {
+    internal init(logLevel: Int, enableLog: Bool, strategy: TransactionCleanStrategy, currentAuthor: String, allAuthor: [String], contexts: [NSManagedObjectContext], userDefaults: UserDefaults, maximumDuration: TimeInterval, uniqueString: String, logger: PersistentHistoryTrackKitLoggerProtocol, fetcher: PersistentHistoryTrackFetcher, merger: PersistentHistoryTrackKitMerger, cleaner: PersistentHistoryTrackKitCleaner?, timestampManager: TransactionTimestampManager, task: Task<Void, Never>? = nil, coordinator: NSPersistentStoreCoordinator, backgroundContext: NSManagedObjectContext) {
         self.logLevel = logLevel
         self.enableLog = enableLog
+        self.strategy = TransactionCleanStrategyNone(strategy: .none)
         self.currentAuthor = currentAuthor
         self.allAuthor = allAuthor
         self.contexts = contexts
@@ -32,10 +33,12 @@ public final class PersistentHistoryTrackKit {
         self.coordinator = coordinator
         self.backgroundContext = backgroundContext
     }
-    
+
 
     public var logLevel: Int
     public var enableLog: Bool
+
+    var strategy: TransactionCleanStrategyProtocol
 
     let currentAuthor: String
     let allAuthor: [String]
