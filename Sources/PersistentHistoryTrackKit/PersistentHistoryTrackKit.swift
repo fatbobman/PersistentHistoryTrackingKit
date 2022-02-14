@@ -16,6 +16,104 @@ import Foundation
 // swiftlint:disable line_length
 
 public final class PersistentHistoryTrackKit {
+    /// 日志显示等级，从1-3级。数字越大信息越详尽
+    public var logLevel: Int
+    /// 日志开关
+    public var enableLog: Bool
+
+    var strategy: TransactionCleanStrategyProtocol
+
+    let currentAuthor: String
+    let authors: [String]
+    /// 需要被合并的上下文，通常是视图上下文。可以是多个
+    let contexts: [NSManagedObjectContext]
+    /// transaction 最长可以保存的时间（秒）。如果在改时间内仍无法获取到全部的 author 更新时间戳，
+    /// 将返回从当前时间剪去该秒数的日期 Date().addingTimeInterval(-1 * abs(maximumDuration))
+    let maximumDuration: TimeInterval
+    /// 在 UserDefaults 中保存时间戳 Key 的前缀。
+    let uniqueString: String
+    /// 日志管理器
+    let logger: PersistentHistoryTrackKitLoggerProtocol
+    /// 获取需要处理的 transaction
+    let fetcher: PersistentHistoryTrackFetcher
+    /// 合并transaction到指定的托管对象上下文中（contexts）
+    let merger: PersistentHistoryTrackKitMerger
+    /// transaction清除器，清除可确认的已被所有authors合并的transaction
+    let cleaner: PersistentHistoryTrackKitCleaner
+    /// 时间戳管理器，过去并更新合并事件戳
+    let timestampManager: TransactionTimestampManager
+
+    /// 处理持久化历史跟踪事件的任务。可以通过start开启，stop停止。
+    var task = [Task<Void, Never>]()
+
+    /// 持久化存储协调器，用于缩小通知返回
+    private let coordinator: NSPersistentStoreCoordinator
+    /// 专职处理transaction的托管对象上下文
+    private let backgroundContext: NSManagedObjectContext
+
+    /// 创建处理 Transaction 的任务。
+    ///
+    /// 通过将持久化历史跟踪记录的通知转换成异步序列，实现了逐个处理的机制。
+    func createTask() -> Task<Void, Never> {
+        Task {
+            sendMessage(type: .info, level: 1, message: "Persistent History Track Kit Start")
+            // 响应 notification
+            let publisher = NotificationCenter.default.publisher(
+                for: .NSPersistentStoreRemoteChange,
+                object: coordinator
+            )
+            for await _ in publisher.sequence where !Task.isCancelled {
+                sendMessage(type: .info,
+                            level: 3,
+                            message: "Get a `NSPersistentStoreRemoteChange` notification")
+
+                // fetch
+                let lastTimestamp = timestampManager
+                    .getLastHistoryTransactionTimestamp(for: currentAuthor) ?? Date.distantPast
+                sendMessage(type: .info,
+                            level: 3,
+                            message: "The last history transaction timestamp for \(authors) is \(Self.dateFormatter.string(from: lastTimestamp))")
+                var transactions = [NSPersistentHistoryTransaction]()
+                do {
+                    transactions = try fetcher.fetchTransactions(from: lastTimestamp)
+                    let changesCount = transactions
+                        .map { $0.changes?.count ?? 0 }
+                        .reduce(0, +)
+                    sendMessage(type: .info, level: 2, message: "There are \(transactions.count) transactions with \(changesCount) changes related to `\(currentAuthor)` in the query")
+                } catch {
+                    sendMessage(type: .error, level: 1, message:
+                        "Fetch transaction error: \(error.localizedDescription)")
+                    continue
+                }
+
+                // merge
+                guard let lastTimestamp = transactions.last?.timestamp else { continue }
+                merger(merge: transactions, into: contexts)
+                timestampManager.updateLastHistoryTransactionTimestamp(for: currentAuthor, to: lastTimestamp)
+                sendMessage(type: .info,
+                            level: 3,
+                            message: "merge \(transactions.count) transactions, update `\(currentAuthor)`'s timestamp to \(Self.dateFormatter.string(from: lastTimestamp))")
+
+                // clean
+                guard strategy.allowedToClean() else { continue }
+                let cleanTimestamp = timestampManager.getLastCommonTransactionTimestamp(in: authors)
+                do {
+                    try cleaner.cleanTransaction(before: cleanTimestamp)
+                    sendMessage(type: .info, level: 2, message: "Delete transaction success")
+                } catch {
+                    sendMessage(type: .error, level: 1, message: "Delete transaction error: \(error.localizedDescription)")
+                }
+            }
+            sendMessage(type: .info, level: 1, message: "Persistent History Track Kit Stop")
+        }
+    }
+
+    /// 发送日志
+    func sendMessage(type: PersistentHistoryTrackKitLogType, level: Int, message: String) {
+        guard enableLog, level <= logLevel else { return }
+        logger.log(type: type, message: message)
+    }
+
     init(logLevel: Int,
          enableLog: Bool,
          strategy: TransactionCleanStrategy,
@@ -75,100 +173,8 @@ public final class PersistentHistoryTrackKit {
         }
     }
 
-    /// 日志显示等级，从1-3级。数字越大信息越详尽
-    public var logLevel: Int
-    /// 日志开关
-    public var enableLog: Bool
-
-    var strategy: TransactionCleanStrategyProtocol
-
-    let currentAuthor: String
-    let authors: [String]
-    /// 需要被合并的上下文，通常是视图上下文。可以是多个
-    let contexts: [NSManagedObjectContext]
-    /// transaction 最长可以保存的时间（秒）。如果在改时间内仍无法获取到全部的 author 更新时间戳，
-    /// 将返回从当前时间剪去该秒数的日期 Date().addingTimeInterval(-1 * abs(maximumDuration))
-    let maximumDuration: TimeInterval
-    /// 在 UserDefaults 中保存时间戳 Key 的前缀。
-    let uniqueString: String
-    /// 日志管理器
-    let logger: PersistentHistoryTrackKitLoggerProtocol
-    /// 获取需要处理的 transaction
-    let fetcher: PersistentHistoryTrackFetcher
-    /// 合并transaction到指定的托管对象上下文中（contexts）
-    let merger: PersistentHistoryTrackKitMerger
-    /// transaction清除器，清除可确认的已被所有authors合并的transaction
-    let cleaner: PersistentHistoryTrackKitCleaner
-    /// 时间戳管理器，过去并更新合并事件戳
-    let timestampManager: TransactionTimestampManager
-
-    /// 处理持久化历史跟踪事件的任务。可以通过start开启，stop停止。
-    var task = [Task<Void, Never>]()
-
-    /// 持久化存储协调器，用于缩小通知返回
-    private let coordinator: NSPersistentStoreCoordinator
-    /// 专职处理transaction的托管对象上下文
-    private let backgroundContext: NSManagedObjectContext
-
-    /// 创建处理 Transaction 的任务。
-    ///
-    /// 通过将持久化历史跟踪记录的通知转换成异步序列，实现了逐个处理的机制。
-    func createTask() -> Task<Void, Never> {
-        Task {
-            sendMessage(type: .info, level: 1, message: "Persistent History Track Kit Start")
-            // 响应 notification
-            let publisher = NotificationCenter.default.publisher(
-                for: .NSPersistentStoreRemoteChange,
-                object: coordinator
-            )
-            for await _ in publisher.sequence where !Task.isCancelled {
-                sendMessage(type: .info,
-                            level: 3,
-                            message: "handle a `NSPersistentStoreRemoteChange` notification")
-
-                // fetch
-                let lastTimestamp = timestampManager
-                    .getLastHistoryTransactionTimestamp(for: currentAuthor) ?? Date.distantPast
-
-                sendMessage(type: .info,
-                            level: 3,
-                            message: "The last history transaction timestamp for \(authors) is \(Self.dateFormatter.string(from: lastTimestamp))")
-                var transactions = [NSPersistentHistoryTransaction]()
-                do {
-                    transactions = try fetcher.fetchTransactions(from: lastTimestamp)
-                    sendMessage(type: .info, level: 2, message: "There are \(transactions.count) transaction related to \(currentAuthor) in the query")
-                } catch {
-                    sendMessage(type: .error, level: 1, message:
-                        "Fetch transaction error: \(error.localizedDescription)")
-                    continue
-                }
-
-                // merge
-                guard let lastTimestamp = transactions.last?.timestamp else { continue }
-                merger(merge: transactions, into: contexts)
-                timestampManager.updateLastHistoryTransactionTimestamp(for: currentAuthor, to: lastTimestamp)
-                sendMessage(type: .info,
-                            level: 3,
-                            message: "merge \(transactions.count) transactions, update \(currentAuthor) timestamp to \(Self.dateFormatter.string(from: lastTimestamp))")
-
-                // clean
-                guard strategy.allowedToClean() else { continue }
-                let cleanTimestamp = timestampManager.getLastCommonTransactionTimestamp(in: authors)
-                do {
-                    try cleaner.cleanTransaction(before: cleanTimestamp)
-                    sendMessage(type: .info, level: 2, message: "Delete transaction success")
-                } catch {
-                    sendMessage(type: .error, level: 1, message: "Delete transaction error: \(error.localizedDescription)")
-                }
-            }
-            sendMessage(type: .info, level: 1, message: "Persistent History Track Kit Stop")
-        }
-    }
-
-    /// 发送日志
-    func sendMessage(type: PersistentHistoryTrackKitLogType, level: Int, message: String) {
-        guard enableLog, level <= logLevel else { return }
-        logger.log(type: type, message: message)
+    deinit {
+        stop()
     }
 }
 
@@ -193,7 +199,7 @@ public extension PersistentHistoryTrackKit {
 extension PersistentHistoryTrackKit {
     static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.dateStyle = .none
+        formatter.dateStyle = .short
         formatter.timeStyle = .medium
         return formatter
     }()
