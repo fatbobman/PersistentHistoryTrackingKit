@@ -51,3 +51,52 @@ struct PersistentHistoryTrackKitCleaner: PersistentHistoryTrackKitCleanerProtoco
         return historyStoreRequest
     }
 }
+
+/// 可用于外部的Transaction清理器
+///
+/// 在 PersistentHistoryTrackKit 中使用 cleanerBuilder() 来生成该实例。该清理器的配置继承于 Kit 实例
+///
+///     let kit = PersistentHistoryTrackKit(.....)
+///     let cleaner = kit().cleanerBuilder
+///
+///     cleaner() //在需要执行清理的地方运行
+///
+/// 比如每次app进入后台时，执行清理任务。
+public struct PersistentHistoryTrackKitManualCleaner {
+    let cleaner: PersistentHistoryTrackKitCleaner
+    let timestampManager: TransactionTimestampManager
+    let authors: [String]
+    let logger: PersistentHistoryTrackKitLoggerProtocol
+    let enableLog: Bool
+    let logLevel: Int
+
+    init(clear: PersistentHistoryTrackKitCleaner,
+         timestampManager: TransactionTimestampManager,
+         logger: PersistentHistoryTrackKitLoggerProtocol,
+         enableLog: Bool,
+         logLevel: Int,
+         authors: [String]) {
+        self.cleaner = clear
+        self.timestampManager = timestampManager
+        self.logger = logger
+        self.authors = authors
+        self.enableLog = enableLog
+        self.logLevel = logLevel
+    }
+
+    public func callAsFunction() {
+        let cleanTimestamp = timestampManager.getLastCommonTransactionTimestamp(in: authors)
+        do {
+            try cleaner.cleanTransaction(before: cleanTimestamp)
+            sendMessage(type: .notice, level: 2, message: "Delete transaction success")
+        } catch {
+            sendMessage(type: .error, level: 1, message: "Delete transaction error: \(error.localizedDescription)")
+        }
+    }
+
+    /// 发送日志
+    func sendMessage(type: PersistentHistoryTrackKitLogType, level: Int, message: String) {
+        guard enableLog, level <= logLevel else { return }
+        logger.log(type: type, message: message)
+    }
+}
