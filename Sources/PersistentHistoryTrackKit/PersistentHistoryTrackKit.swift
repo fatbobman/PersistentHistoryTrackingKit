@@ -14,7 +14,18 @@ import CoreData
 import Foundation
 
 public final class PersistentHistoryTrackKit {
-    internal init(logLevel: Int, enableLog: Bool, strategy: TransactionCleanStrategy, currentAuthor: String, allAuthor: [String], contexts: [NSManagedObjectContext], userDefaults: UserDefaults, maximumDuration: TimeInterval, uniqueString: String, logger: PersistentHistoryTrackKitLoggerProtocol, fetcher: PersistentHistoryTrackFetcher, merger: PersistentHistoryTrackKitMerger, cleaner: PersistentHistoryTrackKitCleaner?, timestampManager: TransactionTimestampManager, task: Task<Void, Never>? = nil, coordinator: NSPersistentStoreCoordinator, backgroundContext: NSManagedObjectContext) {
+    init(logLevel: Int,
+         enableLog: Bool,
+         strategy: TransactionCleanStrategy,
+         currentAuthor: String,
+         allAuthor: [String],
+         viewContext: NSManagedObjectContext,
+         contexts: [NSManagedObjectContext],
+         userDefaults: UserDefaults,
+         maximumDuration: TimeInterval,
+         uniqueString: String,
+         logger: PersistentHistoryTrackKitLoggerProtocol,
+         autoStart: Bool) {
         self.logLevel = logLevel
         self.enableLog = enableLog
         self.strategy = TransactionCleanStrategyNone(strategy: .none)
@@ -24,13 +35,29 @@ public final class PersistentHistoryTrackKit {
         self.maximumDuration = maximumDuration
         self.uniqueString = uniqueString
         self.logger = logger
-        self.fetcher = fetcher
-        self.merger = merger
-        self.cleaner = cleaner
-        self.timestampManager = timestampManager
-        self.task = task
+
+        // 检查 viewContext 是否为视图上下文
+        guard viewContext.concurrencyType == .mainQueueConcurrencyType else {
+            fatalError("`viewContext` must be a view context ( concurrencyType == .mainQueueConcurrencyType)")
+        }
+
+        guard let coordinator = viewContext.persistentStoreCoordinator else {
+            fatalError("`viewContext` must have a persistentStoreCoordinator available")
+        }
+
+        let backgroundContext = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
+        backgroundContext.persistentStoreCoordinator = coordinator
+
+        self.fetcher = PersistentHistoryTrackFetcher(backgroundContext: backgroundContext, currentAuthor: currentAuthor, allAuthors: authors)
+        self.merger = PersistentHistoryTrackKitMerger()
+        self.cleaner = PersistentHistoryTrackKitCleaner(backgroundContext: backgroundContext, authors: authors)
+        self.timestampManager = TransactionTimestampManager(userDefaults: userDefaults)
         self.coordinator = coordinator
         self.backgroundContext = backgroundContext
+
+        if autoStart {
+            start()
+        }
     }
 
     public var logLevel: Int
@@ -54,7 +81,7 @@ public final class PersistentHistoryTrackKit {
     /// 合并transaction到指定的托管对象上下文中（contexts）
     let merger: PersistentHistoryTrackKitMerger
     /// transaction清除器，清除可确认的已被所有authors合并的transaction
-    let cleaner: PersistentHistoryTrackKitCleaner?
+    let cleaner: PersistentHistoryTrackKitCleaner
     /// 时间戳管理器，过去并更新合并事件戳
     let timestampManager: TransactionTimestampManager
 
@@ -66,6 +93,9 @@ public final class PersistentHistoryTrackKit {
     /// 专职处理transaction的托管对象上下文
     private let backgroundContext: NSManagedObjectContext
 
+    /// 创建处理 Transaction 的任务。
+    ///
+    /// 通过将持久化历史跟踪记录的通知转换成异步序列，实现了逐个处理的机制。
     func createTask() -> Task<Void, Never> {
         Task {
             // 响应 notification
@@ -90,7 +120,7 @@ public final class PersistentHistoryTrackKit {
                 guard strategy.allowedToClean() else { continue }
                 let cleanTimestamp = timestampManager.getLastCommonTransactionTimestamp(in: authors)
                 do {
-                    try cleaner?.cleanTransaction(before: cleanTimestamp)
+                    try cleaner.cleanTransaction(before: cleanTimestamp)
                     sendMessage(type: .notice, level: 2, message: "Delete transaction success")
                 } catch {
                     sendMessage(type: .error, level: 1, message: "Delete transaction error: \(error.localizedDescription)")
@@ -98,15 +128,15 @@ public final class PersistentHistoryTrackKit {
             }
         }
     }
-}
 
-public extension PersistentHistoryTrackKit {
     /// 发送日志
-    internal func sendMessage(type: PersistentHistoryTrackKitLogType, level: Int, message: String) {
+    func sendMessage(type: PersistentHistoryTrackKitLogType, level: Int, message: String) {
         guard enableLog, level <= logLevel else { return }
         logger.log(type: type, message: message)
     }
+}
 
+public extension PersistentHistoryTrackKit {
     /// 启动处理任务
     func start() {
         stop()
@@ -121,5 +151,86 @@ public extension PersistentHistoryTrackKit {
 }
 
 public extension PersistentHistoryTrackKit {
-//    convenience init() {}
+    /// 创建一个可独立运行的 transaction 清除器
+    ///
+    /// 通常使用该清除器时，cleanStrategy 应设置为 .none
+    /// 在 PersistentHistoryTrackKit 中使用 cleanerBuilder() 来生成该实例。该清理器的配置继承于 Kit 实例
+    ///
+    ///     let kit = PersistentHistoryTrackKit(.....)
+    ///     let cleaner = kit().cleanerBuilder
+    ///
+    ///     cleaner() //在需要执行清理的地方运行
+    ///
+    /// 比如每次app进入后台时，执行清理任务。
+    func cleanerBuilder() -> PersistentHistoryTrackKitManualCleaner {
+        PersistentHistoryTrackKitManualCleaner(
+            clear: cleaner,
+            timestampManager: timestampManager,
+            logger: logger,
+            enableLog: enableLog,
+            logLevel: logLevel,
+            authors: authors
+        )
+    }
+}
+
+public extension PersistentHistoryTrackKit {
+    /// 仅需提供viewContext的初始化器
+    convenience init(viewContext: NSManagedObjectContext,
+                     contexts: [NSManagedObjectContext]? = nil,
+                     currentAuthor: String,
+                     authors: [String],
+                     userDefaults: UserDefaults,
+                     cleanStrategy: TransactionCleanStrategy = .byNotification(times: 1),
+                     maximumDuration: TimeInterval = 60 * 60 * 24 * 7,
+                     uniqueString: String?,
+                     logger: PersistentHistoryTrackKitLoggerProtocol?,
+                     enableLog: Bool = true,
+                     logLevel: Int = 1,
+                     autoStart: Bool = true) {
+        let contexts = contexts ?? [viewContext]
+        let logger = logger ?? PersistentHistoryTrackKitLogger()
+        self.init(logLevel: logLevel,
+                  enableLog: enableLog,
+                  strategy: cleanStrategy,
+                  currentAuthor: currentAuthor,
+                  allAuthor: authors,
+                  viewContext: viewContext,
+                  contexts: contexts,
+                  userDefaults: userDefaults,
+                  maximumDuration: maximumDuration,
+                  uniqueString: "PersistentHistoryTrackKit.lastToken.",
+                  logger: logger,
+                  autoStart: autoStart)
+    }
+
+    convenience init(container: NSPersistentContainer,
+                     contexts: [NSManagedObjectContext]? = nil,
+                     currentAuthor: String,
+                     authors: [String],
+                     userDefaults: UserDefaults,
+                     cleanStrategy: TransactionCleanStrategy = .byNotification(times: 1),
+                     maximumDuration: TimeInterval = 60 * 60 * 24 * 7,
+                     uniqueString: String?,
+                     logger: PersistentHistoryTrackKitLoggerProtocol?,
+                     enableLog: Bool = true,
+                     logLevel: Int = 1,
+                     autoStart: Bool = true) {
+        
+        let viewContext = container.viewContext
+        let contexts = contexts ?? [viewContext]
+        let logger = logger ?? PersistentHistoryTrackKitLogger()
+        self.init(logLevel: logLevel,
+                  enableLog: enableLog,
+                  strategy: cleanStrategy,
+                  currentAuthor: currentAuthor,
+                  allAuthor: authors,
+                  viewContext: viewContext,
+                  contexts: contexts,
+                  userDefaults: userDefaults,
+                  maximumDuration: maximumDuration,
+                  uniqueString: "PersistentHistoryTrackKit.lastToken.",
+                  logger: logger,
+                  autoStart: autoStart)
+    }
 }
