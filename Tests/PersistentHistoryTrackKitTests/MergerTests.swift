@@ -20,9 +20,9 @@ class MergerTests: XCTestCase {
         .appendingPathComponent("TestDB.sqlite") ?? URL(fileURLWithPath: "")
 
     override func tearDown() async throws {
-        try FileManager.default.removeItem(at: storeURL)
-        try FileManager.default.removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-wal"))
-        try FileManager.default.removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-shm"))
+        try? FileManager.default.removeItem(at: storeURL)
+        try? FileManager.default.removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-wal"))
+        try? FileManager.default.removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-shm"))
     }
 
     func testMergerInAppGroup() throws {
@@ -78,8 +78,10 @@ class MergerTests: XCTestCase {
         }
     }
 
-    @available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *)
     func testMergerInBatchOperation() async throws {
+        guard #available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *) else {
+            return
+        }
         // given
         let container = CoreDataHelper.createNSPersistentContainer(storeURL: storeURL)
         let viewContext = container.viewContext

@@ -1,3 +1,4 @@
+import CoreData
 import PersistentHistoryTrackKit
 import XCTest
 
@@ -17,9 +18,9 @@ final class PersistentHistoryTrackKitTests: XCTestCase {
 
     override func tearDown() async throws {
         try await Task.sleep(seconds: 3)
-        try FileManager.default.removeItem(at: storeURL)
-        try FileManager.default.removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-wal"))
-        try FileManager.default.removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-shm"))
+        try? FileManager.default.removeItem(at: storeURL)
+        try? FileManager.default.removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-wal"))
+        try? FileManager.default.removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-shm"))
     }
 
     func testPersistentHistoryKitInAppGroup() async throws {
@@ -68,6 +69,10 @@ final class PersistentHistoryTrackKitTests: XCTestCase {
     }
 
     func testKitInBatchInsert() async throws {
+        guard #available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *) else {
+            return
+        }
+
         // given
         let container1 = CoreDataHelper.createNSPersistentContainer(storeURL: storeURL)
         let viewContext = container1.viewContext

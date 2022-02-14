@@ -20,9 +20,9 @@ class CleanerTests: XCTestCase {
         .appendingPathComponent("TestDB.sqlite") ?? URL(fileURLWithPath: "")
 
     override func tearDown() async throws {
-        try FileManager.default.removeItem(at: storeURL)
-        try FileManager.default.removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-wal"))
-        try FileManager.default.removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-shm"))
+        try? FileManager.default.removeItem(at: storeURL)
+        try? FileManager.default.removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-wal"))
+        try? FileManager.default.removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-shm"))
     }
 
     func testCleanerInAppGroup() throws {
@@ -67,8 +67,10 @@ class CleanerTests: XCTestCase {
         XCTAssertEqual(transactionsAfterClean.count, 0)
     }
 
-    @available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *)
     func testCleanerInBatchOperation() throws {
+        guard #available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *) else {
+            return
+        }
         // given
         let container = CoreDataHelper.createNSPersistentContainer(storeURL: storeURL)
         let viewContext = container.viewContext

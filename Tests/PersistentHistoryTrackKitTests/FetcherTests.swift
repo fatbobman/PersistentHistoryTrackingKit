@@ -20,9 +20,9 @@ class FetcherTest: XCTestCase {
         .appendingPathComponent("PersistentHistoryKitTestDB.sqlite") ?? URL(fileURLWithPath: "")
 
     override func tearDown() async throws {
-        try FileManager.default.removeItem(at: storeURL)
-        try FileManager.default.removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-wal"))
-        try FileManager.default.removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-shm"))
+        try? FileManager.default.removeItem(at: storeURL)
+        try? FileManager.default.removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-wal"))
+        try? FileManager.default.removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-shm"))
     }
 
     /// 使用两个协调器，模拟在app group的情况下，从不同的app或app extension中操作数据库。
@@ -63,8 +63,10 @@ class FetcherTest: XCTestCase {
         XCTAssertEqual(eventCounts, 2)
     }
 
-    @available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *)
     func testFetcherInBatchOperation() async throws {
+        guard #available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *) else {
+            return
+        }
         // given
         let container = CoreDataHelper.createNSPersistentContainer(storeURL: storeURL)
         let viewContext = container.viewContext
