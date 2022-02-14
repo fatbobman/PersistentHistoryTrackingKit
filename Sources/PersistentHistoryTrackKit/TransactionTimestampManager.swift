@@ -58,7 +58,7 @@ struct TransactionTimestampManager: TransactionTimestampManagerProtocol {
     /// 获取指定的 author 的最后更新日期
     /// - Parameter author: author 是每个 app 或 app extension 的字符串名称。该名称应与NSManagedObjectContext的transactionAuthor一致
     /// - Returns: 该 author 的最后更新日期。如果该 author 尚未更新日期，则返回 nil
-    private func getLastHistoryTransactionTimestamp(for author: String) -> Date? {
+    func getLastHistoryTransactionTimestamp(for author: String) -> Date? {
         let key = uniqueString + author
         return userDefaults.value(forKey: key) as? Date
     }

@@ -68,7 +68,7 @@ class MergerTests: XCTestCase {
             XCTAssertNil(app1backgroundContext.registeredObject(for: objectID))
         }
 
-        merger(merge: transactions, into: app1viewContext, app1backgroundContext)
+        merger(merge: transactions, into: [app1viewContext, app1backgroundContext])
 
         app1viewContext.performAndWait {
             XCTAssertNotNil(app1viewContext.registeredObject(for: objectID))
@@ -122,7 +122,7 @@ class MergerTests: XCTestCase {
             XCTAssertNil(viewContext.registeredObject(for: objectID))
         }
 
-        merger(merge: transactions, into: viewContext)
+        merger(merge: transactions, into: [viewContext])
 
         viewContext.performAndWait {
             XCTAssertNotNil(viewContext.registeredObject(for: objectID))

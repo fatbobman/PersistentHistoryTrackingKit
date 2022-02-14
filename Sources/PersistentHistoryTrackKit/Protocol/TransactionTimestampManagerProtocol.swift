@@ -21,4 +21,8 @@ public protocol TransactionTimestampManagerProtocol {
     /// 更新指定 author 的最后更新日期
     /// 最后更新是指，该 author 对应的程序（app，app extension）已经在改时间戳完成了 Transaction 的合并工作
     func updateLastHistoryTransactionTimestamp(for author: String, to newDate: Date?)
+    /// 获取指定的 author 的最后更新日期
+    /// - Parameter author: author 是每个 app 或 app extension 的字符串名称。该名称应与NSManagedObjectContext的transactionAuthor一致
+    /// - Returns: 该 author 的最后更新日期。如果该 author 尚未更新日期，则返回 nil
+    func getLastHistoryTransactionTimestamp(for author: String) -> Date?
 }

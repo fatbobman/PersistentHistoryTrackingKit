@@ -15,7 +15,7 @@ import Foundation
 
 struct PersistentHistoryTrackKitMerger: PersistentHistoryTrackKitMergerProtocol {
     func callAsFunction(merge transactions: [NSPersistentHistoryTransaction],
-                        into contexts: NSManagedObjectContext...) {
+                        into contexts: [NSManagedObjectContext]) {
         for transaction in transactions {
             let userInfo = transaction.objectIDNotification().userInfo ?? [:]
             NSManagedObjectContext.mergeChanges(fromRemoteContextSave: userInfo, into: contexts)
