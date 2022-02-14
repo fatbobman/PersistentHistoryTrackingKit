@@ -88,7 +88,7 @@ public struct PersistentHistoryTrackKitManualCleaner {
         let cleanTimestamp = timestampManager.getLastCommonTransactionTimestamp(in: authors)
         do {
             try cleaner.cleanTransaction(before: cleanTimestamp)
-            sendMessage(type: .notice, level: 2, message: "Delete transaction success")
+            sendMessage(type: .info, level: 2, message: "Delete transaction success")
         } catch {
             sendMessage(type: .error, level: 1, message: "Delete transaction error: \(error.localizedDescription)")
         }

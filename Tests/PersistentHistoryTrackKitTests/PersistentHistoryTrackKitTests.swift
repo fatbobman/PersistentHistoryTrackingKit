@@ -128,6 +128,123 @@ final class PersistentHistoryTrackKitTests: XCTestCase {
         kit.stop()
         try await Task.sleep(seconds: 2)
     }
+
+    func testManualCleaner() async throws {
+        // given
+        let container1 = CoreDataHelper.createNSPersistentContainer(storeURL: storeURL)
+        let container2 = CoreDataHelper.createNSPersistentContainer(storeURL: storeURL)
+        container1.viewContext.transactionAuthor = AppActor.app1.rawValue
+        container2.viewContext.transactionAuthor = AppActor.app2.rawValue
+        let authors = [AppActor.app1.rawValue, AppActor.app2.rawValue]
+        let kit = PersistentHistoryTrackKit(
+            container: container1,
+            currentAuthor: AppActor.app1.rawValue,
+            authors: authors,
+            userDefaults: userDefaults,
+            cleanStrategy: .none,
+            uniqueString: uniqueString,
+            logLevel: 2,
+            autoStart: false
+        )
+
+        let cleaner = kit.cleanerBuilder()
+
+        kit.start()
+
+        let viewContext1 = container1.viewContext
+        let viewContext2 = container2.viewContext
+        viewContext1.retainsRegisteredObjects = true
+
+        // when
+
+        let objectID: NSManagedObjectID = viewContext2.performAndWait {
+            let event = Event(context: viewContext2)
+            event.timestamp = Date()
+            viewContext2.saveIfChanged()
+            return event.objectID
+        }
+
+        // then
+        try await Task.sleep(seconds: 2)
+
+        cleaner() // 手动清除
+
+        viewContext1.performAndWait {
+            XCTAssertNotNil(viewContext1.registeredObject(for: objectID))
+        }
+        let lastTimestamp = userDefaults.value(forKey: uniqueString + AppActor.app1.rawValue) as? Date
+        XCTAssertNotNil(lastTimestamp)
+
+        kit.stop()
+        try await Task.sleep(seconds: 2)
+    }
+
+    /// 测试两个app都执行了Kit后，transaction 是否有被清除
+    func testTwoAppWithKit() async throws {
+        // given
+        let container1 = CoreDataHelper.createNSPersistentContainer(storeURL: storeURL)
+        let container2 = CoreDataHelper.createNSPersistentContainer(storeURL: storeURL)
+        let viewContext1 = container1.viewContext
+        viewContext1.transactionAuthor = AppActor.app1.rawValue
+        let viewContext2 = container2.viewContext
+        viewContext2.transactionAuthor = AppActor.app2.rawValue
+        viewContext1.retainsRegisteredObjects = true
+        viewContext2.retainsRegisteredObjects = true
+        let authors = [AppActor.app1.rawValue, AppActor.app2.rawValue,AppActor.app3.rawValue]
+
+        let app1kit = PersistentHistoryTrackKit(
+            container: container1,
+            contexts: [viewContext1],
+            currentAuthor: AppActor.app1.rawValue,
+            authors: authors,
+            userDefaults: userDefaults,
+            uniqueString: uniqueString,
+            logLevel: 2
+        )
+
+        let app2kit = PersistentHistoryTrackKit(
+            container: container1,
+            contexts: [viewContext2],
+            currentAuthor: AppActor.app2.rawValue,
+            authors: authors,
+            userDefaults: userDefaults,
+            uniqueString: uniqueString,
+            logLevel: 2
+        )
+
+        let backgroundContext = container1.newBackgroundContext()
+        backgroundContext.transactionAuthor = AppActor.app3.rawValue
+
+        // when
+        let objectID: NSManagedObjectID = backgroundContext.performAndWait {
+            let event = Event(context: backgroundContext)
+            event.timestamp = Date()
+            backgroundContext.saveIfChanged()
+            return event.objectID
+        }
+
+        try await Task.sleep(seconds: 2)
+
+        // then
+        viewContext1.performAndWait {
+            XCTAssertNotNil(viewContext1.registeredObject(for: objectID))
+        }
+
+        viewContext2.performAndWait {
+            XCTAssertNotNil(viewContext2.registeredObject(for:objectID))
+        }
+
+        backgroundContext.performAndWait {
+            let event = Event(context: backgroundContext)
+            event.timestamp = Date()
+            backgroundContext.saveIfChanged()
+        }
+
+        try await Task.sleep(seconds: 2)
+
+        app1kit.stop()
+        app2kit.stop()
+    }
 }
 
 extension NSManagedObjectContext {

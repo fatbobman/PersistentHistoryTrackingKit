@@ -64,14 +64,14 @@ public final class PersistentHistoryTrackKit {
             )
             for await _ in publisher.sequence where !Task.isCancelled {
                 sendMessage(type: .info,
-                            level: 3,
+                            level: 2,
                             message: "Get a `NSPersistentStoreRemoteChange` notification")
 
                 // fetch
                 let lastTimestamp = timestampManager
                     .getLastHistoryTransactionTimestamp(for: currentAuthor) ?? Date.distantPast
                 sendMessage(type: .info,
-                            level: 3,
+                            level: 2,
                             message: "The last history transaction timestamp for \(authors) is \(Self.dateFormatter.string(from: lastTimestamp))")
                 var transactions = [NSPersistentHistoryTransaction]()
                 do {
@@ -91,7 +91,7 @@ public final class PersistentHistoryTrackKit {
                 merger(merge: transactions, into: contexts)
                 timestampManager.updateLastHistoryTransactionTimestamp(for: currentAuthor, to: lastTimestamp)
                 sendMessage(type: .info,
-                            level: 3,
+                            level: 2,
                             message: "merge \(transactions.count) transactions, update `\(currentAuthor)`'s timestamp to \(Self.dateFormatter.string(from: lastTimestamp))")
 
                 // clean
