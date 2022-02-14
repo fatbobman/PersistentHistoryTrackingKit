@@ -16,10 +16,6 @@ import Foundation
 /// 开发者可以创建符合该协议的类型，以便让 PersistentHistoryTrackKi t与你已有的日志模块协同工作。
 /// 日志输出的开关和细节控制均在 PersistentHistoryTrackKit 上
 public protocol PersistentHistoryTrackKitLoggerProtocol {
-//    /// 是否输出日志
-//    var enable: Bool { get }
-//    /// 输出内容精度。1最小。数字越大内容越多
-//    var level: Int { get }
     /// 输出日志。开发者可以将 LogType 转换成自己使用的日志模块对应的 Type
     func log(type: PersistentHistoryTrackKitLogType, message: String)
 }

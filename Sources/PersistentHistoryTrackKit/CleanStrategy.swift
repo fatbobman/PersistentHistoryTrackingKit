@@ -23,7 +23,9 @@ public enum TransactionCleanStrategy {
     case byNotification(times: Int)
 }
 
+/// 清理规则协议
 protocol TransactionCleanStrategyProtocol {
+    /// 在每次接收到 notification 时判断，是否可以进行清理
     mutating func allowedToClean() -> Bool
     init(strategy: TransactionCleanStrategy)
 }

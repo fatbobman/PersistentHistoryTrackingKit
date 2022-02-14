@@ -44,10 +44,10 @@ class TimestampManagerTests: XCTestCase {
         let authors = AppActor.allCases.map { $0.rawValue }
 
         // when
-        let lastTimestampe = manager.getLastCommonTransactionTimestamp(in: authors)
+        let lastTimestamp = manager.getLastCommonTransactionTimestamp(in: authors)
 
         // then
-        XCTAssertNil(lastTimestampe)
+        XCTAssertNil(lastTimestamp)
     }
 
     func testAllAuthorsHaveUpdatedTimestamp() {
@@ -65,10 +65,10 @@ class TimestampManagerTests: XCTestCase {
         let authors = AppActor.allCases.map { $0.rawValue }
 
         // when
-        let lastTimestampe = manager.getLastCommonTransactionTimestamp(in: authors)
+        let lastTimestamp = manager.getLastCommonTransactionTimestamp(in: authors)
 
         // then
-        XCTAssertEqual(lastTimestampe, date3)
+        XCTAssertEqual(lastTimestamp, date3)
     }
 
     // 仅部分author设置了时间戳，尚未触及阈值日期
