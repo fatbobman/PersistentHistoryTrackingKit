@@ -1,6 +1,6 @@
 # Persistent History Tracking Kit
 
-Helps you easily handle Core Data's persistent history tracking
+Helps you easily handle Core Data's Persistent History Tracking.
 
 [中文版说明](https://github.com/fatbobman/PersistentHistoryTrackingKit/blob/main/READMECN.md)
 
