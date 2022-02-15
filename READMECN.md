@@ -141,7 +141,7 @@ Persistent History Tracking Kit 目前支持三种事务清理策略：
 // 每个通知都清理
 cleanStrategy: .byNotification(times: 1),
 // 两次清理之间，至少间隔 60 秒
-cleanStrategy: byDuration(seconds: 60),
+cleanStrategy: .byDuration(seconds: 60),
 ```
 
 当清理策略设置为 none 时，可以通过生成单独的清理实例，在合适的时机进行清理。

@@ -144,7 +144,7 @@ Persistent History Tracking Kit currently supports three transaction cleanup str
 // Each notification is cleaned up
 cleanStrategy: .byNotification(times: 1),
 // At least 60 seconds between cleanings
-cleanStrategy: byDuration(seconds: 60),
+cleanStrategy: .byDuration(seconds: 60),
 ```
 
 When the cleanup policy is set to none, cleanup can be performed at the right time by generating separate cleanup instances.
