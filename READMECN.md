@@ -1,6 +1,6 @@
 # Persistent History Tracking Kit
 
-帮助您轻松处理 Core Data 的持久性历史跟踪
+帮助您轻松处理 Core Data 的持久性历史跟踪。
 
 ## What's This？
 
