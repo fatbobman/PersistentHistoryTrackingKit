@@ -22,13 +22,13 @@ class CleanStrategyTests: XCTestCase {
     func testByDuration() async throws {
         var strategy = TransactionCleanStrategyByDuration(strategy: .byDuration(seconds: 3))
         XCTAssertTrue(strategy.allowedToClean())
-        try await Task.sleep(seconds: 2)
+        await sleep(seconds: 2)
         XCTAssertFalse(strategy.allowedToClean())
-        try await Task.sleep(seconds: 1.1)
+        await sleep(seconds: 1.1)
         XCTAssertTrue(strategy.allowedToClean())
         XCTAssertFalse(strategy.allowedToClean())
         XCTAssertFalse(strategy.allowedToClean())
-        try await Task.sleep(seconds: 3)
+        await sleep(seconds: 3)
         XCTAssertTrue(strategy.allowedToClean())
     }
 

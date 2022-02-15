@@ -17,7 +17,7 @@ final class PersistentHistoryTrackKitTests: XCTestCase {
     }
 
     override func tearDown() async throws {
-        try await Task.sleep(seconds: 3)
+        await sleep(seconds: 2)
         try? FileManager.default.removeItem(at: storeURL)
         try? FileManager.default.removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-wal"))
         try? FileManager.default.removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-shm"))
@@ -33,7 +33,7 @@ final class PersistentHistoryTrackKitTests: XCTestCase {
         let kit = PersistentHistoryTrackKit(
             container: container1,
             currentAuthor: AppActor.app1.rawValue,
-            authors: authors,
+            allAuthors: authors,
             userDefaults: userDefaults,
             cleanStrategy: .byNotification(times: 1),
             uniqueString: uniqueString,
@@ -56,7 +56,7 @@ final class PersistentHistoryTrackKitTests: XCTestCase {
         }
 
         // then
-        try await Task.sleep(seconds: 2)
+        await sleep(seconds:2)
 
         viewContext1.performAndWait {
             XCTAssertNotNil(viewContext1.registeredObject(for: objectID))
@@ -65,14 +65,13 @@ final class PersistentHistoryTrackKitTests: XCTestCase {
         XCTAssertNotNil(lastTimestamp)
 
         kit.stop()
-        try await Task.sleep(seconds: 2)
+        await sleep(seconds:2)
     }
-
+// swiftlint:disable:next function_body_length
     func testKitInBatchInsert() async throws {
         guard #available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *) else {
             return
         }
-
         // given
         let container1 = CoreDataHelper.createNSPersistentContainer(storeURL: storeURL)
         let viewContext = container1.viewContext
@@ -83,18 +82,17 @@ final class PersistentHistoryTrackKitTests: XCTestCase {
         let authors = [AppActor.app1.rawValue, AppActor.app2.rawValue]
         let anotherContext = container1.newBackgroundContext()
         anotherContext.retainsRegisteredObjects = true
-
         let kit = PersistentHistoryTrackKit(
             viewContext: container1.viewContext,
             contexts: [viewContext, anotherContext], // test merge to multi context
             currentAuthor: AppActor.app1.rawValue,
-            authors: authors,
+            allAuthors: authors,
+            batchAuthors: [AppActor.app2.rawValue],
             userDefaults: userDefaults,
             cleanStrategy: .byNotification(times: 1),
             uniqueString: uniqueString,
             logLevel: 3
         )
-
         try batchContext.performAndWait {
             var count = 0
 
@@ -114,19 +112,16 @@ final class PersistentHistoryTrackKitTests: XCTestCase {
                   let object = results.first else { fatalError() }
             return object.objectID
         }
-
-        try await Task.sleep(seconds: 2)
+        await sleep(seconds:2)
         // then
         viewContext.performAndWait {
             XCTAssertNotNil(viewContext.registeredObject(for: objectID))
         }
-
         anotherContext.performAndWait {
             XCTAssertNotNil(anotherContext.registeredObject(for: objectID))
         }
-
         kit.stop()
-        try await Task.sleep(seconds: 2)
+        await sleep(seconds:2)
     }
 
     func testManualCleaner() async throws {
@@ -139,7 +134,7 @@ final class PersistentHistoryTrackKitTests: XCTestCase {
         let kit = PersistentHistoryTrackKit(
             container: container1,
             currentAuthor: AppActor.app1.rawValue,
-            authors: authors,
+            allAuthors: authors,
             userDefaults: userDefaults,
             cleanStrategy: .none,
             uniqueString: uniqueString,
@@ -165,7 +160,7 @@ final class PersistentHistoryTrackKitTests: XCTestCase {
         }
 
         // then
-        try await Task.sleep(seconds: 2)
+        await sleep(seconds:2)
 
         cleaner() // 手动清除
 
@@ -176,7 +171,7 @@ final class PersistentHistoryTrackKitTests: XCTestCase {
         XCTAssertNotNil(lastTimestamp)
 
         kit.stop()
-        try await Task.sleep(seconds: 2)
+        await sleep(seconds:2)
     }
 
     /// 测试两个app都执行了Kit后，transaction 是否有被清除
@@ -190,13 +185,13 @@ final class PersistentHistoryTrackKitTests: XCTestCase {
         viewContext2.transactionAuthor = AppActor.app2.rawValue
         viewContext1.retainsRegisteredObjects = true
         viewContext2.retainsRegisteredObjects = true
-        let authors = [AppActor.app1.rawValue, AppActor.app2.rawValue,AppActor.app3.rawValue]
+        let authors = [AppActor.app1.rawValue, AppActor.app2.rawValue, AppActor.app3.rawValue]
 
         let app1kit = PersistentHistoryTrackKit(
             container: container1,
             contexts: [viewContext1],
             currentAuthor: AppActor.app1.rawValue,
-            authors: authors,
+            allAuthors: authors,
             userDefaults: userDefaults,
             uniqueString: uniqueString,
             logLevel: 2
@@ -206,7 +201,7 @@ final class PersistentHistoryTrackKitTests: XCTestCase {
             container: container1,
             contexts: [viewContext2],
             currentAuthor: AppActor.app2.rawValue,
-            authors: authors,
+            allAuthors: authors,
             userDefaults: userDefaults,
             uniqueString: uniqueString,
             logLevel: 2
@@ -223,7 +218,7 @@ final class PersistentHistoryTrackKitTests: XCTestCase {
             return event.objectID
         }
 
-        try await Task.sleep(seconds: 2)
+        await sleep(seconds:2)
 
         // then
         viewContext1.performAndWait {
@@ -231,38 +226,11 @@ final class PersistentHistoryTrackKitTests: XCTestCase {
         }
 
         viewContext2.performAndWait {
-            XCTAssertNotNil(viewContext2.registeredObject(for:objectID))
+            XCTAssertNotNil(viewContext2.registeredObject(for: objectID))
         }
-
-        backgroundContext.performAndWait {
-            let event = Event(context: backgroundContext)
-            event.timestamp = Date()
-            backgroundContext.saveIfChanged()
-        }
-
-        try await Task.sleep(seconds: 2)
 
         app1kit.stop()
         app2kit.stop()
     }
 }
 
-extension NSManagedObjectContext {
-    @discardableResult
-    func performAndWait<T>(_ block: () throws -> T) throws -> T {
-        var result: Result<T, Error>?
-        performAndWait {
-            result = Result { try block() }
-        }
-        return try result!.get()
-    }
-
-    @discardableResult
-    func performAndWait<T>(_ block: () -> T) -> T {
-        var result: T?
-        performAndWait {
-            result = block()
-        }
-        return result!
-    }
-}

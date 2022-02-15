@@ -20,7 +20,7 @@ class CleanerTests: XCTestCase {
         .appendingPathComponent("PersistentHistoryTrackKitCleanTest.sqlite") ?? URL(fileURLWithPath: "")
 
     override func tearDown() async throws {
-        try await Task.sleep(seconds: 2)
+        await sleep(seconds: 2)
         try? FileManager.default.removeItem(at: storeURL)
         try? FileManager.default.removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-wal"))
         try? FileManager.default.removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-shm"))

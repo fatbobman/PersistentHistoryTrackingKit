@@ -20,6 +20,7 @@ class MergerTests: XCTestCase {
         .appendingPathComponent("PersistentHistoryTrackKitMergeTest.sqlite") ?? URL(fileURLWithPath: "")
 
     override func tearDown() async throws {
+        await sleep(seconds: 2)
         try? FileManager.default.removeItem(at: storeURL)
         try? FileManager.default.removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-wal"))
         try? FileManager.default.removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-shm"))

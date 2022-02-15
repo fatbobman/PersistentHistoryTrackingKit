@@ -14,7 +14,7 @@
 import XCTest
 
 class TimestampManagerTests: XCTestCase {
-    let uniqueString = "PersistentHistoryTrackKit.lastToken."
+    let uniqueString = "PersistentHistoryTrackKit.lastToken.Tests."
     let userDefaults = UserDefaults.standard
 
     override func setUpWithError() throws {
@@ -40,7 +40,7 @@ class TimestampManagerTests: XCTestCase {
 
     func testNoAuthorUpdateTimestamp() {
         // given
-        let manager = TransactionTimestampManager(userDefaults: userDefaults)
+        let manager = TransactionTimestampManager(userDefaults: userDefaults, uniqueString: uniqueString)
         let authors = AppActor.allCases.map { $0.rawValue }
 
         // when
@@ -52,7 +52,7 @@ class TimestampManagerTests: XCTestCase {
 
     func testAllAuthorsHaveUpdatedTimestamp() {
         // given
-        let manager = TransactionTimestampManager(userDefaults: userDefaults)
+        let manager = TransactionTimestampManager(userDefaults: userDefaults, uniqueString: uniqueString)
 
         let date1 = Date().addingTimeInterval(-1000)
         let date2 = Date().addingTimeInterval(-2000)
@@ -74,7 +74,7 @@ class TimestampManagerTests: XCTestCase {
     // 仅部分author设置了时间戳，尚未触及阈值日期
     func testPartOfAuthorsHaveUpdatedTimestampAndThresholdNotYetTouched() {
         // given
-        let manager = TransactionTimestampManager(userDefaults: userDefaults)
+        let manager = TransactionTimestampManager(userDefaults: userDefaults, uniqueString: uniqueString)
 
         let date1 = Date().addingTimeInterval(-1000)
         let date2 = Date().addingTimeInterval(-2000)
@@ -95,7 +95,11 @@ class TimestampManagerTests: XCTestCase {
     func testPartOfAuthorsHaveUpdatedTimestampAndTouchedThreshold() {
         // given
         let maxDuration = 3000.0
-        let manager = TransactionTimestampManager(userDefaults: userDefaults, maximumDuration: maxDuration)
+        let manager = TransactionTimestampManager(
+            userDefaults: userDefaults,
+            maximumDuration: maxDuration,
+            uniqueString: uniqueString
+        )
 
         let date1 = Date().addingTimeInterval(-(maxDuration + 1000))
         let date2 = Date().addingTimeInterval(-(maxDuration + 2000))
@@ -113,6 +117,30 @@ class TimestampManagerTests: XCTestCase {
         if let lastTimestamp = lastTimestamp {
             XCTAssertGreaterThan(lastTimestamp, date1)
         }
+    }
+
+    // 测试当batchAuthors有内容时，是否可以获取正确的时间
+    func testGetLastCommonTimestampWhenBatchAuthorsIsNotEmpty() {
+        // given
+        let manager = TransactionTimestampManager(userDefaults: userDefaults, uniqueString: uniqueString)
+
+        let authors = ["app1", "app1Batch"]
+        let batchAuthors = ["app1Batch"]
+        let currentAuthor = "app1"
+
+        let updateDate = Date()
+
+        // when
+        manager.updateLastHistoryTransactionTimestamp(for: currentAuthor, to: updateDate)
+        let lastDate1 = manager.getLastCommonTransactionTimestamp(in: authors)
+
+        // then
+        XCTAssertNil(lastDate1)
+
+        // when
+        let lastDate2 = manager.getLastCommonTransactionTimestamp(in: authors, exclude: batchAuthors)
+
+        XCTAssertEqual(lastDate2, updateDate)
     }
 }
 

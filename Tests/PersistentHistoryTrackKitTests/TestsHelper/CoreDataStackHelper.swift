@@ -18,7 +18,6 @@ class CoreDataHelper {
         storeURL: URL? = URL(fileURLWithPath: "/dev/null"),
         enablePersistentHistoryTrack: Bool = true
     ) -> NSPersistentContainer {
-
         let container = NSPersistentContainer(name: "Test Model", managedObjectModel: Self.model)
         guard let desc = container.persistentStoreDescriptions.first else {
             fatalError()
