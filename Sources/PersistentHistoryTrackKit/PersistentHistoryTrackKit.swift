@@ -26,13 +26,20 @@ public final class PersistentHistoryTrackKit {
     let currentAuthor: String
 
     /// 全部的 authors （包括app group当中所有使用同一数据库的成员以及用于批量操作的author）
-    let authors: [String]
+    let allAuthors: [String]
 
-    /// 需要被合并的上下文，通常是视图上下文。可以是多个
+    /// 用于批量操作的 authors
+    ///
+    /// 由于批量操作的 author 只会生成 transaction，并不会对其他 author 产生的 transaction 进行合并和清除。
+    /// 仅此此类 auhtors 最好可以单独标注出来，这样其他的 authors 在清除时将不会为其保留不必要的 transaction。
+    /// 即使不单独设置，当遗留的 transaction 满足 maximumDuration 后，仍会被自动清除。
+    let batchAuthors: [String]
+
+    /// 需要被合并的上下文，通常是视图上下文。可以有多个
     let contexts: [NSManagedObjectContext]
 
-    /// transaction 最长可以保存的时间（秒）。如果在改时间内仍无法获取到全部的 author 更新时间戳，
-    /// 将返回从当前时间剪去该秒数的日期 Date().addingTimeInterval(-1 * abs(maximumDuration))
+    /// transaction 最长可以保存的时间（秒）。如果在该时间内仍无法获取到全部的 author 更新时间戳，
+    /// 将返回从当前时间减去该秒数的日期 Date().addingTimeInterval(-1 * abs(maximumDuration))
     let maximumDuration: TimeInterval
 
     /// 在 UserDefaults 中保存时间戳 Key 的前缀。
@@ -82,7 +89,7 @@ public final class PersistentHistoryTrackKit {
                     .getLastHistoryTransactionTimestamp(for: currentAuthor) ?? Date.distantPast
                 sendMessage(type: .info,
                             level: 2,
-                            message: "The last history transaction timestamp for \(authors) is \(Self.dateFormatter.string(from: lastTimestamp))")
+                            message: "The last history transaction timestamp for \(allAuthors) is \(Self.dateFormatter.string(from: lastTimestamp))")
                 var transactions = [NSPersistentHistoryTransaction]()
                 do {
                     transactions = try fetcher.fetchTransactions(from: lastTimestamp)
@@ -106,7 +113,7 @@ public final class PersistentHistoryTrackKit {
 
                 // clean
                 guard strategy.allowedToClean() else { continue }
-                let cleanTimestamp = timestampManager.getLastCommonTransactionTimestamp(in: authors)
+                let cleanTimestamp = timestampManager.getLastCommonTransactionTimestamp(in: allAuthors, exclude: batchAuthors)
                 do {
                     try cleaner.cleanTransaction(before: cleanTimestamp)
                     sendMessage(type: .info, level: 2, message: "Delete transaction success")
@@ -127,7 +134,8 @@ public final class PersistentHistoryTrackKit {
     init(logLevel: Int,
          strategy: TransactionCleanStrategy,
          currentAuthor: String,
-         allAuthor: [String],
+         allAuthors: [String],
+         batchAuthors: [String],
          viewContext: NSManagedObjectContext,
          contexts: [NSManagedObjectContext],
          userDefaults: UserDefaults,
@@ -137,7 +145,8 @@ public final class PersistentHistoryTrackKit {
          autoStart: Bool) {
         self.logLevel = logLevel
         self.currentAuthor = currentAuthor
-        self.authors = allAuthor
+        self.allAuthors = allAuthors
+        self.batchAuthors = batchAuthors
         self.contexts = contexts
         self.maximumDuration = maximumDuration
         self.uniqueString = uniqueString
@@ -167,11 +176,11 @@ public final class PersistentHistoryTrackKit {
         self.fetcher = PersistentHistoryTrackFetcher(
             backgroundContext: backgroundContext,
             currentAuthor: currentAuthor,
-            allAuthors: authors
+            allAuthors: allAuthors
         )
 
         self.merger = PersistentHistoryTrackKitMerger()
-        self.cleaner = PersistentHistoryTrackKitCleaner(backgroundContext: backgroundContext, authors: authors)
+        self.cleaner = PersistentHistoryTrackKitCleaner(backgroundContext: backgroundContext, authors: allAuthors)
         self.timestampManager = TransactionTimestampManager(userDefaults: userDefaults, uniqueString: uniqueString)
         self.coordinator = coordinator
         self.backgroundContext = backgroundContext
@@ -231,7 +240,7 @@ public extension PersistentHistoryTrackKit {
             timestampManager: timestampManager,
             logger: logger,
             logLevel: logLevel,
-            authors: authors
+            authors: allAuthors
         )
     }
 }
@@ -241,7 +250,8 @@ public extension PersistentHistoryTrackKit {
     convenience init(viewContext: NSManagedObjectContext,
                      contexts: [NSManagedObjectContext]? = nil,
                      currentAuthor: String,
-                     authors: [String],
+                     allAuthors: [String],
+                     batchAuthors: [String] = [],
                      userDefaults: UserDefaults,
                      cleanStrategy: TransactionCleanStrategy = .byNotification(times: 1),
                      maximumDuration: TimeInterval = 60 * 60 * 24 * 7,
@@ -254,7 +264,8 @@ public extension PersistentHistoryTrackKit {
         self.init(logLevel: logLevel,
                   strategy: cleanStrategy,
                   currentAuthor: currentAuthor,
-                  allAuthor: authors,
+                  allAuthors: allAuthors,
+                  batchAuthors: batchAuthors,
                   viewContext: viewContext,
                   contexts: contexts,
                   userDefaults: userDefaults,
@@ -268,7 +279,8 @@ public extension PersistentHistoryTrackKit {
     convenience init(container: NSPersistentContainer,
                      contexts: [NSManagedObjectContext]? = nil,
                      currentAuthor: String,
-                     authors: [String],
+                     allAuthors: [String],
+                     batchAuthors: [String] = [],
                      userDefaults: UserDefaults,
                      cleanStrategy: TransactionCleanStrategy = .byNotification(times: 1),
                      maximumDuration: TimeInterval = 60 * 60 * 24 * 7,
@@ -282,7 +294,8 @@ public extension PersistentHistoryTrackKit {
         self.init(logLevel: logLevel,
                   strategy: cleanStrategy,
                   currentAuthor: currentAuthor,
-                  allAuthor: authors,
+                  allAuthors: allAuthors,
+                  batchAuthors: batchAuthors,
                   viewContext: viewContext,
                   contexts: contexts,
                   userDefaults: userDefaults,

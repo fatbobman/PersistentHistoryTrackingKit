@@ -25,8 +25,9 @@ struct TransactionTimestampManager: TransactionTimestampManagerProtocol {
     /// 在 UserDefaults 中保存时间戳 Key 的前缀。
     private let uniqueString: String
 
-    func getLastCommonTransactionTimestamp(in authors: [String]) -> Date? {
-        let lastTimestamps = authors
+    func getLastCommonTransactionTimestamp(in authors: [String], exclude batchAuthors: [String] = []) -> Date? {
+        let shouldCheckAuthors = Set(authors).subtracting(batchAuthors)
+        let lastTimestamps = shouldCheckAuthors
             .compactMap { author in
                 getLastHistoryTransactionTimestamp(for: author)
             }
@@ -34,7 +35,7 @@ struct TransactionTimestampManager: TransactionTimestampManagerProtocol {
         guard let lastTimestamp = lastTimestamps.min() else { return nil }
 
         // 如果全部的author都记录了时间戳，则返回最早的日期。
-        if lastTimestamps.count == authors.count {
+        if lastTimestamps.count == shouldCheckAuthors.count {
             // 返回所有auhtor时间戳中最早的日期）
             return lastTimestamp
         } else {
