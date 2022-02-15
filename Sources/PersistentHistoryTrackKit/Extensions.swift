@@ -40,6 +40,9 @@ public extension Task where Success == Never, Failure == Never {
 }
 
 import Combine
+/// 将Publisher转换成异步序列。
+///
+/// 同系统内置的 publisher.values 不同，本实现将首先对数据进行缓存。尤其适用于NotificationCenter之类的应用。
 struct CombineAsyncPublisher<P>: AsyncSequence, AsyncIteratorProtocol where P: Publisher, P.Failure == Never {
     typealias Element = P.Output
     typealias AsyncIterator = CombineAsyncPublisher<P>
