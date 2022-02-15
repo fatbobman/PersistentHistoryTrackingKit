@@ -56,7 +56,7 @@ final class PersistentHistoryTrackKitTests: XCTestCase {
         }
 
         // then
-        await sleep(seconds:2)
+        await sleep(seconds: 2)
 
         viewContext1.performAndWait {
             XCTAssertNotNil(viewContext1.registeredObject(for: objectID))
@@ -65,9 +65,10 @@ final class PersistentHistoryTrackKitTests: XCTestCase {
         XCTAssertNotNil(lastTimestamp)
 
         kit.stop()
-        await sleep(seconds:2)
+        await sleep(seconds: 2)
     }
-// swiftlint:disable:next function_body_length
+
+    // swiftlint:disable:next function_body_length
     func testKitInBatchInsert() async throws {
         guard #available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *) else {
             return
@@ -112,7 +113,7 @@ final class PersistentHistoryTrackKitTests: XCTestCase {
                   let object = results.first else { fatalError() }
             return object.objectID
         }
-        await sleep(seconds:2)
+        await sleep(seconds: 2)
         // then
         viewContext.performAndWait {
             XCTAssertNotNil(viewContext.registeredObject(for: objectID))
@@ -121,7 +122,7 @@ final class PersistentHistoryTrackKitTests: XCTestCase {
             XCTAssertNotNil(anotherContext.registeredObject(for: objectID))
         }
         kit.stop()
-        await sleep(seconds:2)
+        await sleep(seconds: 2)
     }
 
     func testManualCleaner() async throws {
@@ -160,7 +161,7 @@ final class PersistentHistoryTrackKitTests: XCTestCase {
         }
 
         // then
-        await sleep(seconds:2)
+        await sleep(seconds: 2)
 
         cleaner() // 手动清除
 
@@ -171,7 +172,7 @@ final class PersistentHistoryTrackKitTests: XCTestCase {
         XCTAssertNotNil(lastTimestamp)
 
         kit.stop()
-        await sleep(seconds:2)
+        await sleep(seconds: 2)
     }
 
     /// 测试两个app都执行了Kit后，transaction 是否有被清除
@@ -218,7 +219,7 @@ final class PersistentHistoryTrackKitTests: XCTestCase {
             return event.objectID
         }
 
-        await sleep(seconds:2)
+        await sleep(seconds: 2)
 
         // then
         viewContext1.performAndWait {
@@ -233,4 +234,3 @@ final class PersistentHistoryTrackKitTests: XCTestCase {
         app2kit.stop()
     }
 }
-

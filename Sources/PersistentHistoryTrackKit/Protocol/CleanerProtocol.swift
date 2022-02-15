@@ -16,7 +16,7 @@ import Foundation
 public protocol PersistentHistoryTrackKitCleanerProtocol {
     /// 用来提取Request和删除 transaction 的上下文。通常是私有上下文
     var backgroundContext: NSManagedObjectContext { get }
-    /// 需要被删除的全部 author 名称
+    /// 清理 transactions 时只处理 transactionAuthor 在该数组中的 transaction
     var authors: [String] { get }
     /// 清除指定时间之前由 authors 产生的 transaction
     func cleanTransaction(before timestamp: Date?) throws

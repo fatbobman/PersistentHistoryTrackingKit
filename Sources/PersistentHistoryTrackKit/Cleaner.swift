@@ -13,6 +13,7 @@
 import CoreData
 import Foundation
 
+/// Persistent history transaction Cleaner
 struct PersistentHistoryTrackKitCleaner: PersistentHistoryTrackKitCleanerProtocol {
     init(
         backgroundContext: NSManagedObjectContext,
