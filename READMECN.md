@@ -72,24 +72,28 @@ Persistent History Tracking Kit 应只用来管理由开发者创建的应用程
 例如，您的应用程序 author 名称为：“appAuthor”，应用程序扩展 author 名称为：“extensionAuthor”，则：
 
 ```swift
-allAuthors: "appAuthor,extensionAuthor",
+allAuthors: ["appAuthor", "extensionAuthor"],
 ```
 
 对于后台上下文中生成的事务，如果没有设置成自动合并的话，后台上下文也应该设置单独的 author 名称：
 
 ```swift
-allAuthors:"appAuthor,extensionAuthor,appBatchAuthor",
+allAuthors: ["appAuthor", "extensionAuthor", "appBatchAuthor"],
 ```
 
 ### batchAuthors 
 
 某些 author（例如用于批量更改的后台上下文）只会创建事务，并不会对其他 author 的产生事务进行合并和清理。通过将其设置在 batchAuthors 中，可以加速该类事务的清理。
 
+```swift
+batchAuthors: ["appBatchAuthor"],
+```
+
 即使不设定，这些事务也将在达到 maximumDuration 后被自动清除。
 
 ### maximumDuration
 
-正常情况下，事务只有被所有的 author 都合并后才会被清理。但在某些情况下，个别 author 可能长期未运行或尚未实现，导致事务始终保持在 SQlite 中。长此以往，会造成数据库性能下降。
+正常情况下，事务只有被所有的 author 都合并后才会被清理。但在某些情况下，个别 author 可能长期未运行或尚未实现，导致事务始终保持在 SQLite 中。长此以往，会造成数据库性能下降。
 
 通过设置 maximumDuration ，Persistent History Tracking Kit 会强制清除已达到设定时长的事务。默认设置为 7 天。
 
@@ -192,7 +196,7 @@ logger:MyLogger(),
 
 是否在创建 Persistent History Tracking Kit 实例后，马上启动。
 
-在应用程序的执行过程中，可以通过 start() 或 stop() 来改变运行状态
+在应用程序的执行过程中，可以通过 start() 或 stop() 来改变运行状态。
 
 ```swift
 kit.start()
