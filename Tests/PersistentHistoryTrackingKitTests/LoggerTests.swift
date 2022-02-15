@@ -10,20 +10,20 @@
 //  微信公共号: 肘子的Swift记事本
 //
 
-@testable import PersistentHistoryTrackKit
+@testable import PersistentHistoryTrackingKit
 import XCTest
 
 class LoggerTests: XCTestCase {
     func testLogger() throws {
         // given
-        let logger = PersistentHistoryTrackKitLogger()
+        let logger = PersistentHistoryTrackingKitLogger()
         // when
         logger.log(type: .info, message: "hello")
     }
 }
 
-struct MyLogger: PersistentHistoryTrackKitLoggerProtocol {
-    func log(type: PersistentHistoryTrackKitLogType, message: String) {
+struct MyLogger: PersistentHistoryTrackingKitLoggerProtocol {
+    func log(type: PersistentHistoryTrackingKitLogType, message: String) {
         print("[\(type.rawValue.uppercased())] : message")
     }
 }

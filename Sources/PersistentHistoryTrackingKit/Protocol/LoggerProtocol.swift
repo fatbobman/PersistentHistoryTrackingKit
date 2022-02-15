@@ -15,12 +15,12 @@ import Foundation
 /// 用于 PersistentHistoryTrackKit 的日志协议。
 /// 开发者可以创建符合该协议的类型，以便让 PersistentHistoryTrackKi t与你已有的日志模块协同工作。
 /// 日志输出的开关和细节控制均在 PersistentHistoryTrackKit 上
-public protocol PersistentHistoryTrackKitLoggerProtocol {
+public protocol PersistentHistoryTrackingKitLoggerProtocol {
     /// 输出日志。开发者可以将 LogType 转换成自己使用的日志模块对应的 Type
-    func log(type: PersistentHistoryTrackKitLogType, message: String)
+    func log(type: PersistentHistoryTrackingKitLogType, message: String)
 }
 
 /// 日志类型。尽管定义了5中类型，不过当前只会使用其中的 debug 和 error。
-public enum PersistentHistoryTrackKitLogType: String {
+public enum PersistentHistoryTrackingKitLogType: String {
     case debug, info, notice, error, fault
 }

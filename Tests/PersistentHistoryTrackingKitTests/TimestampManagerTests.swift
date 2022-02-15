@@ -10,11 +10,11 @@
 //  微信公共号: 肘子的Swift记事本
 //
 
-@testable import PersistentHistoryTrackKit
+@testable import PersistentHistoryTrackingKit
 import XCTest
 
 class TimestampManagerTests: XCTestCase {
-    let uniqueString = "PersistentHistoryTrackKit.lastToken.Tests."
+    let uniqueString = "PersistentHistoryTrackingKit.lastToken.Tests."
     let userDefaults = UserDefaults.standard
 
     override func setUpWithError() throws {

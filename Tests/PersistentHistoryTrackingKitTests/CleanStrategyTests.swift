@@ -10,7 +10,7 @@
 //  微信公共号: 肘子的Swift记事本
 //
 
-@testable import PersistentHistoryTrackKit
+@testable import PersistentHistoryTrackingKit
 import XCTest
 
 class CleanStrategyTests: XCTestCase {

@@ -14,7 +14,7 @@ import CoreData
 import Foundation
 
 /// Persistent history transaction Cleaner
-struct PersistentHistoryTrackKitCleaner: PersistentHistoryTrackKitCleanerProtocol {
+struct PersistentHistoryTrackingKitCleaner: PersistentHistoryTrackingKitCleanerProtocol {
     init(
         backgroundContext: NSManagedObjectContext,
         authors: [String]
@@ -63,16 +63,16 @@ struct PersistentHistoryTrackKitCleaner: PersistentHistoryTrackKitCleanerProtoco
 ///     cleaner() //在需要执行清理的地方运行
 ///
 /// 比如每次app进入后台时，执行清理任务。
-public struct PersistentHistoryTrackKitManualCleaner {
-    let cleaner: PersistentHistoryTrackKitCleaner
+public struct PersistentHistoryTrackingKitManualCleaner {
+    let cleaner: PersistentHistoryTrackingKitCleaner
     let timestampManager: TransactionTimestampManager
     let authors: [String]
-    let logger: PersistentHistoryTrackKitLoggerProtocol
+    let logger: PersistentHistoryTrackingKitLoggerProtocol
     let logLevel: Int
 
-    init(clear: PersistentHistoryTrackKitCleaner,
+    init(clear: PersistentHistoryTrackingKitCleaner,
          timestampManager: TransactionTimestampManager,
-         logger: PersistentHistoryTrackKitLoggerProtocol,
+         logger: PersistentHistoryTrackingKitLoggerProtocol,
          logLevel: Int,
          authors: [String]) {
         self.cleaner = clear
@@ -93,7 +93,7 @@ public struct PersistentHistoryTrackKitManualCleaner {
     }
 
     /// 发送日志
-    func sendMessage(type: PersistentHistoryTrackKitLogType, level: Int, message: String) {
+    func sendMessage(type: PersistentHistoryTrackingKitLogType, level: Int, message: String) {
         guard level <= logLevel else { return }
         logger.log(type: type, message: message)
     }

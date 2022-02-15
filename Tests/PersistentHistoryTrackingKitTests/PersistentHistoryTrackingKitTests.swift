@@ -1,12 +1,12 @@
 import CoreData
-import PersistentHistoryTrackKit
+import PersistentHistoryTrackingKit
 import XCTest
 
-final class PersistentHistoryTrackKitTests: XCTestCase {
+final class PersistentHistoryTrackingKitTests: XCTestCase {
     let storeURL = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask)
         .first?
         .appendingPathComponent("PersistentHistoryKitTestDB.sqlite") ?? URL(fileURLWithPath: "")
-    let uniqueString = "PersistentHistoryTrackKit.lastToken.tests."
+    let uniqueString = "PersistentHistoryTrackingKit.lastToken.tests."
     let userDefaults = UserDefaults.standard
 
     override func setUpWithError() throws {
@@ -30,7 +30,7 @@ final class PersistentHistoryTrackKitTests: XCTestCase {
         container1.viewContext.transactionAuthor = AppActor.app1.rawValue
         container2.viewContext.transactionAuthor = AppActor.app2.rawValue
         let authors = [AppActor.app1.rawValue, AppActor.app2.rawValue]
-        let kit = PersistentHistoryTrackKit(
+        let kit = PersistentHistoryTrackingKit(
             container: container1,
             currentAuthor: AppActor.app1.rawValue,
             allAuthors: authors,
@@ -83,7 +83,7 @@ final class PersistentHistoryTrackKitTests: XCTestCase {
         let authors = [AppActor.app1.rawValue, AppActor.app2.rawValue]
         let anotherContext = container1.newBackgroundContext()
         anotherContext.retainsRegisteredObjects = true
-        let kit = PersistentHistoryTrackKit(
+        let kit = PersistentHistoryTrackingKit(
             viewContext: container1.viewContext,
             contexts: [viewContext, anotherContext], // test merge to multi context
             currentAuthor: AppActor.app1.rawValue,
@@ -132,7 +132,7 @@ final class PersistentHistoryTrackKitTests: XCTestCase {
         container1.viewContext.transactionAuthor = AppActor.app1.rawValue
         container2.viewContext.transactionAuthor = AppActor.app2.rawValue
         let authors = [AppActor.app1.rawValue, AppActor.app2.rawValue]
-        let kit = PersistentHistoryTrackKit(
+        let kit = PersistentHistoryTrackingKit(
             container: container1,
             currentAuthor: AppActor.app1.rawValue,
             allAuthors: authors,
@@ -188,7 +188,7 @@ final class PersistentHistoryTrackKitTests: XCTestCase {
         viewContext2.retainsRegisteredObjects = true
         let authors = [AppActor.app1.rawValue, AppActor.app2.rawValue, AppActor.app3.rawValue]
 
-        let app1kit = PersistentHistoryTrackKit(
+        let app1kit = PersistentHistoryTrackingKit(
             container: container1,
             contexts: [viewContext1],
             currentAuthor: AppActor.app1.rawValue,
@@ -198,7 +198,7 @@ final class PersistentHistoryTrackKitTests: XCTestCase {
             logLevel: 2
         )
 
-        let app2kit = PersistentHistoryTrackKit(
+        let app2kit = PersistentHistoryTrackingKit(
             container: container1,
             contexts: [viewContext2],
             currentAuthor: AppActor.app2.rawValue,

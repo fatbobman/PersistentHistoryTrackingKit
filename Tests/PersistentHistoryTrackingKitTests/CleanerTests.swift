@@ -1,5 +1,5 @@
 //
-//  MergerTests.swift
+//  CleanerTests.swift
 //
 //
 //  Created by Yang Xu on 2022/2/12
@@ -11,13 +11,13 @@
 //
 
 import CoreData
-@testable import PersistentHistoryTrackKit
+@testable import PersistentHistoryTrackingKit
 import XCTest
 
-class MergerTests: XCTestCase {
+class CleanerTests: XCTestCase {
     let storeURL = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask)
         .first?
-        .appendingPathComponent("PersistentHistoryTrackKitMergeTest.sqlite") ?? URL(fileURLWithPath: "")
+        .appendingPathComponent("PersistentHistoryTrackKitCleanTest.sqlite") ?? URL(fileURLWithPath: "")
 
     override func tearDown() async throws {
         await sleep(seconds: 2)
@@ -26,15 +26,18 @@ class MergerTests: XCTestCase {
         try? FileManager.default.removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-shm"))
     }
 
-    func testMergerInAppGroup() throws {
+    func testCleanerInAppGroup() throws {
         // given
         let container1 = CoreDataHelper.createNSPersistentContainer(storeURL: storeURL)
         let container2 = CoreDataHelper.createNSPersistentContainer(storeURL: storeURL)
         let app1backgroundContext = container1.newBackgroundContext()
-        let fetcher = PersistentHistoryTrackFetcher(backgroundContext: app1backgroundContext,
+        let fetcher = PersistentHistoryTrackingFetcher(backgroundContext: app1backgroundContext,
                                                     currentAuthor: AppActor.app1.rawValue,
                                                     allAuthors: [AppActor.app1.rawValue, AppActor.app2.rawValue])
-        let merger = PersistentHistoryTrackKitMerger()
+        let cleaner = PersistentHistoryTrackingKitCleaner(
+            backgroundContext: app1backgroundContext,
+            authors: [AppActor.app1.rawValue, AppActor.app2.rawValue]
+        )
 
         let app1viewContext = container1.viewContext
         app1viewContext.transactionAuthor = AppActor.app1.rawValue
@@ -42,44 +45,30 @@ class MergerTests: XCTestCase {
         let app2viewContext = container2.viewContext
         app2viewContext.transactionAuthor = AppActor.app2.rawValue
 
+        // when
+        app1viewContext.performAndWait {
+            let event = Event(context: app1viewContext)
+            event.timestamp = Date()
+            app1viewContext.saveIfChanged()
+        }
+
         app2viewContext.performAndWait {
             let event = Event(context: app2viewContext)
             event.timestamp = Date()
             app2viewContext.saveIfChanged()
         }
-        let transactions = try fetcher.fetchTransactions(from: Date().addingTimeInterval(-2))
-
-        let userInfo = transactions.first?.objectIDNotification().userInfo ?? [:]
-        guard let objectIDs = userInfo["inserted_objectIDs"] as? NSSet,
-              let objectID = objectIDs.allObjects.first as? NSManagedObjectID
-        else {
-            fatalError()
-        }
-
-        // when
-        app1viewContext.retainsRegisteredObjects = true // 为检查保持托管对象不清除
-        app1backgroundContext.retainsRegisteredObjects = true
 
         // then
+        let transactionsBeforeClean = try fetcher.fetchTransactions(from: Date().addingTimeInterval(-2))
+        XCTAssertEqual(transactionsBeforeClean.count, 1)
 
-        app1viewContext.performAndWait {
-            XCTAssertNil(app1viewContext.registeredObject(for: objectID))
-        }
-        app1backgroundContext.performAndWait {
-            XCTAssertNil(app1backgroundContext.registeredObject(for: objectID))
-        }
+        try cleaner.cleanTransaction(before: Date())
 
-        merger(merge: transactions, into: [app1viewContext, app1backgroundContext])
-
-        app1viewContext.performAndWait {
-            XCTAssertNotNil(app1viewContext.registeredObject(for: objectID))
-        }
-        app1backgroundContext.performAndWait {
-            XCTAssertNotNil(app1backgroundContext.registeredObject(for: objectID))
-        }
+        let transactionsAfterClean = try fetcher.fetchTransactions(from: Date().addingTimeInterval(-2))
+        XCTAssertEqual(transactionsAfterClean.count, 0)
     }
 
-    func testMergerInBatchOperation() async throws {
+    func testCleanerInBatchOperation() throws {
         guard #available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *) else {
             return
         }
@@ -92,12 +81,20 @@ class MergerTests: XCTestCase {
         viewContext.transactionAuthor = AppActor.app1.rawValue
         batchContext.transactionAuthor = AppActor.app2.rawValue // 批量添加使用单独的author
 
-        let fetcher = PersistentHistoryTrackFetcher(backgroundContext: backgroundContext,
+        let fetcher = PersistentHistoryTrackingFetcher(backgroundContext: backgroundContext,
                                                     currentAuthor: AppActor.app1.rawValue,
                                                     allAuthors: [AppActor.app1.rawValue, AppActor.app2.rawValue])
 
-        let merger = PersistentHistoryTrackKitMerger()
+        let cleaner = PersistentHistoryTrackingKitCleaner(backgroundContext: backgroundContext,
+                                                       authors: [AppActor.app1.rawValue, AppActor.app2.rawValue])
+
         // when insert by batch
+        viewContext.performAndWait {
+            let event = Event(context: viewContext)
+            event.timestamp = Date()
+            viewContext.saveIfChanged()
+        }
+
         try batchContext.performAndWait {
             var count = 0
 
@@ -109,26 +106,14 @@ class MergerTests: XCTestCase {
             try batchContext.execute(batchInsert)
         }
 
-        let transactions = try fetcher.fetchTransactions(from: Date().addingTimeInterval(-2))
-
-        let userInfo = transactions.first?.objectIDNotification().userInfo ?? [:]
-        guard let objectIDs = userInfo["inserted_objectIDs"] as? NSSet,
-              let objectID = objectIDs.allObjects.first as? NSManagedObjectID
-        else {
-            fatalError()
-        }
-
         // then
-        viewContext.retainsRegisteredObjects = true
+        let transactionsBeforeClean = try fetcher.fetchTransactions(from: Date().addingTimeInterval(-2))
+        XCTAssertEqual(transactionsBeforeClean.count, 1)
+        XCTAssertEqual(transactionsBeforeClean.first?.changes?.count, 9)
 
-        viewContext.performAndWait {
-            XCTAssertNil(viewContext.registeredObject(for: objectID))
-        }
+        try cleaner.cleanTransaction(before: Date())
 
-        merger(merge: transactions, into: [viewContext])
-
-        viewContext.performAndWait {
-            XCTAssertNotNil(viewContext.registeredObject(for: objectID))
-        }
+        let transactionsAfterClean = try fetcher.fetchTransactions(from: Date().addingTimeInterval(-2))
+        XCTAssertEqual(transactionsAfterClean.count, 0)
     }
 }

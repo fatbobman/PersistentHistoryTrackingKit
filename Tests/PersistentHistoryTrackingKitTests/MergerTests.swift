@@ -1,8 +1,8 @@
 //
-//  FetcherTests.swift
+//  MergerTests.swift
 //
 //
-//  Created by Yang Xu on 2022/2/11
+//  Created by Yang Xu on 2022/2/12
 //  Copyright © 2022 Yang Xu. All rights reserved.
 //
 //  Follow me on Twitter: @fatbobman
@@ -11,29 +11,30 @@
 //
 
 import CoreData
-@testable import PersistentHistoryTrackKit
+@testable import PersistentHistoryTrackingKit
 import XCTest
 
-class FetcherTest: XCTestCase {
+class MergerTests: XCTestCase {
     let storeURL = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask)
         .first?
-        .appendingPathComponent("PersistentHistoryKitFetcherTest.sqlite") ?? URL(fileURLWithPath: "")
+        .appendingPathComponent("PersistentHistoryTrackKitMergeTest.sqlite") ?? URL(fileURLWithPath: "")
 
     override func tearDown() async throws {
+        await sleep(seconds: 2)
         try? FileManager.default.removeItem(at: storeURL)
         try? FileManager.default.removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-wal"))
         try? FileManager.default.removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-shm"))
     }
 
-    /// 使用两个协调器，模拟在app group的情况下，从不同的app或app extension中操作数据库。
-    func testFetcherInAppGroup() async throws {
+    func testMergerInAppGroup() throws {
         // given
         let container1 = CoreDataHelper.createNSPersistentContainer(storeURL: storeURL)
         let container2 = CoreDataHelper.createNSPersistentContainer(storeURL: storeURL)
         let app1backgroundContext = container1.newBackgroundContext()
-        let fetcher = PersistentHistoryTrackFetcher(backgroundContext: app1backgroundContext,
+        let fetcher = PersistentHistoryTrackingFetcher(backgroundContext: app1backgroundContext,
                                                     currentAuthor: AppActor.app1.rawValue,
                                                     allAuthors: [AppActor.app1.rawValue, AppActor.app2.rawValue])
+        let merger = PersistentHistoryTrackKitingMerger()
 
         let app1viewContext = container1.viewContext
         app1viewContext.transactionAuthor = AppActor.app1.rawValue
@@ -41,29 +42,44 @@ class FetcherTest: XCTestCase {
         let app2viewContext = container2.viewContext
         app2viewContext.transactionAuthor = AppActor.app2.rawValue
 
-        // when
-        app1viewContext.performAndWait {
-            let event = Event(context: app1viewContext)
-            event.timestamp = Date()
-            app1viewContext.saveIfChanged()
-        }
-
         app2viewContext.performAndWait {
             let event = Event(context: app2viewContext)
             event.timestamp = Date()
             app2viewContext.saveIfChanged()
         }
+        let transactions = try fetcher.fetchTransactions(from: Date().addingTimeInterval(-2))
+
+        let userInfo = transactions.first?.objectIDNotification().userInfo ?? [:]
+        guard let objectIDs = userInfo["inserted_objectIDs"] as? NSSet,
+              let objectID = objectIDs.allObjects.first as? NSManagedObjectID
+        else {
+            fatalError()
+        }
+
+        // when
+        app1viewContext.retainsRegisteredObjects = true // 为检查保持托管对象不清除
+        app1backgroundContext.retainsRegisteredObjects = true
 
         // then
-        let transactions = try fetcher.fetchTransactions(from: Date().addingTimeInterval(-2))
-        XCTAssertEqual(transactions.count, 1)
 
-        let request = NSFetchRequest<NSNumber>(entityName: "Event")
-        let eventCounts = try app1viewContext.count(for: request)
-        XCTAssertEqual(eventCounts, 2)
+        app1viewContext.performAndWait {
+            XCTAssertNil(app1viewContext.registeredObject(for: objectID))
+        }
+        app1backgroundContext.performAndWait {
+            XCTAssertNil(app1backgroundContext.registeredObject(for: objectID))
+        }
+
+        merger(merge: transactions, into: [app1viewContext, app1backgroundContext])
+
+        app1viewContext.performAndWait {
+            XCTAssertNotNil(app1viewContext.registeredObject(for: objectID))
+        }
+        app1backgroundContext.performAndWait {
+            XCTAssertNotNil(app1backgroundContext.registeredObject(for: objectID))
+        }
     }
 
-    func testFetcherInBatchOperation() async throws {
+    func testMergerInBatchOperation() async throws {
         guard #available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *) else {
             return
         }
@@ -76,17 +92,12 @@ class FetcherTest: XCTestCase {
         viewContext.transactionAuthor = AppActor.app1.rawValue
         batchContext.transactionAuthor = AppActor.app2.rawValue // 批量添加使用单独的author
 
-        let fetcher = PersistentHistoryTrackFetcher(backgroundContext: backgroundContext,
+        let fetcher = PersistentHistoryTrackingFetcher(backgroundContext: backgroundContext,
                                                     currentAuthor: AppActor.app1.rawValue,
                                                     allAuthors: [AppActor.app1.rawValue, AppActor.app2.rawValue])
 
+        let merger = PersistentHistoryTrackKitingMerger()
         // when insert by batch
-        viewContext.performAndWait {
-            let event = Event(context: viewContext)
-            event.timestamp = Date()
-            viewContext.saveIfChanged()
-        }
-
         try batchContext.performAndWait {
             var count = 0
 
@@ -98,13 +109,26 @@ class FetcherTest: XCTestCase {
             try batchContext.execute(batchInsert)
         }
 
-        // then
         let transactions = try fetcher.fetchTransactions(from: Date().addingTimeInterval(-2))
-        XCTAssertEqual(transactions.count, 1)
-        XCTAssertEqual(transactions.first?.changes?.count, 9)
 
-        let request = NSFetchRequest<NSNumber>(entityName: "Event")
-        let eventCounts = try viewContext.count(for: request)
-        XCTAssertEqual(eventCounts, 10)
+        let userInfo = transactions.first?.objectIDNotification().userInfo ?? [:]
+        guard let objectIDs = userInfo["inserted_objectIDs"] as? NSSet,
+              let objectID = objectIDs.allObjects.first as? NSManagedObjectID
+        else {
+            fatalError()
+        }
+
+        // then
+        viewContext.retainsRegisteredObjects = true
+
+        viewContext.performAndWait {
+            XCTAssertNil(viewContext.registeredObject(for: objectID))
+        }
+
+        merger(merge: transactions, into: [viewContext])
+
+        viewContext.performAndWait {
+            XCTAssertNotNil(viewContext.registeredObject(for: objectID))
+        }
     }
 }

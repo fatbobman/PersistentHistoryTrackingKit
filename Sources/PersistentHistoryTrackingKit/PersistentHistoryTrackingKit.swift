@@ -1,5 +1,5 @@
 //
-//  PersistentHistoryTrackKit.swift
+//  PersistentHistoryTrackingKit.swift
 //
 //
 //  Created by Yang Xu on 2022/2/11
@@ -15,7 +15,7 @@ import Foundation
 
 // swiftlint:disable line_length
 
-public final class PersistentHistoryTrackKit {
+public final class PersistentHistoryTrackingKit {
     /// 日志显示等级，从0-2级。0 关闭 2 最详尽
     public var logLevel: Int
 
@@ -46,16 +46,16 @@ public final class PersistentHistoryTrackKit {
     let uniqueString: String
 
     /// 日志管理器
-    let logger: PersistentHistoryTrackKitLoggerProtocol
+    let logger: PersistentHistoryTrackingKitLoggerProtocol
 
     /// 获取需要处理的 transaction
-    let fetcher: PersistentHistoryTrackFetcher
+    let fetcher: PersistentHistoryTrackingFetcher
 
     /// 合并transaction到指定的托管对象上下文中（contexts）
-    let merger: PersistentHistoryTrackKitMerger
+    let merger: PersistentHistoryTrackKitingMerger
 
     /// transaction清除器，清除可确认的已被所有authors合并的transaction
-    let cleaner: PersistentHistoryTrackKitCleaner
+    let cleaner: PersistentHistoryTrackingKitCleaner
 
     /// 时间戳管理器，过去并更新合并事件戳
     let timestampManager: TransactionTimestampManager
@@ -126,7 +126,7 @@ public final class PersistentHistoryTrackKit {
     }
 
     /// 发送日志
-    func sendMessage(type: PersistentHistoryTrackKitLogType, level: Int, message: String) {
+    func sendMessage(type: PersistentHistoryTrackingKitLogType, level: Int, message: String) {
         guard level <= logLevel else { return }
         logger.log(type: type, message: message)
     }
@@ -141,7 +141,7 @@ public final class PersistentHistoryTrackKit {
          userDefaults: UserDefaults,
          maximumDuration: TimeInterval,
          uniqueString: String,
-         logger: PersistentHistoryTrackKitLoggerProtocol,
+         logger: PersistentHistoryTrackingKitLoggerProtocol,
          autoStart: Bool) {
         self.logLevel = logLevel
         self.currentAuthor = currentAuthor
@@ -173,14 +173,14 @@ public final class PersistentHistoryTrackKit {
             self.strategy = TransactionCleanStrategyByNotification(strategy: strategy)
         }
 
-        self.fetcher = PersistentHistoryTrackFetcher(
+        self.fetcher = PersistentHistoryTrackingFetcher(
             backgroundContext: backgroundContext,
             currentAuthor: currentAuthor,
             allAuthors: allAuthors
         )
 
-        self.merger = PersistentHistoryTrackKitMerger()
-        self.cleaner = PersistentHistoryTrackKitCleaner(backgroundContext: backgroundContext, authors: allAuthors)
+        self.merger = PersistentHistoryTrackKitingMerger()
+        self.cleaner = PersistentHistoryTrackingKitCleaner(backgroundContext: backgroundContext, authors: allAuthors)
         self.timestampManager = TransactionTimestampManager(userDefaults: userDefaults, uniqueString: uniqueString)
         self.coordinator = coordinator
         self.backgroundContext = backgroundContext
@@ -195,7 +195,7 @@ public final class PersistentHistoryTrackKit {
     }
 }
 
-public extension PersistentHistoryTrackKit {
+public extension PersistentHistoryTrackingKit {
     /// 启动处理任务
     func start() {
         if !task.isEmpty {
@@ -213,7 +213,7 @@ public extension PersistentHistoryTrackKit {
     }
 }
 
-extension PersistentHistoryTrackKit {
+extension PersistentHistoryTrackingKit {
     static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .short
@@ -222,7 +222,7 @@ extension PersistentHistoryTrackKit {
     }()
 }
 
-public extension PersistentHistoryTrackKit {
+public extension PersistentHistoryTrackingKit {
     /// 创建一个可独立运行的 transaction 清除器
     ///
     /// 通常使用该清除器时，cleanStrategy 应设置为 .none
@@ -234,8 +234,8 @@ public extension PersistentHistoryTrackKit {
     ///     cleaner() //在需要执行清理的地方运行
     ///
     /// 比如每次app进入后台时，执行清理任务。
-    func cleanerBuilder() -> PersistentHistoryTrackKitManualCleaner {
-        PersistentHistoryTrackKitManualCleaner(
+    func cleanerBuilder() -> PersistentHistoryTrackingKitManualCleaner {
+        PersistentHistoryTrackingKitManualCleaner(
             clear: cleaner,
             timestampManager: timestampManager,
             logger: logger,
@@ -245,7 +245,7 @@ public extension PersistentHistoryTrackKit {
     }
 }
 
-public extension PersistentHistoryTrackKit {
+public extension PersistentHistoryTrackingKit {
     /// 使用viewContext的初始化器
     convenience init(viewContext: NSManagedObjectContext,
                      contexts: [NSManagedObjectContext]? = nil,
@@ -255,12 +255,12 @@ public extension PersistentHistoryTrackKit {
                      userDefaults: UserDefaults,
                      cleanStrategy: TransactionCleanStrategy = .byNotification(times: 1),
                      maximumDuration: TimeInterval = 60 * 60 * 24 * 7,
-                     uniqueString: String = "PersistentHistoryTrackKit.lastToken.",
-                     logger: PersistentHistoryTrackKitLoggerProtocol? = nil,
+                     uniqueString: String = "PersistentHistoryTrackingKit.lastToken.",
+                     logger: PersistentHistoryTrackingKitLoggerProtocol? = nil,
                      logLevel: Int = 1,
                      autoStart: Bool = true) {
         let contexts = contexts ?? [viewContext]
-        let logger = logger ?? PersistentHistoryTrackKitLogger()
+        let logger = logger ?? PersistentHistoryTrackingKitLogger()
         self.init(logLevel: logLevel,
                   strategy: cleanStrategy,
                   currentAuthor: currentAuthor,
@@ -284,13 +284,13 @@ public extension PersistentHistoryTrackKit {
                      userDefaults: UserDefaults,
                      cleanStrategy: TransactionCleanStrategy = .byNotification(times: 1),
                      maximumDuration: TimeInterval = 60 * 60 * 24 * 7,
-                     uniqueString: String = "PersistentHistoryTrackKit.lastToken.",
-                     logger: PersistentHistoryTrackKitLoggerProtocol? = nil,
+                     uniqueString: String = "PersistentHistoryTrackingKit.lastToken.",
+                     logger: PersistentHistoryTrackingKitLoggerProtocol? = nil,
                      logLevel: Int = 1,
                      autoStart: Bool = true) {
         let viewContext = container.viewContext
         let contexts = contexts ?? [viewContext]
-        let logger = logger ?? PersistentHistoryTrackKitLogger()
+        let logger = logger ?? PersistentHistoryTrackingKitLogger()
         self.init(logLevel: logLevel,
                   strategy: cleanStrategy,
                   currentAuthor: currentAuthor,

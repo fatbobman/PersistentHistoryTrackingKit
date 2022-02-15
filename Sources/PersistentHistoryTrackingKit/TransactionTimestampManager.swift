@@ -70,10 +70,10 @@ struct TransactionTimestampManager: TransactionTimestampManagerProtocol {
     ///   对于 AppGroup，应该使用可用于全体成员的实例。如：UserDefaults(suiteName: Settings.AppGroup.groupID)
     ///   - maximumDuration: transaction 最长可以保存的时间（秒）。如果在改时间内仍无法获取到全部的 author 更新时间戳，
     ///   将返回从当前时间剪去该秒数的日期 Date().addingTimeInterval(-1 * abs(maximumDuration))。默认值为 604,800 秒（7日）。
-    ///   - uniqueString: 在 UserDefaults 中保存时间戳 Key 的前缀。默认值为："PersistentHistoryTrackKit.lastToken."
+    ///   - uniqueString: 在 UserDefaults 中保存时间戳 Key 的前缀。默认值为："PersistentHistoryTrackingKit.lastToken."
     init(userDefaults: UserDefaults,
          maximumDuration: TimeInterval = 60 * 60 * 24 * 7, // 7 days
-         uniqueString: String = "PersistentHistoryTrackKit.lastToken.") {
+         uniqueString: String = "PersistentHistoryTrackingKit.lastToken.") {
         self.userDefaults = userDefaults
         self.maximumDuration = maximumDuration
         self.uniqueString = uniqueString

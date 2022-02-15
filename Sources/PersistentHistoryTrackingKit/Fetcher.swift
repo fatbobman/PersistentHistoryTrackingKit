@@ -14,7 +14,7 @@ import CoreData
 import Foundation
 
 /// 获取从指定时期之后的，非当前author生成的 transaction
-struct PersistentHistoryTrackFetcher: PersistentHistoryTrackKitFetcherProtocol {
+struct PersistentHistoryTrackingFetcher: PersistentHistoryTrackingKitFetcherProtocol {
     init(backgroundContext: NSManagedObjectContext,
          currentAuthor: String,
          allAuthors: [String]) {
