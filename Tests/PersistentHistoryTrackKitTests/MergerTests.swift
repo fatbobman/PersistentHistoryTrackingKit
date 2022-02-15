@@ -17,7 +17,7 @@ import XCTest
 class MergerTests: XCTestCase {
     let storeURL = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask)
         .first?
-        .appendingPathComponent("TestDB.sqlite") ?? URL(fileURLWithPath: "")
+        .appendingPathComponent("PersistentHistoryTrackKitMergeTest.sqlite") ?? URL(fileURLWithPath: "")
 
     override func tearDown() async throws {
         try? FileManager.default.removeItem(at: storeURL)

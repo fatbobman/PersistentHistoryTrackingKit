@@ -17,9 +17,10 @@ import XCTest
 class CleanerTests: XCTestCase {
     let storeURL = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask)
         .first?
-        .appendingPathComponent("TestDB.sqlite") ?? URL(fileURLWithPath: "")
+        .appendingPathComponent("PersistentHistoryTrackKitCleanTest.sqlite") ?? URL(fileURLWithPath: "")
 
     override func tearDown() async throws {
+        try await Task.sleep(seconds: 2)
         try? FileManager.default.removeItem(at: storeURL)
         try? FileManager.default.removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-wal"))
         try? FileManager.default.removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-shm"))

@@ -92,7 +92,7 @@ class TimestampManagerTests: XCTestCase {
     }
 
     // 部分author设置了时间戳，已触及阈值日期
-    func testPartOfAuthorsHaveUpdatedTimestampAndTouchedThreshould() {
+    func testPartOfAuthorsHaveUpdatedTimestampAndTouchedThreshold() {
         // given
         let maxDuration = 3000.0
         let manager = TransactionTimestampManager(userDefaults: userDefaults, maximumDuration: maxDuration)

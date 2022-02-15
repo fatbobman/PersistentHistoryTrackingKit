@@ -17,7 +17,7 @@ import XCTest
 class FetcherTest: XCTestCase {
     let storeURL = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask)
         .first?
-        .appendingPathComponent("PersistentHistoryKitTestDB.sqlite") ?? URL(fileURLWithPath: "")
+        .appendingPathComponent("PersistentHistoryKitFetcherTest.sqlite") ?? URL(fileURLWithPath: "")
 
     override func tearDown() async throws {
         try? FileManager.default.removeItem(at: storeURL)
