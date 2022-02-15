@@ -67,20 +67,17 @@ public struct PersistentHistoryTrackKitManualCleaner {
     let timestampManager: TransactionTimestampManager
     let authors: [String]
     let logger: PersistentHistoryTrackKitLoggerProtocol
-    let enableLog: Bool
     let logLevel: Int
 
     init(clear: PersistentHistoryTrackKitCleaner,
          timestampManager: TransactionTimestampManager,
          logger: PersistentHistoryTrackKitLoggerProtocol,
-         enableLog: Bool,
          logLevel: Int,
          authors: [String]) {
         self.cleaner = clear
         self.timestampManager = timestampManager
         self.logger = logger
         self.authors = authors
-        self.enableLog = enableLog
         self.logLevel = logLevel
     }
 
@@ -96,7 +93,7 @@ public struct PersistentHistoryTrackKitManualCleaner {
 
     /// 发送日志
     func sendMessage(type: PersistentHistoryTrackKitLogType, level: Int, message: String) {
-        guard enableLog, level <= logLevel else { return }
+        guard level <= logLevel else { return }
         logger.log(type: type, message: message)
     }
 }

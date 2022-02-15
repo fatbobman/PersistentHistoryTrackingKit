@@ -85,7 +85,7 @@ final class PersistentHistoryTrackKitTests: XCTestCase {
         anotherContext.retainsRegisteredObjects = true
 
         let kit = PersistentHistoryTrackKit(
-            container: container1,
+            viewContext: container1.viewContext,
             contexts: [viewContext, anotherContext], // test merge to multi context
             currentAuthor: AppActor.app1.rawValue,
             authors: authors,

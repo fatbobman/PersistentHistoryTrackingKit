@@ -16,30 +16,40 @@ import Foundation
 // swiftlint:disable line_length
 
 public final class PersistentHistoryTrackKit {
-    /// 日志显示等级，从1-3级。数字越大信息越详尽
+    /// 日志显示等级，从0-2级。0 关闭 2 最详尽
     public var logLevel: Int
-    /// 日志开关
-    public var enableLog: Bool
 
+    /// 清除策略
     var strategy: TransactionCleanStrategyProtocol
 
+    /// 当前 transaction 的 author
     let currentAuthor: String
+
+    /// 全部的 authors （包括app group当中所有使用同一数据库的成员以及用于批量操作的author）
     let authors: [String]
+
     /// 需要被合并的上下文，通常是视图上下文。可以是多个
     let contexts: [NSManagedObjectContext]
+
     /// transaction 最长可以保存的时间（秒）。如果在改时间内仍无法获取到全部的 author 更新时间戳，
     /// 将返回从当前时间剪去该秒数的日期 Date().addingTimeInterval(-1 * abs(maximumDuration))
     let maximumDuration: TimeInterval
+
     /// 在 UserDefaults 中保存时间戳 Key 的前缀。
     let uniqueString: String
+
     /// 日志管理器
     let logger: PersistentHistoryTrackKitLoggerProtocol
+
     /// 获取需要处理的 transaction
     let fetcher: PersistentHistoryTrackFetcher
+
     /// 合并transaction到指定的托管对象上下文中（contexts）
     let merger: PersistentHistoryTrackKitMerger
+
     /// transaction清除器，清除可确认的已被所有authors合并的transaction
     let cleaner: PersistentHistoryTrackKitCleaner
+
     /// 时间戳管理器，过去并更新合并事件戳
     let timestampManager: TransactionTimestampManager
 
@@ -110,12 +120,11 @@ public final class PersistentHistoryTrackKit {
 
     /// 发送日志
     func sendMessage(type: PersistentHistoryTrackKitLogType, level: Int, message: String) {
-        guard enableLog, level <= logLevel else { return }
+        guard level <= logLevel else { return }
         logger.log(type: type, message: message)
     }
 
     init(logLevel: Int,
-         enableLog: Bool,
          strategy: TransactionCleanStrategy,
          currentAuthor: String,
          allAuthor: [String],
@@ -127,7 +136,6 @@ public final class PersistentHistoryTrackKit {
          logger: PersistentHistoryTrackKitLoggerProtocol,
          autoStart: Bool) {
         self.logLevel = logLevel
-        self.enableLog = enableLog
         self.currentAuthor = currentAuthor
         self.authors = allAuthor
         self.contexts = contexts
@@ -222,7 +230,6 @@ public extension PersistentHistoryTrackKit {
             clear: cleaner,
             timestampManager: timestampManager,
             logger: logger,
-            enableLog: enableLog,
             logLevel: logLevel,
             authors: authors
         )
@@ -240,13 +247,11 @@ public extension PersistentHistoryTrackKit {
                      maximumDuration: TimeInterval = 60 * 60 * 24 * 7,
                      uniqueString: String = "PersistentHistoryTrackKit.lastToken.",
                      logger: PersistentHistoryTrackKitLoggerProtocol? = nil,
-                     enableLog: Bool = true,
                      logLevel: Int = 1,
                      autoStart: Bool = true) {
         let contexts = contexts ?? [viewContext]
         let logger = logger ?? PersistentHistoryTrackKitLogger()
         self.init(logLevel: logLevel,
-                  enableLog: enableLog,
                   strategy: cleanStrategy,
                   currentAuthor: currentAuthor,
                   allAuthor: authors,
@@ -269,14 +274,12 @@ public extension PersistentHistoryTrackKit {
                      maximumDuration: TimeInterval = 60 * 60 * 24 * 7,
                      uniqueString: String = "PersistentHistoryTrackKit.lastToken.",
                      logger: PersistentHistoryTrackKitLoggerProtocol? = nil,
-                     enableLog: Bool = true,
                      logLevel: Int = 1,
                      autoStart: Bool = true) {
         let viewContext = container.viewContext
         let contexts = contexts ?? [viewContext]
         let logger = logger ?? PersistentHistoryTrackKitLogger()
         self.init(logLevel: logLevel,
-                  enableLog: enableLog,
                   strategy: cleanStrategy,
                   currentAuthor: currentAuthor,
                   allAuthor: authors,
