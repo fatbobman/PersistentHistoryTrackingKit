@@ -2,6 +2,8 @@
 
 Helps you easily handle Core Data's Persistent History Tracking
 
+![](https://img.shields.io/badge/Platform%20Compatibility-iOS%20|%20macOS%20|%20tvOS%20|%20watchOs-red) ![](https://img.shields.io/badge/Swift%20Compatibility-5.5-red)
+
 [中文版说明](https://github.com/fatbobman/PersistentHistoryTrackingKit/blob/main/READMECN.md)
 
 ## What's This？

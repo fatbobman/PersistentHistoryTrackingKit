@@ -2,6 +2,8 @@
 
 帮助您轻松处理 Core Data 的持久性历史跟踪。
 
+![](https://img.shields.io/badge/Platform%20Compatibility-iOS%20|%20macOS%20|%20tvOS%20|%20watchOs-red) ![](https://img.shields.io/badge/Swift%20Compatibility-5.5-red)
+
 ## What's This？
 
 > Use persistent history tracking to determine what changes have occurred in the store since the enabling of persistent history tracking.  —— Apple Documentation
