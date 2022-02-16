@@ -68,7 +68,7 @@ public struct PersistentHistoryTrackingKitManualCleaner {
     let timestampManager: TransactionTimestampManager
     let authors: [String]
     let logger: PersistentHistoryTrackingKitLoggerProtocol
-    let logLevel: Int
+    public var logLevel: Int
 
     init(clear: PersistentHistoryTrackingKitCleaner,
          timestampManager: TransactionTimestampManager,
