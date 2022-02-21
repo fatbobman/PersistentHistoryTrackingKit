@@ -16,7 +16,7 @@ import XCTest
 class LoggerTests: XCTestCase {
     func testLogger() throws {
         // given
-        let logger = PersistentHistoryTrackingKitLogger()
+        let logger = DefaultLogger()
         // when
         logger.log(type: .info, message: "hello")
     }

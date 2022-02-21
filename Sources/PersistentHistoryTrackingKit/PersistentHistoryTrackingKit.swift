@@ -260,7 +260,7 @@ public extension PersistentHistoryTrackingKit {
                      logLevel: Int = 1,
                      autoStart: Bool = true) {
         let contexts = contexts ?? [viewContext]
-        let logger = logger ?? PersistentHistoryTrackingKitLogger()
+        let logger = logger ?? DefaultLogger()
         self.init(logLevel: logLevel,
                   strategy: cleanStrategy,
                   currentAuthor: currentAuthor,
@@ -290,7 +290,7 @@ public extension PersistentHistoryTrackingKit {
                      autoStart: Bool = true) {
         let viewContext = container.viewContext
         let contexts = contexts ?? [viewContext]
-        let logger = logger ?? PersistentHistoryTrackingKitLogger()
+        let logger = logger ?? DefaultLogger()
         self.init(logLevel: logLevel,
                   strategy: cleanStrategy,
                   currentAuthor: currentAuthor,

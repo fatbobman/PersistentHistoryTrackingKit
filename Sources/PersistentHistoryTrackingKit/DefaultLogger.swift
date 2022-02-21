@@ -14,7 +14,7 @@ import Foundation
 
 /// PersistentHistoryTrackKit 日志的默认实现。
 /// 如果开发者没有使用自定义的日志实现，则 PersistentHistoryTrackKit 会默认使用本实现
-struct PersistentHistoryTrackingKitLogger: PersistentHistoryTrackingKitLoggerProtocol {
+struct DefaultLogger: PersistentHistoryTrackingKitLoggerProtocol {
     /// 输出日志
     /// - Parameters:
     ///   - type: 日志类型：info, debug, notice, error, fault
