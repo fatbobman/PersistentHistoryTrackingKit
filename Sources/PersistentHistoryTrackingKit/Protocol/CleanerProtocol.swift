@@ -13,7 +13,7 @@
 import CoreData
 import Foundation
 
-public protocol PersistentHistoryTrackingKitCleanerProtocol {
+public protocol TransactionCleanerProtocol {
     /// 用来提取Request和删除 transaction 的上下文。通常是私有上下文
     var backgroundContext: NSManagedObjectContext { get }
     /// 清理 transactions 时只处理 transactionAuthor 在该数组中的 transaction

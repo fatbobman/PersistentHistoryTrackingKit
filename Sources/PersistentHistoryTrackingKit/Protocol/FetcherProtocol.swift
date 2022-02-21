@@ -14,7 +14,7 @@ import CoreData
 import Foundation
 
 /// 获取从指定时期之后的，非当前author生成的 transaction
-protocol PersistentHistoryTrackingKitFetcherProtocol {
+protocol TransactionFetcherProtocol {
     /// 托管对象上下文。最好使用背景上下文
     var backgroundContext: NSManagedObjectContext { get }
     /// 当前的 author 名称。应用程序上下文的 transactionAuthor 需要与其一致

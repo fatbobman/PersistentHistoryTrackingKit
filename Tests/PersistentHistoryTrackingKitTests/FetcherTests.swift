@@ -31,7 +31,7 @@ class FetcherTest: XCTestCase {
         let container1 = CoreDataHelper.createNSPersistentContainer(storeURL: storeURL)
         let container2 = CoreDataHelper.createNSPersistentContainer(storeURL: storeURL)
         let app1backgroundContext = container1.newBackgroundContext()
-        let fetcher = PersistentHistoryTrackingFetcher(backgroundContext: app1backgroundContext,
+        let fetcher = Fetcher(backgroundContext: app1backgroundContext,
                                                     currentAuthor: AppActor.app1.rawValue,
                                                     allAuthors: [AppActor.app1.rawValue, AppActor.app2.rawValue])
 
@@ -76,7 +76,7 @@ class FetcherTest: XCTestCase {
         viewContext.transactionAuthor = AppActor.app1.rawValue
         batchContext.transactionAuthor = AppActor.app2.rawValue // 批量添加使用单独的author
 
-        let fetcher = PersistentHistoryTrackingFetcher(backgroundContext: backgroundContext,
+        let fetcher = Fetcher(backgroundContext: backgroundContext,
                                                     currentAuthor: AppActor.app1.rawValue,
                                                     allAuthors: [AppActor.app1.rawValue, AppActor.app2.rawValue])
 

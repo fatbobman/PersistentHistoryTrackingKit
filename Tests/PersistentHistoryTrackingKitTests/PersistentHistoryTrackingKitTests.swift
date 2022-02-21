@@ -17,7 +17,7 @@ final class PersistentHistoryTrackingKitTests: XCTestCase {
     }
 
     override func tearDown() async throws {
-        await sleep(seconds: 2)
+        await sleep(seconds: 3)
         try? FileManager.default.removeItem(at: storeURL)
         try? FileManager.default.removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-wal"))
         try? FileManager.default.removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-shm"))

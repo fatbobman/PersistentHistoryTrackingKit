@@ -13,7 +13,7 @@
 import CoreData
 import Foundation
 
-struct PersistentHistoryTrackKitingMerger: PersistentHistoryTrackingKitMergerProtocol {
+struct Merger: TransactionMergerProtocol {
     func callAsFunction(merge transactions: [NSPersistentHistoryTransaction],
                         into contexts: [NSManagedObjectContext]) {
         for transaction in transactions {

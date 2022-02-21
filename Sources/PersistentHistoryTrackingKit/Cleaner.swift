@@ -14,7 +14,7 @@ import CoreData
 import Foundation
 
 /// Persistent history transaction Cleaner
-struct PersistentHistoryTrackingKitCleaner: PersistentHistoryTrackingKitCleanerProtocol {
+struct Cleaner: TransactionCleanerProtocol {
     init(
         backgroundContext: NSManagedObjectContext,
         authors: [String]
@@ -64,13 +64,13 @@ struct PersistentHistoryTrackingKitCleaner: PersistentHistoryTrackingKitCleanerP
 ///
 /// 比如每次app进入后台时，执行清理任务。
 public struct PersistentHistoryTrackingKitManualCleaner {
-    let cleaner: PersistentHistoryTrackingKitCleaner
+    let cleaner: Cleaner
     let timestampManager: TransactionTimestampManager
     let authors: [String]
     let logger: PersistentHistoryTrackingKitLoggerProtocol
     public var logLevel: Int
 
-    init(clear: PersistentHistoryTrackingKitCleaner,
+    init(clear: Cleaner,
          timestampManager: TransactionTimestampManager,
          logger: PersistentHistoryTrackingKitLoggerProtocol,
          logLevel: Int,

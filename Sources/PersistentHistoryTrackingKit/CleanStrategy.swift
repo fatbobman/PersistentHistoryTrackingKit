@@ -24,7 +24,7 @@ public enum TransactionCleanStrategy {
 }
 
 /// 清理规则协议
-protocol TransactionCleanStrategyProtocol {
+protocol TransactionPurgePolicy {
     /// 在每次接收到 notification 时判断，是否可以进行清理
     mutating func allowedToClean() -> Bool
     init(strategy: TransactionCleanStrategy)
@@ -33,7 +33,7 @@ protocol TransactionCleanStrategyProtocol {
 /// 关闭策略。设置成该策略后，Kit中将不会执行清理任务
 /// 用于想手动控制清理任务执行的情况。
 /// 可以使用Kit的 生成可手动执行任务的清理实例
-struct TransactionCleanStrategyNone: TransactionCleanStrategyProtocol {
+struct TransactionCleanStrategyNone: TransactionPurgePolicy {
     func allowedToClean() -> Bool {
         false
     }
@@ -43,7 +43,7 @@ struct TransactionCleanStrategyNone: TransactionCleanStrategyProtocol {
 
 /// 按时间间隔实行清理策略。
 /// 设定间隔的秒数。每次执行清理任务时，应与上次清理时间之间至少保持设定的时间距离
-struct TransactionCleanStrategyByDuration: TransactionCleanStrategyProtocol {
+struct TransactionCleanStrategyByDuration: TransactionPurgePolicy {
     private var lastCleanTimestamp: Date?
     private let duration: TimeInterval
 
@@ -68,7 +68,7 @@ struct TransactionCleanStrategyByDuration: TransactionCleanStrategyProtocol {
 /// 按通知次数间隔实行清理策略
 ///
 /// 每接收到几次 notification 执行一次清理。 times = 1时，每次都会执行。 times = 3时，每三次执行一次清理
-struct TransactionCleanStrategyByNotification: TransactionCleanStrategyProtocol {
+struct TransactionCleanStrategyByNotification: TransactionPurgePolicy {
     private var count: Int
     private var times: Int
     init(strategy: TransactionCleanStrategy) {

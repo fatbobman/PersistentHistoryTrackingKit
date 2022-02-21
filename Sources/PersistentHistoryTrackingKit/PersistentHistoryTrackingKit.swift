@@ -20,7 +20,7 @@ public final class PersistentHistoryTrackingKit {
     public var logLevel: Int
 
     /// 清除策略
-    var strategy: TransactionCleanStrategyProtocol
+    var strategy: TransactionPurgePolicy
 
     /// 当前 transaction 的 author
     let currentAuthor: String
@@ -49,19 +49,19 @@ public final class PersistentHistoryTrackingKit {
     let logger: PersistentHistoryTrackingKitLoggerProtocol
 
     /// 获取需要处理的 transaction
-    let fetcher: PersistentHistoryTrackingFetcher
+    let fetcher: Fetcher
 
     /// 合并transaction到指定的托管对象上下文中（contexts）
-    let merger: PersistentHistoryTrackKitingMerger
+    let merger: Merger
 
     /// transaction清除器，清除可确认的已被所有authors合并的transaction
-    let cleaner: PersistentHistoryTrackingKitCleaner
+    let cleaner: Cleaner
 
     /// 时间戳管理器，过去并更新合并事件戳
     let timestampManager: TransactionTimestampManager
 
     /// 处理持久化历史跟踪事件的任务。可以通过start开启，stop停止。
-    var task = [Task<Void, Never>]()
+    var transactionProcessingTasks = [Task<Void, Never>]()
 
     /// 持久化存储协调器，用于缩小通知返回
     private let coordinator: NSPersistentStoreCoordinator
@@ -71,7 +71,7 @@ public final class PersistentHistoryTrackingKit {
     /// 创建处理 Transaction 的任务。
     ///
     /// 通过将持久化历史跟踪记录的通知转换成异步序列，实现了逐个处理的机制。
-    func createTask() -> Task<Void, Never> {
+    func createTransactionProcessingTask() -> Task<Void, Never> {
         Task {
             sendMessage(type: .info, level: 1, message: "Persistent History Track Kit Start")
             // 响应 notification
@@ -173,14 +173,14 @@ public final class PersistentHistoryTrackingKit {
             self.strategy = TransactionCleanStrategyByNotification(strategy: strategy)
         }
 
-        self.fetcher = PersistentHistoryTrackingFetcher(
+        self.fetcher = Fetcher(
             backgroundContext: backgroundContext,
             currentAuthor: currentAuthor,
             allAuthors: allAuthors
         )
 
-        self.merger = PersistentHistoryTrackKitingMerger()
-        self.cleaner = PersistentHistoryTrackingKitCleaner(backgroundContext: backgroundContext, authors: allAuthors)
+        self.merger = Merger()
+        self.cleaner = Cleaner(backgroundContext: backgroundContext, authors: allAuthors)
         self.timestampManager = TransactionTimestampManager(userDefaults: userDefaults, uniqueString: uniqueString)
         self.coordinator = coordinator
         self.backgroundContext = backgroundContext
@@ -198,18 +198,18 @@ public final class PersistentHistoryTrackingKit {
 public extension PersistentHistoryTrackingKit {
     /// 启动处理任务
     func start() {
-        if !task.isEmpty {
-            stop()
+        guard transactionProcessingTasks.isEmpty else {
+            return
         }
-        task.append(createTask())
+        transactionProcessingTasks.append(createTransactionProcessingTask())
     }
 
     /// 停止处理任务
     func stop() {
-        task.forEach {
+        transactionProcessingTasks.forEach {
             $0.cancel()
         }
-        task.removeAll()
+        transactionProcessingTasks.removeAll()
     }
 }
 
