@@ -29,27 +29,32 @@ struct Cleaner: TransactionCleanerProtocol {
     func cleanTransaction(before timestamp: Date?) throws {
         guard let timestamp = timestamp else { return }
         try backgroundContext.performAndWait {
-            let request = getRequest(before: timestamp)
+            let request = getPersistentStoreRequest(before: timestamp, for: authors)
             try backgroundContext.execute(request)
         }
     }
 
     // make a request for delete transactions before timestamp
-    private func getRequest(before timestamp: Date) -> NSPersistentStoreRequest {
+    func getPersistentStoreRequest(before timestamp: Date, for allAuthors: [String]) -> NSPersistentStoreRequest {
         let historyStoreRequest = NSPersistentHistoryChangeRequest.deleteHistory(before: timestamp)
         if let fetchRequest = NSPersistentHistoryTransaction.fetchRequest {
-            var predicates = [NSPredicate]()
-            for author in authors {
-                let predicate = NSPredicate(format: "%K = %@",
-                                            #keyPath(NSPersistentHistoryTransaction.author),
-                                            author)
-                predicates.append(predicate)
-            }
-            let compoundPredicate = NSCompoundPredicate(orPredicateWithSubpredicates: predicates)
-            fetchRequest.predicate = compoundPredicate
+            fetchRequest.predicate = createPredicateForAllAuthors(allAuthors: authors)
             historyStoreRequest.fetchRequest = fetchRequest
         }
         return historyStoreRequest
+    }
+
+    /// create predicate for all authors
+    func createPredicateForAllAuthors(allAuthors: [String]) -> NSPredicate {
+        var predicates = [NSPredicate]()
+        for author in allAuthors {
+            let predicate = NSPredicate(format: "%K = %@",
+                                        #keyPath(NSPersistentHistoryTransaction.author),
+                                        author)
+            predicates.append(predicate)
+        }
+        let compoundPredicate = NSCompoundPredicate(orPredicateWithSubpredicates: predicates)
+        return compoundPredicate
     }
 }
 

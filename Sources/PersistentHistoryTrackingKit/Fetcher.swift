@@ -32,8 +32,8 @@ struct Fetcher: TransactionFetcherProtocol {
     /// - Returns:[NSPersistentHistoryTransaction]
     func fetchTransactions(from date: Date) throws -> [NSPersistentHistoryTransaction] {
         try backgroundContext.performAndWait {
-            let fetchRequest = createFetchRequest(from: date)
-            let historyResult = try backgroundContext.execute(fetchRequest) as? NSPersistentHistoryResult
+            let historyChangeRequest = createHistoryChangeRequest(from: date)
+            let historyResult = try backgroundContext.execute(historyChangeRequest) as? NSPersistentHistoryResult
             return historyResult?.result as? [NSPersistentHistoryTransaction] ?? []
         }
     }
@@ -42,20 +42,25 @@ struct Fetcher: TransactionFetcherProtocol {
     /// 所有不是当前 author 产生的 transaction。
     /// - Parameter date: 获取从该日期之后产生的 transaction
     /// - Returns: NSPersistentHistoryChangeRequest
-    private func createFetchRequest(from date: Date) -> NSPersistentHistoryChangeRequest {
+    func createHistoryChangeRequest(from date: Date) -> NSPersistentHistoryChangeRequest {
         let historyChangeRequest = NSPersistentHistoryChangeRequest.fetchHistory(after: date)
         if let fetchRequest = NSPersistentHistoryTransaction.fetchRequest {
-            var predicates = [NSPredicate]()
-            for author in allAuthors where author != currentAuthor {
-                let predicate = NSPredicate(format: "%K = %@",
-                                            #keyPath(NSPersistentHistoryTransaction.author),
-                                            author)
-                predicates.append(predicate)
-            }
-            let compoundPredicate = NSCompoundPredicate(type: .or, subpredicates: predicates)
-            fetchRequest.predicate = compoundPredicate
+            fetchRequest.predicate = createPredicateForOtherAuthors(currentAuthor: currentAuthor, allAuthors: allAuthors)
             historyChangeRequest.fetchRequest = fetchRequest
         }
         return historyChangeRequest
+    }
+
+    /// 创建排除当前author的查询谓词
+    func createPredicateForOtherAuthors(currentAuthor:String,allAuthors:[String]) -> NSPredicate{
+        var predicates = [NSPredicate]()
+        for author in allAuthors where author != currentAuthor {
+            let predicate = NSPredicate(format: "%K = %@",
+                                        #keyPath(NSPersistentHistoryTransaction.author),
+                                        author)
+            predicates.append(predicate)
+        }
+        let compoundPredicate = NSCompoundPredicate(type: .or, subpredicates: predicates)
+        return compoundPredicate
     }
 }

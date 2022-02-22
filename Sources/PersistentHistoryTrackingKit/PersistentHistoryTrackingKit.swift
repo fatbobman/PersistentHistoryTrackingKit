@@ -85,45 +85,92 @@ public final class PersistentHistoryTrackingKit {
                             message: "Get a `NSPersistentStoreRemoteChange` notification")
 
                 // fetch
-                let lastTimestamp = timestampManager
-                    .getLastHistoryTransactionTimestamp(for: currentAuthor) ?? Date.distantPast
-                sendMessage(type: .info,
-                            level: 2,
-                            message: "The last history transaction timestamp for \(allAuthors) is \(Self.dateFormatter.string(from: lastTimestamp))")
-                var transactions = [NSPersistentHistoryTransaction]()
-                do {
-                    transactions = try fetcher.fetchTransactions(from: lastTimestamp)
-                    let changesCount = transactions
-                        .map { $0.changes?.count ?? 0 }
-                        .reduce(0, +)
-                    sendMessage(type: .info, level: 2, message: "There are \(transactions.count) transactions with \(changesCount) changes related to `\(currentAuthor)` in the query")
-                } catch {
-                    sendMessage(type: .error, level: 1, message:
-                        "Fetch transaction error: \(error.localizedDescription)")
-                    continue
-                }
+                let transactions = fetchTransactions(
+                    for: currentAuthor,
+                    since: timestampManager,
+                    by: fetcher,
+                    logger: sendMessage
+                )
 
                 // merge
-                guard let lastTimestamp = transactions.last?.timestamp else { continue }
-                merger(merge: transactions, into: contexts)
-                timestampManager.updateLastHistoryTransactionTimestamp(for: currentAuthor, to: lastTimestamp)
-                sendMessage(type: .info,
-                            level: 2,
-                            message: "merge \(transactions.count) transactions, update `\(currentAuthor)`'s timestamp to \(Self.dateFormatter.string(from: lastTimestamp))")
+                mergeTransactionsInContexts(
+                    transactions: transactions,
+                    by: merger,
+                    timestampManager: timestampManager,
+                    logger: sendMessage
+                )
 
                 // clean
-                guard strategy.allowedToClean() else { continue }
-                let cleanTimestamp = timestampManager.getLastCommonTransactionTimestamp(in: allAuthors, exclude: batchAuthors)
-                do {
-                    try cleaner.cleanTransaction(before: cleanTimestamp)
-                    sendMessage(type: .info, level: 2, message: "Delete transaction success")
-                } catch {
-                    sendMessage(type: .error, level: 1, message: "Delete transaction error: \(error.localizedDescription)")
-                }
+                cleanTransactions(
+                    beforeDate: timestampManager,
+                    allAuthors: allAuthors,
+                    batchAuthors: batchAuthors,
+                    by: cleaner,
+                    logger: sendMessage
+                )
             }
             sendMessage(type: .info, level: 1, message: "Persistent History Track Kit Stop")
         }
     }
+
+    /// get all new transactions since the last merge date
+    func fetchTransactions(
+        for currentAuthor: String,
+        since lastTimestampManager: TransactionTimestampManagerProtocol,
+        by fetcher: TransactionFetcherProtocol,
+        logger: Logger?
+    ) -> [NSPersistentHistoryTransaction] {
+        let lastTimestamp = lastTimestampManager
+            .getLastHistoryTransactionTimestamp(for: currentAuthor) ?? Date.distantPast
+        logger?(.info, 2,
+                "The last history transaction timestamp for \(allAuthors) is \(Self.dateFormatter.string(from: lastTimestamp))")
+        var transactions = [NSPersistentHistoryTransaction]()
+        do {
+            transactions = try fetcher.fetchTransactions(from: lastTimestamp)
+            let changesCount = transactions
+                .map { $0.changes?.count ?? 0 }
+                .reduce(0, +)
+            let message = "There are \(transactions.count) transactions with \(changesCount) changes related to `\(currentAuthor)` in the query"
+            logger?(.info, 2, message)
+        } catch {
+            logger?(.error, 1, "Fetch transaction error: \(error.localizedDescription)")
+        }
+        return transactions
+    }
+
+    /// merge transactions in contexts
+    func mergeTransactionsInContexts(
+        transactions: [NSPersistentHistoryTransaction],
+        by merger: TransactionMergerProtocol,
+        timestampManager: TransactionTimestampManagerProtocol,
+        logger: Logger?
+    ) {
+        guard let lastTimestamp = transactions.last?.timestamp else { return }
+        merger(merge: transactions, into: contexts)
+        timestampManager.updateLastHistoryTransactionTimestamp(for: currentAuthor, to: lastTimestamp)
+        let message = "merge \(transactions.count) transactions, update `\(currentAuthor)`'s timestamp to \(Self.dateFormatter.string(from: lastTimestamp))"
+        logger?(.info, 2, message)
+    }
+
+    /// clean up all transactions that has been merged by all contexts
+    func cleanTransactions(
+        beforeDate timestampManager: TransactionTimestampManagerProtocol,
+        allAuthors: [String],
+        batchAuthors: [String],
+        by cleaner: TransactionCleanerProtocol,
+        logger: Logger?
+    ) {
+        guard strategy.allowedToClean() else { return }
+        let cleanTimestamp = timestampManager.getLastCommonTransactionTimestamp(in: allAuthors, exclude: batchAuthors)
+        do {
+            try cleaner.cleanTransaction(before: cleanTimestamp)
+            logger?(.info, 2, "Delete transaction success")
+        } catch {
+            logger?(.error, 1, "Delete transaction error: \(error.localizedDescription)")
+        }
+    }
+
+    typealias Logger = (PersistentHistoryTrackingKitLogType, Int, String) -> Void
 
     /// 发送日志
     func sendMessage(type: PersistentHistoryTrackingKitLogType, level: Int, message: String) {
