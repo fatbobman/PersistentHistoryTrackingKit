@@ -16,14 +16,20 @@ import XCTest
 class LoggerTests: XCTestCase {
     func testLogger() throws {
         // given
-        let logger = DefaultLogger()
+        let logger = LoggerSpy()
         // when
         logger.log(type: .info, message: "hello")
+        // then
+        XCTAssertEqual(LoggerSpy.message, "hello")
+        XCTAssertEqual(LoggerSpy.type, .info)
     }
 }
 
-struct MyLogger: PersistentHistoryTrackingKitLoggerProtocol {
+struct LoggerSpy: PersistentHistoryTrackingKitLoggerProtocol {
+    static var type:PersistentHistoryTrackingKitLogType?
+    static var message:String?
     func log(type: PersistentHistoryTrackingKitLogType, message: String) {
-        print("[\(type.rawValue.uppercased())] : message")
+        Self.type = type
+        Self.message = message
     }
 }

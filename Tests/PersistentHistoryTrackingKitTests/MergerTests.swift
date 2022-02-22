@@ -55,22 +55,13 @@ class MergerTests: XCTestCase {
         else {
             fatalError()
         }
-
-        // when
         app1viewContext.retainsRegisteredObjects = true // 为检查保持托管对象不清除
         app1backgroundContext.retainsRegisteredObjects = true
 
-        // then
-
-        app1viewContext.performAndWait {
-            XCTAssertNil(app1viewContext.registeredObject(for: objectID))
-        }
-        app1backgroundContext.performAndWait {
-            XCTAssertNil(app1backgroundContext.registeredObject(for: objectID))
-        }
-
+        // when
         merger(merge: transactions, into: [app1viewContext, app1backgroundContext])
 
+        // then
         app1viewContext.performAndWait {
             XCTAssertNotNil(app1viewContext.registeredObject(for: objectID))
         }
@@ -97,7 +88,7 @@ class MergerTests: XCTestCase {
                                                     allAuthors: [AppActor.app1.rawValue, AppActor.app2.rawValue])
 
         let merger = Merger()
-        // when insert by batch
+        // insert by batch
         try batchContext.performAndWait {
             var count = 0
 
@@ -117,16 +108,14 @@ class MergerTests: XCTestCase {
         else {
             fatalError()
         }
-
-        // then
         viewContext.retainsRegisteredObjects = true
-
         viewContext.performAndWait {
             XCTAssertNil(viewContext.registeredObject(for: objectID))
         }
-
+        // when
         merger(merge: transactions, into: [viewContext])
 
+        // then
         viewContext.performAndWait {
             XCTAssertNotNil(viewContext.registeredObject(for: objectID))
         }
