@@ -15,7 +15,7 @@ import CoreData
 import XCTest
 
 class MergerTests: XCTestCase {
-    let storeURL = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask)
+    let storeURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)
         .first?
         .appendingPathComponent("PersistentHistoryTrackKitMergeTest.sqlite") ?? URL(fileURLWithPath: "")
 

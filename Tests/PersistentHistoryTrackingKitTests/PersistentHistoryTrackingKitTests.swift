@@ -3,7 +3,7 @@ import PersistentHistoryTrackingKit
 import XCTest
 
 final class PersistentHistoryTrackingKitTests: XCTestCase {
-    let storeURL = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask)
+    let storeURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)
         .first?
         .appendingPathComponent("PersistentHistoryKitTestDB.sqlite") ?? URL(fileURLWithPath: "")
     let uniqueString = "PersistentHistoryTrackingKit.lastToken.tests."
