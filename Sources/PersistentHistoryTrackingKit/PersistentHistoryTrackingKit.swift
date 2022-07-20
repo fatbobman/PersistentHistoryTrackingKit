@@ -28,6 +28,11 @@ public final class PersistentHistoryTrackingKit {
     /// 全部的 authors （包括app group当中所有使用同一数据库的成员以及用于批量操作的author）
     let allAuthors: [String]
 
+    /// 是否合并由 NSPersistentCloudContainer 导入的网络数据
+    /// 如果你直接在 NSPersistentCloudContainer 上使用 Persistent History Tracking ，可以直接使用默认值 false，此时，NSPersistentCloudContainer 将自动处理合并事宜
+    /// 此选项通常用于 NSPersistentContainer 之上，将另一个 CloudContainer 导入的数据合并到当前的 container 的 viewContext 中。
+    let includingCloudKitMirroring: Bool
+
     /// 用于批量操作的 authors
     ///
     /// 由于批量操作的 author 只会生成 transaction，并不会对其他 author 产生的 transaction 进行合并和清除。
@@ -182,6 +187,7 @@ public final class PersistentHistoryTrackingKit {
          strategy: TransactionCleanStrategy,
          currentAuthor: String,
          allAuthors: [String],
+         includingCloudKitMirroring: Bool = false,
          batchAuthors: [String],
          viewContext: NSManagedObjectContext,
          contexts: [NSManagedObjectContext],
@@ -193,6 +199,7 @@ public final class PersistentHistoryTrackingKit {
         self.logLevel = logLevel
         self.currentAuthor = currentAuthor
         self.allAuthors = allAuthors
+        self.includingCloudKitMirroring = includingCloudKitMirroring
         self.batchAuthors = batchAuthors
         self.contexts = contexts
         self.maximumDuration = maximumDuration
@@ -223,7 +230,8 @@ public final class PersistentHistoryTrackingKit {
         self.fetcher = Fetcher(
             backgroundContext: backgroundContext,
             currentAuthor: currentAuthor,
-            allAuthors: allAuthors
+            allAuthors: allAuthors,
+            includingCloudKitMirroring: includingCloudKitMirroring
         )
 
         self.merger = Merger()

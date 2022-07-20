@@ -17,10 +17,15 @@ import Foundation
 struct Fetcher: TransactionFetcherProtocol {
     init(backgroundContext: NSManagedObjectContext,
          currentAuthor: String,
-         allAuthors: [String]) {
+         allAuthors: [String],
+         includingCloudKitMirroring: Bool = false) {
         self.backgroundContext = backgroundContext
         self.currentAuthor = currentAuthor
-        self.allAuthors = allAuthors
+        if includingCloudKitMirroring {
+            self.allAuthors = Array(Set(allAuthors + Self.cloudMirrorAuthors))
+        } else {
+            self.allAuthors = Array(Set(allAuthors))
+        }
     }
 
     var backgroundContext: NSManagedObjectContext
@@ -52,7 +57,7 @@ struct Fetcher: TransactionFetcherProtocol {
     }
 
     /// 创建排除当前author的查询谓词
-    func createPredicateForOtherAuthors(currentAuthor:String,allAuthors:[String]) -> NSPredicate{
+    func createPredicateForOtherAuthors(currentAuthor: String, allAuthors: [String]) -> NSPredicate {
         var predicates = [NSPredicate]()
         for author in allAuthors where author != currentAuthor {
             let predicate = NSPredicate(format: "%K = %@",

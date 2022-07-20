@@ -25,6 +25,30 @@ class FetcherTest: XCTestCase {
         try? FileManager.default.removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-shm"))
     }
 
+    func testFetcherAuthorsIncludingCloudKit() async throws {
+        // given
+        let container1 = CoreDataHelper.createNSPersistentContainer(storeURL: storeURL)
+        let app1backgroundContext = container1.newBackgroundContext()
+
+        // when
+        let fetcher1 = Fetcher(
+            backgroundContext: app1backgroundContext,
+            currentAuthor: AppActor.app1.rawValue,
+            allAuthors: [AppActor.app1.rawValue, AppActor.app2.rawValue]
+        )
+        let fetcher2 = Fetcher(
+            backgroundContext:
+            app1backgroundContext, currentAuthor: AppActor.app1.rawValue,
+            allAuthors: [AppActor.app1.rawValue, AppActor.app2.rawValue],
+            includingCloudKitMirroring: true
+        )
+
+        // then
+        XCTAssertEqual(fetcher1.allAuthors.count, 2)
+        XCTAssertEqual(fetcher2.allAuthors.count, 3)
+        XCTAssertTrue(fetcher2.allAuthors.contains("NSCloudKitMirroringDelegate.import"))
+    }
+
     /// 使用两个协调器，模拟在app group的情况下，从不同的app或app extension中操作数据库。
     func testFetcherInAppGroup() async throws {
         // given
@@ -32,8 +56,8 @@ class FetcherTest: XCTestCase {
         let container2 = CoreDataHelper.createNSPersistentContainer(storeURL: storeURL)
         let app1backgroundContext = container1.newBackgroundContext()
         let fetcher = Fetcher(backgroundContext: app1backgroundContext,
-                                                    currentAuthor: AppActor.app1.rawValue,
-                                                    allAuthors: [AppActor.app1.rawValue, AppActor.app2.rawValue])
+                              currentAuthor: AppActor.app1.rawValue,
+                              allAuthors: [AppActor.app1.rawValue, AppActor.app2.rawValue])
 
         let app1viewContext = container1.viewContext
         app1viewContext.transactionAuthor = AppActor.app1.rawValue
@@ -77,8 +101,8 @@ class FetcherTest: XCTestCase {
         batchContext.transactionAuthor = AppActor.app2.rawValue // 批量添加使用单独的author
 
         let fetcher = Fetcher(backgroundContext: backgroundContext,
-                                                    currentAuthor: AppActor.app1.rawValue,
-                                                    allAuthors: [AppActor.app1.rawValue, AppActor.app2.rawValue])
+                              currentAuthor: AppActor.app1.rawValue,
+                              allAuthors: [AppActor.app1.rawValue, AppActor.app2.rawValue])
 
         // when insert by batch
         viewContext.performAndWait {

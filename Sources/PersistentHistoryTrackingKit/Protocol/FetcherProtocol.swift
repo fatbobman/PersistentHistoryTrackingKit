@@ -26,3 +26,7 @@ protocol TransactionFetcherProtocol {
     /// 获取指定日期后的所有 Transaction。
     func fetchTransactions(from date: Date) throws -> [NSPersistentHistoryTransaction]
 }
+
+extension TransactionFetcherProtocol {
+    static var cloudMirrorAuthors: [String] { ["NSCloudKitMirroringDelegate.import"] }
+}
