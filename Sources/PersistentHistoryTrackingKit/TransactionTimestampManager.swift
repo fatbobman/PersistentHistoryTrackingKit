@@ -32,23 +32,8 @@ struct TransactionTimestampManager: TransactionTimestampManagerProtocol {
                 getLastHistoryTransactionTimestamp(for: author)
             }
         // 没有任何author记录时间的情况下，直接返回nil
-        guard let lastTimestamp = lastTimestamps.min() else { return nil }
-
-        // 如果全部的author都记录了时间戳，则返回最早的日期。
-        if lastTimestamps.count == shouldCheckAuthors.count {
-            // 返回所有auhtor时间戳中最早的日期）
-            return lastTimestamp
-        } else {
-            // 阈值日期
-            let thresholdDate = Date().addingTimeInterval(-1 * abs(maximumDuration))
-            if lastTimestamp < thresholdDate {
-                // 在最长持续时间之内仍未收集到全部author的时间戳，则返回阈值日期
-                return thresholdDate
-            } else {
-                // 继续等待其他的author时间戳
-                return nil
-            }
-        }
+        let lastTimestamp = lastTimestamps.min() ?? Date().addingTimeInterval(-1 * abs(maximumDuration))
+        return lastTimestamp
     }
 
     func updateLastHistoryTransactionTimestamp(for author: String, to newDate: Date?) {

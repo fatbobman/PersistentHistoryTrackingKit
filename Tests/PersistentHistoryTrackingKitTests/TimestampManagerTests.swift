@@ -40,14 +40,15 @@ class TimestampManagerTests: XCTestCase {
 
     func testNoAuthorUpdateTimestamp() {
         // given
-        let manager = TransactionTimestampManager(userDefaults: userDefaults, uniqueString: uniqueString)
+        let max:TimeInterval = 100
+        let manager = TransactionTimestampManager(userDefaults: userDefaults, maximumDuration: max, uniqueString: uniqueString)
         let authors = AppActor.allCases.map { $0.rawValue }
 
         // when
         let lastTimestamp = manager.getLastCommonTransactionTimestamp(in: authors)
 
         // then
-        XCTAssertNil(lastTimestamp)
+        XCTAssertNotNil(lastTimestamp)
     }
 
     func testAllAuthorsHaveUpdatedTimestamp() {
@@ -88,7 +89,7 @@ class TimestampManagerTests: XCTestCase {
         let lastTimestampe = manager.getLastCommonTransactionTimestamp(in: authors)
 
         // then
-        XCTAssertNil(lastTimestampe)
+        XCTAssertNotNil(lastTimestampe)
     }
 
     // 部分author设置了时间戳，已触及阈值日期
@@ -115,7 +116,7 @@ class TimestampManagerTests: XCTestCase {
         // then
         XCTAssertNotNil(lastTimestamp)
         if let lastTimestamp = lastTimestamp {
-            XCTAssertGreaterThan(lastTimestamp, date1)
+            XCTAssertLessThan(lastTimestamp, date1)
         }
     }
 
@@ -135,7 +136,7 @@ class TimestampManagerTests: XCTestCase {
         let lastDate1 = manager.getLastCommonTransactionTimestamp(in: authors)
 
         // then
-        XCTAssertNil(lastDate1)
+        XCTAssertNotNil(lastDate1)
 
         // when
         let lastDate2 = manager.getLastCommonTransactionTimestamp(in: authors, exclude: batchAuthors)
