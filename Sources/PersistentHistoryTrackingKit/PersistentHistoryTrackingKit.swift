@@ -236,7 +236,7 @@ public final class PersistentHistoryTrackingKit {
 
         self.merger = Merger()
         self.cleaner = Cleaner(backgroundContext: backgroundContext, authors: allAuthors)
-        self.timestampManager = TransactionTimestampManager(userDefaults: userDefaults, uniqueString: uniqueString)
+        self.timestampManager = TransactionTimestampManager(userDefaults: userDefaults, maximumDuration: maximumDuration, uniqueString: uniqueString)
         self.coordinator = coordinator
         self.backgroundContext = backgroundContext
 
