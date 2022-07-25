@@ -83,6 +83,10 @@ allAuthors: ["appAuthor", "extensionAuthor"],
 allAuthors: ["appAuthor", "extensionAuthor", "appBatchAuthor"],
 ```
 
+### includingCloudKitMirroring
+
+是否合并由 Core Data with CloudKit 导入的网络数据，仅用于需要实时切换 Core Data 云同步状态的场景。具体用法请参阅 [实时切换 Core Data 的云同步状态](https://www.fatbobman.com/posts/real-time-switching-of-cloud-syncs-status/)
+
 ### batchAuthors 
 
 某些 author（例如用于批量更改的后台上下文）只会创建事务，并不会对其他 author 的产生事务进行合并和清理。通过将其设置在 batchAuthors 中，可以加速该类事务的清理。
