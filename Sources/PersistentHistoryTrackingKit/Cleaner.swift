@@ -29,19 +29,23 @@ struct Cleaner: TransactionCleanerProtocol {
     func cleanTransaction(before timestamp: Date?) throws {
         guard let timestamp = timestamp else { return }
         try backgroundContext.performAndWait {
-            let request = getPersistentStoreRequest(before: timestamp, for: authors)
-            try backgroundContext.execute(request)
+            if let request = getPersistentStoreRequest(before: timestamp, for: authors) {
+                try backgroundContext.execute(request)
+            }
         }
     }
 
     // make a request for delete transactions before timestamp
-    func getPersistentStoreRequest(before timestamp: Date, for allAuthors: [String]) -> NSPersistentStoreRequest {
+    func getPersistentStoreRequest(before timestamp: Date, for allAuthors: [String]) -> NSPersistentStoreRequest? {
         let historyStoreRequest = NSPersistentHistoryChangeRequest.deleteHistory(before: timestamp)
         if let fetchRequest = NSPersistentHistoryTransaction.fetchRequest {
             fetchRequest.predicate = createPredicateForAllAuthors(allAuthors: authors)
             historyStoreRequest.fetchRequest = fetchRequest
+            return historyStoreRequest
         }
-        return historyStoreRequest
+        else {
+            return nil
+        }
     }
 
     /// create predicate for all authors
