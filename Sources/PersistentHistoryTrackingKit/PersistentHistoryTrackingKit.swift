@@ -12,6 +12,7 @@
 
 import CoreData
 import Foundation
+import AsyncAlgorithms
 
 // swiftlint:disable line_length
 
@@ -84,7 +85,7 @@ public final class PersistentHistoryTrackingKit {
                 for: .NSPersistentStoreRemoteChange,
                 object: coordinator
             )
-            for await _ in publisher.sequence where !Task.isCancelled {
+            for await _ in publisher.values.buffer(policy: .unbounded) where !Task.isCancelled {
                 sendMessage(type: .info,
                             level: 2,
                             message: "Get a `NSPersistentStoreRemoteChange` notification")
@@ -364,3 +365,5 @@ public extension PersistentHistoryTrackingKit {
                   autoStart: autoStart)
     }
 }
+
+extension Notification:@unchecked Sendable {}
