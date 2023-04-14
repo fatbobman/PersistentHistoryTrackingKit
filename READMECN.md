@@ -24,7 +24,7 @@
 * 更新当前应用程序的合并事务时间
 * 清理已被所有应用合并后的事务
 
-更具体的工作原理和细节，可以阅读  [在 CoreData 中使用持久化历史跟踪](https://fatbobman.com/posts/persistentHistoryTracking/) 或 [Persistent History Tracking in Core Data](https://www.avanderlee.com/swift/persistent-history-tracking-core-data/) 。
+更具体的工作原理和细节，可以阅读  [在 CoreData 中使用持久化历史跟踪](https://www.fatbobman.com/posts/persistentHistoryTracking/) 或 [Persistent History Tracking in Core Data](https://www.avanderlee.com/swift/persistent-history-tracking-core-data/) 。
 
 ## 使用方法
 
