@@ -2,6 +2,7 @@ import CoreData
 import PersistentHistoryTrackingKit
 import XCTest
 
+@MainActor
 final class PersistentHistoryTrackingKitTests: XCTestCase {
     let storeURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)
         .first?
@@ -58,7 +59,7 @@ final class PersistentHistoryTrackingKitTests: XCTestCase {
         // then
         await sleep(seconds: 2)
 
-        viewContext1.performAndWait {
+        await viewContext1.perform {
             XCTAssertNotNil(viewContext1.registeredObject(for: objectID))
         }
         let lastTimestamp = userDefaults.value(forKey: uniqueString + AppActor.app1.rawValue) as? Date

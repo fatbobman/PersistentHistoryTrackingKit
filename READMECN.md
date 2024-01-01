@@ -24,7 +24,7 @@
 * 更新当前应用程序的合并事务时间
 * 清理已被所有应用合并后的事务
 
-更具体的工作原理和细节，可以阅读  [在 CoreData 中使用持久化历史跟踪](https://fatbobman.com/posts/persistentHistoryTracking/) 或 [Persistent History Tracking in Core Data](https://www.avanderlee.com/swift/persistent-history-tracking-core-data/) 。
+更具体的工作原理和细节，可以阅读 [在 CoreData 中使用持久化历史跟踪](https://fatbobman.com/zh/posts/persistenthistorytracking/) 或者 [Using Persistent History Tracking in CoreData ](https://fatbobman.com/en/posts/persistenthistorytracking/)。
 
 ## 使用方法
 
@@ -85,7 +85,7 @@ allAuthors: ["appAuthor", "extensionAuthor", "appBatchAuthor"],
 
 ### includingCloudKitMirroring
 
-是否合并由 Core Data with CloudKit 导入的网络数据，仅用于需要实时切换 Core Data 云同步状态的场景。具体用法请参阅 [实时切换 Core Data 的云同步状态](https://www.fatbobman.com/posts/real-time-switching-of-cloud-syncs-status/)
+是否合并由 Core Data with CloudKit 导入的网络数据，仅用于需要实时切换 Core Data 云同步状态的场景。具体用法请参阅 [实时切换 Core Data 的云同步状态](https://fatbobman.com/zh/posts/real-time-switching-of-cloud-syncs-status/)
 
 ### batchAuthors 
 

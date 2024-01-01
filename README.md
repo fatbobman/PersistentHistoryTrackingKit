@@ -26,7 +26,7 @@ Upon receiving a remote notification of Persistent History Tracking from Core Da
 * Update the current application's merge transaction time
 * Clean up transactions that have been merged by all applications
 
-For more specific details on how this works, read [在 CoreData 中使用持久化历史跟踪](https://fatbobman.com/posts/persistentHistoryTracking/) or [Persistent History Tracking in Core Data ](https://www.avanderlee.com/swift/persistent-history-tracking-core-data/).
+For more specific details on how this works, read [在 CoreData 中使用持久化历史跟踪](https://fatbobman.com/zh/posts/persistenthistorytracking/) or [Using Persistent History Tracking in CoreData ](https://fatbobman.com/en/posts/persistenthistorytracking/).
 
 ## Usage
 
@@ -87,7 +87,7 @@ allAuthors: ["appAuthor", "extensionAuthor", "appBatchAuthor"],
 
 ### includingCloudKitMirroring
 
-Whether or not to merge network data imported by Core Data with CloudKit, is only used in scenarios where the Core Data cloud sync state needs to be switched in real time. See [Toggling Core Data's cloud sync state in real time](https://www.fatbobman.com/posts/real-time-switching-of-cloud-syncs-status/) for details on usage
+Whether or not to merge network data imported by Core Data with CloudKit, is only used in scenarios where the Core Data cloud sync state needs to be switched in real time. See [Switching Core Data Cloud Sync Status in Real-Time](https://fatbobman.com/en/posts/real-time-switching-of-cloud-syncs-status/) for details on usage
 
 ### batchAuthors 
 
