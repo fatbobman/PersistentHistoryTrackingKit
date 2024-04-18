@@ -16,9 +16,9 @@ import AsyncAlgorithms
 
 // swiftlint:disable line_length
 
-public final class PersistentHistoryTrackingKit {
+public final class PersistentHistoryTrackingKit: @unchecked Sendable {
     /// 日志显示等级，从0-2级。0 关闭 2 最详尽
-    public var logLevel: Int
+    var logLevel: Int
 
     /// 清除策略
     var strategy: TransactionPurgePolicy

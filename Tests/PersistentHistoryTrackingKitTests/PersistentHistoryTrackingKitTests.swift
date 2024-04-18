@@ -2,7 +2,6 @@ import CoreData
 import PersistentHistoryTrackingKit
 import XCTest
 
-@MainActor
 final class PersistentHistoryTrackingKitTests: XCTestCase {
     let storeURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)
         .first?
@@ -24,6 +23,7 @@ final class PersistentHistoryTrackingKitTests: XCTestCase {
         try? FileManager.default.removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-shm"))
     }
 
+    @MainActor
     func testPersistentHistoryKitInAppGroup() async throws {
         // given
         let container1 = CoreDataHelper.createNSPersistentContainer(storeURL: storeURL)
