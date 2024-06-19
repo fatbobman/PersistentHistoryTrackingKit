@@ -59,6 +59,9 @@ public final class PersistentHistoryTrackingKit {
 
     /// 合并transaction到指定的托管对象上下文中（contexts）
     let merger: Merger
+    
+    /// 删除transaction中重复数据
+    let deduplicator: TransactionDeduplicatorProtocol?
 
     /// transaction清除器，清除可确认的已被所有authors合并的transaction
     let cleaner: Cleaner
@@ -105,6 +108,8 @@ public final class PersistentHistoryTrackingKit {
                     timestampManager: timestampManager,
                     logger: sendMessage
                 )
+                
+                deduplicator?(deduplicate: transactions, in: contexts)
 
                 // clean
                 cleanTransactions(
@@ -186,6 +191,7 @@ public final class PersistentHistoryTrackingKit {
 
     init(logLevel: Int,
          strategy: TransactionCleanStrategy,
+         deduplicator: TransactionDeduplicatorProtocol?,
          currentAuthor: String,
          allAuthors: [String],
          includingCloudKitMirroring: Bool,
@@ -236,6 +242,7 @@ public final class PersistentHistoryTrackingKit {
         )
 
         self.merger = Merger()
+        self.deduplicator = deduplicator
         self.cleaner = Cleaner(backgroundContext: backgroundContext, authors: allAuthors)
         self.timestampManager = TransactionTimestampManager(userDefaults: userDefaults, maximumDuration: maximumDuration, uniqueString: uniqueString)
         self.coordinator = coordinator
@@ -311,6 +318,7 @@ public extension PersistentHistoryTrackingKit {
                      batchAuthors: [String] = [],
                      userDefaults: UserDefaults,
                      cleanStrategy: TransactionCleanStrategy = .byNotification(times: 1),
+                     deduplicator: TransactionDeduplicatorProtocol? = nil,
                      maximumDuration: TimeInterval = 60 * 60 * 24 * 7,
                      uniqueString: String = "PersistentHistoryTrackingKit.lastToken.",
                      logger: PersistentHistoryTrackingKitLoggerProtocol? = nil,
@@ -320,6 +328,7 @@ public extension PersistentHistoryTrackingKit {
         let logger = logger ?? DefaultLogger()
         self.init(logLevel: logLevel,
                   strategy: cleanStrategy,
+                  deduplicator: deduplicator,
                   currentAuthor: currentAuthor,
                   allAuthors: allAuthors,
                   includingCloudKitMirroring: includingCloudKitMirroring,
@@ -342,6 +351,7 @@ public extension PersistentHistoryTrackingKit {
                      batchAuthors: [String] = [],
                      userDefaults: UserDefaults,
                      cleanStrategy: TransactionCleanStrategy = .byNotification(times: 1),
+                     deduplicator: TransactionDeduplicatorProtocol? = nil,
                      maximumDuration: TimeInterval = 60 * 60 * 24 * 7,
                      uniqueString: String = "PersistentHistoryTrackingKit.lastToken.",
                      logger: PersistentHistoryTrackingKitLoggerProtocol? = nil,
@@ -352,6 +362,7 @@ public extension PersistentHistoryTrackingKit {
         let logger = logger ?? DefaultLogger()
         self.init(logLevel: logLevel,
                   strategy: cleanStrategy,
+                  deduplicator: deduplicator,
                   currentAuthor: currentAuthor,
                   allAuthors: allAuthors,
                   includingCloudKitMirroring: includingCloudKitMirroring,
