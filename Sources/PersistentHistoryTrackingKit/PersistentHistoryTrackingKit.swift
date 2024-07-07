@@ -100,7 +100,9 @@ public final class PersistentHistoryTrackingKit {
                     by: fetcher,
                     logger: sendMessage
                 )
-
+                
+                if transactions.isEmpty { continue }
+                
                 // merge
                 mergeTransactionsInContexts(
                     transactions: transactions,
