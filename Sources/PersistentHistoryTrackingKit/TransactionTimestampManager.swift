@@ -14,7 +14,7 @@ import Foundation
 
 /// author 的 Transaction 合并更新的时间戳管理器。
 /// 本实现采用 UserDefaults 对每个 author 的最后更新日期进行保存，并从中返回可被安全删除的日期。
-/// 为了防止在 AppGrounp 的情况下，部分 app 始终没有被启用或实现，从而导致数据不全的情况。
+/// 为了防止在 AppGroup 的情况下，部分 app 始终没有被启用或实现，从而导致数据不全的情况。
 /// 本实现设定了阈值日期机制，在满足了设定的情况下，将阈值日期作为可安全删除的日期返回
 struct TransactionTimestampManager: TransactionTimestampManagerProtocol {
     /// 用于保存的 UserDefaults 实例。对于 AppGroup，应该使用可用于全体成员的实例。如：UserDefaults(suiteName: Settings.AppGroup.groupID)

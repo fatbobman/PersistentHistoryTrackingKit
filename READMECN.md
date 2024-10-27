@@ -48,7 +48,7 @@ init() {
     let kit = PersistentHistoryTrackingKit(
         container: container,
         currentAuthor: "app1",
-        allAuthors: "app1,app2,app3",
+        allAuthors: ["app1", "app2", "app3"],
         userDefaults: userDefaults,
         logLevel: 3,
     )
