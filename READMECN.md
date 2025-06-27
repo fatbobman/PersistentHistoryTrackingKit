@@ -2,17 +2,18 @@
 
 帮助您轻松处理 Core Data 的持久性历史跟踪。
 
-![](https://img.shields.io/badge/Platform%20Compatibility-iOS%20|%20macOS%20|%20tvOS%20|%20watchOs-red) ![](https://img.shields.io/badge/Swift%20Compatibility-5.5-red)
+![os](https://img.shields.io/badge/Platform%20Compatibility-iOS%20|%20macOS%20|%20tvOS%20|%20watchOs-red) ![swift](https://img.shields.io/badge/Swift%20Compatibility-5.5-red)
 
 [English Version](https://github.com/fatbobman/PersistentHistoryTrackingKit/blob/main/README.md)
 
-## 🚀 Swift 6 分支现已可用！
+## 🚀 Swift 6 分支现已可用
 
 > **🎯 新的 Swift 6 兼容版本现已可用**
-> 
+>
 > 我们创建了一个全面的 **Swift 6 适配版本**，具备完整的并发安全性、真正的 Sendable 合规性和内存泄漏修复。新版本可在 `swift6-adaptation` 分支中使用。
 >
 > **✨ 主要改进：**
+>
 > - 🔒 **真正的 Sendable 合规** - 不仅仅是 `@unchecked Sendable`
 > - 🧵 **无数据竞争** - 全面的并发测试
 > - 🛡️ **内存安全** - 零保留循环或内存泄漏
@@ -20,6 +21,7 @@
 > - 📚 **增强文档** - 全面的指南和示例
 >
 > **🔄 试用方法：**
+>
 > ```swift
 > dependencies: [
 >     .package(url: "https://github.com/fatbobman/PersistentHistoryTrackingKit.git", branch: "swift6-adaptation")
@@ -45,13 +47,13 @@
 
 在接收到 Core Data 发送的持久历史记录跟踪远程通知后，Persistent History Tracking Kit 将进行如下工作：
 
-* 查询当前应用的（current author）上次合并事务的时间
-* 获取从上次合并事务日期后，除了本应用程序外，由其他应用程序、应用程序扩展、后台上下文等（all authors）新创建的事务
-* 将新的事务合并到指定的上下文中（通常是当前应用程序的视图上下文）
-* 更新当前应用程序的合并事务时间
-* 清理已被所有应用合并后的事务
+- 查询当前应用的（current author）上次合并事务的时间
+- 获取从上次合并事务日期后，除了本应用程序外，由其他应用程序、应用程序扩展、后台上下文等（all authors）新创建的事务
+- 将新的事务合并到指定的上下文中（通常是当前应用程序的视图上下文）
+- 更新当前应用程序的合并事务时间
+- 清理已被所有应用合并后的事务
 
-更具体的工作原理和细节，可以阅读 [在 CoreData 中使用持久化历史跟踪](https://fatbobman.com/zh/posts/persistenthistorytracking/) 或者 [Using Persistent History Tracking in CoreData ](https://fatbobman.com/en/posts/persistenthistorytracking/)。
+更具体的工作原理和细节，可以阅读 [在 CoreData 中使用持久化历史跟踪](https://fatbobman.com/zh/posts/persistenthistorytracking/) 或者 [Using Persistent History Tracking in CoreData](https://fatbobman.com/en/posts/persistenthistorytracking/)。
 
 ## 使用方法
 
@@ -114,7 +116,7 @@ allAuthors: ["appAuthor", "extensionAuthor", "appBatchAuthor"],
 
 是否合并由 Core Data with CloudKit 导入的网络数据，仅用于需要实时切换 Core Data 云同步状态的场景。具体用法请参阅 [实时切换 Core Data 的云同步状态](https://fatbobman.com/zh/posts/real-time-switching-of-cloud-syncs-status/)
 
-### batchAuthors 
+### batchAuthors
 
 某些 author（例如用于批量更改的后台上下文）只会创建事务，并不会对其他 author 的产生事务进行合并和清理。通过将其设置在 batchAuthors 中，可以加速该类事务的清理。
 
@@ -158,15 +160,15 @@ userDefaults: appGroupUserDefaults,
 
 Persistent History Tracking Kit 目前支持三种事务清理策略：
 
-* none
+- none
 
   只合并，不清理
 
-* byDuration
+- byDuration
 
   设定两次清理之间的最小时间间隔
 
-* byNotification
+- byNotification
 
   设定两次清理之间的最小通知次数间隔
 
@@ -221,9 +223,9 @@ logger:MyLogger(),
 
 通过设定 logLevel 可以控制日志信息的输出：
 
-* 0 关闭日志输出
-* 1 仅重要状态
-* 2 详细信息
+- 0 关闭日志输出
+- 1 仅重要状态
+- 2 详细信息
 
 ### autoStart
 
@@ -259,4 +261,3 @@ dependencies: [
 ## License
 
 This library is released under the MIT license. See [LICENSE](https://github.com/fatbobman/persistentHistoryTrackingKit/blob/main/LICENSE) for details.
-
