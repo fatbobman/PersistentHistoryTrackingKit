@@ -10,7 +10,7 @@
 //  微信公共号: 肘子的Swift记事本
 //
 
-import CoreData
+@preconcurrency import CoreData
 import Foundation
 
 class CoreDataHelper {
@@ -27,12 +27,21 @@ class CoreDataHelper {
             desc.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
             desc.setOption(true as NSNumber, forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
         }
+        
+        // 启用 Core Data 并发调试
+        desc.setOption(true as NSNumber, forKey: "NSCoreDataConcurrencyDebug")
+        desc.setOption(1 as NSNumber, forKey: "com.apple.CoreData.ConcurrencyDebug")
+        
         container.persistentStoreDescriptions = [desc]
         container.loadPersistentStores(completionHandler: { _, error in
             if let error = error {
                 fatalError("create container error : \(error.localizedDescription)")
             }
         })
+        
+        // 为主上下文启用并发调试
+        container.viewContext.shouldDeleteInaccessibleFaults = false
+        
         return container
     }
 
@@ -57,7 +66,7 @@ class CoreDataHelper {
         return model
     }
 
-    static var model = createTestNSManagedObjectModelModel()
+    nonisolated(unsafe) static let model = createTestNSManagedObjectModelModel()
 }
 
 @objc(Event)

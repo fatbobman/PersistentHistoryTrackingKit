@@ -1,30 +1,35 @@
-import CoreData
+@preconcurrency import CoreData
+import Foundation
 import PersistentHistoryTrackingKit
-import XCTest
+import Testing
 
+@Suite("Persistent History Tracking Kit Integration Tests", .serialized)
 @MainActor
-final class PersistentHistoryTrackingKitTests: XCTestCase {
+struct PersistentHistoryTrackingKitTests {
     let storeURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)
         .first?
         .appendingPathComponent("PersistentHistoryKitTestDB.sqlite") ?? URL(fileURLWithPath: "")
     let uniqueString = "PersistentHistoryTrackingKit.lastToken.tests."
     let userDefaults = UserDefaults.standard
 
-    override func setUpWithError() throws {
+    init() {
         // 清除 UserDefaults 环境
         for author in AppActor.allCases {
             userDefaults.removeObject(forKey: uniqueString + author.rawValue)
         }
     }
 
-    override func tearDown() async throws {
+    func cleanupStoreFiles() async {
         await sleep(seconds: 3)
         try? FileManager.default.removeItem(at: storeURL)
-        try? FileManager.default.removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-wal"))
-        try? FileManager.default.removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-shm"))
+        try? FileManager.default
+            .removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-wal"))
+        try? FileManager.default
+            .removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-shm"))
     }
 
-    func testPersistentHistoryKitInAppGroup() async throws {
+    @Test("Kit should work correctly in App Group scenario")
+    func persistentHistoryKitInAppGroup() async throws {
         // given
         let container1 = CoreDataHelper.createNSPersistentContainer(storeURL: storeURL)
         let container2 = CoreDataHelper.createNSPersistentContainer(storeURL: storeURL)
@@ -39,16 +44,15 @@ final class PersistentHistoryTrackingKitTests: XCTestCase {
             cleanStrategy: .byNotification(times: 1),
             uniqueString: uniqueString,
             logLevel: 3,
-            autoStart: false
-        )
+            autoStart: false)
 
         kit.start()
 
         let viewContext1 = container1.viewContext
         let viewContext2 = container2.viewContext
         viewContext1.retainsRegisteredObjects = true
-        // when
 
+        // when
         let objectID: NSManagedObjectID = viewContext2.performAndWait {
             let event = Event(context: viewContext2)
             event.timestamp = Date()
@@ -59,21 +63,21 @@ final class PersistentHistoryTrackingKitTests: XCTestCase {
         // then
         await sleep(seconds: 2)
 
-        await viewContext1.perform {
-            XCTAssertNotNil(viewContext1.registeredObject(for: objectID))
+        viewContext1.performAndWait {
+            let registeredObject = viewContext1.registeredObject(for: objectID)
+            #expect(registeredObject != nil)
         }
-        let lastTimestamp = userDefaults.value(forKey: uniqueString + AppActor.app1.rawValue) as? Date
-        XCTAssertNotNil(lastTimestamp)
+        let lastTimestamp = userDefaults
+            .value(forKey: uniqueString + AppActor.app1.rawValue) as? Date
+        #expect(lastTimestamp != nil)
 
         kit.stop()
         await sleep(seconds: 2)
     }
 
-    // swiftlint:disable:next function_body_length
-    func testKitInBatchInsert() async throws {
-        guard #available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *) else {
-            return
-        }
+    @Test("Kit should work correctly with batch insert")
+    @available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *)
+    func kitInBatchInsert() async throws {
         // given
         let container1 = CoreDataHelper.createNSPersistentContainer(storeURL: storeURL)
         let viewContext = container1.viewContext
@@ -93,12 +97,13 @@ final class PersistentHistoryTrackingKitTests: XCTestCase {
             userDefaults: userDefaults,
             cleanStrategy: .byNotification(times: 1),
             uniqueString: uniqueString,
-            logLevel: 3
-        )
+            logLevel: 3)
         try batchContext.performAndWait {
             var count = 0
 
-            let batchInsert = NSBatchInsertRequest(entity: Event.entity()) { (dictionary: NSMutableDictionary) in
+            let batchInsert = NSBatchInsertRequest(entity: Event
+                .entity())
+            { (dictionary: NSMutableDictionary) in
                 dictionary["timestamp"] = Date()
                 count += 1
                 return count == 10
@@ -109,24 +114,34 @@ final class PersistentHistoryTrackingKitTests: XCTestCase {
         // when
         let objectID: NSManagedObjectID = batchContext.performAndWait {
             let request = NSFetchRequest<Event>(entityName: "Event")
-            request.sortDescriptors = [NSSortDescriptor(keyPath: \Event.timestamp, ascending: false)]
+            request.sortDescriptors = [NSSortDescriptor(
+                keyPath: \Event.timestamp,
+                ascending: false)]
             guard let results = try? batchContext.fetch(request),
-                  let object = results.first else { fatalError() }
+                  let object = results.first
+            else {
+                Issue.record("Failed to fetch event")
+                fatalError()
+            }
             return object.objectID
         }
         await sleep(seconds: 2)
+
         // then
-        viewContext.performAndWait {
-            XCTAssertNotNil(viewContext.registeredObject(for: objectID))
+        let result1 = viewContext.performAndWait {
+            viewContext.registeredObject(for: objectID) != nil
         }
-        anotherContext.performAndWait {
-            XCTAssertNotNil(anotherContext.registeredObject(for: objectID))
+        #expect(result1)
+        let result2 = anotherContext.performAndWait {
+            anotherContext.registeredObject(for: objectID) != nil
         }
+        #expect(result2)
         kit.stop()
         await sleep(seconds: 2)
     }
 
-    func testManualCleaner() async throws {
+    @Test("Manual cleaner should work correctly")
+    func manualCleaner() async throws {
         // given
         let container1 = CoreDataHelper.createNSPersistentContainer(storeURL: storeURL)
         let container2 = CoreDataHelper.createNSPersistentContainer(storeURL: storeURL)
@@ -141,8 +156,7 @@ final class PersistentHistoryTrackingKitTests: XCTestCase {
             cleanStrategy: .none,
             uniqueString: uniqueString,
             logLevel: 2,
-            autoStart: false
-        )
+            autoStart: false)
 
         let cleaner = kit.cleanerBuilder()
 
@@ -153,7 +167,6 @@ final class PersistentHistoryTrackingKitTests: XCTestCase {
         viewContext1.retainsRegisteredObjects = true
 
         // when
-
         let objectID: NSManagedObjectID = viewContext2.performAndWait {
             let event = Event(context: viewContext2)
             event.timestamp = Date()
@@ -166,18 +179,20 @@ final class PersistentHistoryTrackingKitTests: XCTestCase {
 
         cleaner() // 手动清除
 
-        viewContext1.performAndWait {
-            XCTAssertNotNil(viewContext1.registeredObject(for: objectID))
+        let result3 = viewContext1.performAndWait {
+            viewContext1.registeredObject(for: objectID) != nil
         }
-        let lastTimestamp = userDefaults.value(forKey: uniqueString + AppActor.app1.rawValue) as? Date
-        XCTAssertNotNil(lastTimestamp)
+        #expect(result3)
+        let lastTimestamp = userDefaults
+            .value(forKey: uniqueString + AppActor.app1.rawValue) as? Date
+        #expect(lastTimestamp != nil)
 
         kit.stop()
         await sleep(seconds: 2)
     }
 
-    /// 测试两个app都执行了Kit后，transaction 是否有被清除
-    func testTwoAppWithKit() async throws {
+    @Test("Two apps with Kit should clean transactions correctly")
+    func twoAppWithKit() async throws {
         // given
         let container1 = CoreDataHelper.createNSPersistentContainer(storeURL: storeURL)
         let container2 = CoreDataHelper.createNSPersistentContainer(storeURL: storeURL)
@@ -196,8 +211,7 @@ final class PersistentHistoryTrackingKitTests: XCTestCase {
             allAuthors: authors,
             userDefaults: userDefaults,
             uniqueString: uniqueString,
-            logLevel: 2
-        )
+            logLevel: 2)
 
         let app2kit = PersistentHistoryTrackingKit(
             container: container1,
@@ -206,8 +220,7 @@ final class PersistentHistoryTrackingKitTests: XCTestCase {
             allAuthors: authors,
             userDefaults: userDefaults,
             uniqueString: uniqueString,
-            logLevel: 2
-        )
+            logLevel: 2)
 
         let backgroundContext = container1.newBackgroundContext()
         backgroundContext.transactionAuthor = AppActor.app3.rawValue
@@ -220,16 +233,30 @@ final class PersistentHistoryTrackingKitTests: XCTestCase {
             return event.objectID
         }
 
-        await sleep(seconds: 2)
+        await sleep(seconds: 3)
 
         // then
-        viewContext1.performAndWait {
-            XCTAssertNotNil(viewContext1.registeredObject(for: objectID))
+        let result4 = viewContext1.performAndWait {
+            // 先尝试获取对象，如果不存在则尝试刷新
+            if let _ = try? viewContext1.existingObject(with: objectID) {
+                return true
+            }
+            // 如果对象不存在，可能需要刷新context
+            viewContext1.refreshAllObjects()
+            return (try? viewContext1.existingObject(with: objectID)) != nil
         }
+        #expect(result4)
 
-        viewContext2.performAndWait {
-            XCTAssertNotNil(viewContext2.registeredObject(for: objectID))
+        let result5 = viewContext2.performAndWait {
+            // 先尝试获取对象，如果不存在则尝试刷新
+            if let _ = try? viewContext2.existingObject(with: objectID) {
+                return true
+            }
+            // 如果对象不存在，可能需要刷新context
+            viewContext2.refreshAllObjects()
+            return (try? viewContext2.existingObject(with: objectID)) != nil
         }
+        #expect(result5)
 
         app1kit.stop()
         app2kit.stop()

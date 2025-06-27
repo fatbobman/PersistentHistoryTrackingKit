@@ -10,34 +10,43 @@
 //  微信公共号: 肘子的Swift记事本
 //
 
-import CoreData
+@preconcurrency import CoreData
 @testable import PersistentHistoryTrackingKit
-import XCTest
+import Testing
 
-class CleanerTests: XCTestCase {
+@Suite("Cleaner Tests", .serialized)
+struct CleanerTests {
     let storeURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)
         .first?
-        .appendingPathComponent("PersistentHistoryTrackKitCleanTest.sqlite") ?? URL(fileURLWithPath: "")
+        .appendingPathComponent("PersistentHistoryTrackKitCleanTest.sqlite") ??
+        URL(fileURLWithPath: "")
 
-    override func tearDown() async throws {
-        await sleep(seconds: 2)
-        try? FileManager.default.removeItem(at: storeURL)
-        try? FileManager.default.removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-wal"))
-        try? FileManager.default.removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-shm"))
+    init() {
+        // Setup code if needed
     }
 
-    func testCleanerInAppGroup() throws {
+    func cleanupStoreFiles() async {
+        await sleep(seconds: 2)
+        try? FileManager.default.removeItem(at: storeURL)
+        try? FileManager.default
+            .removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-wal"))
+        try? FileManager.default
+            .removeItem(at: storeURL.deletingPathExtension().appendingPathExtension("sqlite-shm"))
+    }
+
+    @Test
+    func cleanerInAppGroup() throws {
         // given
         let container1 = CoreDataHelper.createNSPersistentContainer(storeURL: storeURL)
         let container2 = CoreDataHelper.createNSPersistentContainer(storeURL: storeURL)
         let app1backgroundContext = container1.newBackgroundContext()
-        let fetcher = Fetcher(backgroundContext: app1backgroundContext,
-                              currentAuthor: AppActor.app1.rawValue,
-                              allAuthors: [AppActor.app1.rawValue, AppActor.app2.rawValue])
+        let fetcher = Fetcher(
+            backgroundContext: app1backgroundContext,
+            currentAuthor: AppActor.app1.rawValue,
+            allAuthors: [AppActor.app1.rawValue, AppActor.app2.rawValue])
         let cleaner = Cleaner(
             backgroundContext: app1backgroundContext,
-            authors: [AppActor.app1.rawValue, AppActor.app2.rawValue]
-        )
+            authors: [AppActor.app1.rawValue, AppActor.app2.rawValue])
 
         let app1viewContext = container1.viewContext
         app1viewContext.transactionAuthor = AppActor.app1.rawValue
@@ -59,19 +68,20 @@ class CleanerTests: XCTestCase {
         }
 
         // then
-        let transactionsBeforeClean = try fetcher.fetchTransactions(from: Date().addingTimeInterval(-2))
-        XCTAssertEqual(transactionsBeforeClean.count, 1)
+        let transactionsBeforeClean = try fetcher
+            .fetchTransactions(from: Date().addingTimeInterval(-2))
+        #expect(transactionsBeforeClean.count == 1)
 
         try cleaner.cleanTransaction(before: Date())
 
-        let transactionsAfterClean = try fetcher.fetchTransactions(from: Date().addingTimeInterval(-2))
-        XCTAssertEqual(transactionsAfterClean.count, 0)
+        let transactionsAfterClean = try fetcher
+            .fetchTransactions(from: Date().addingTimeInterval(-2))
+        #expect(transactionsAfterClean.isEmpty)
     }
 
-    func testCleanerInBatchOperation() throws {
-        guard #available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *) else {
-            return
-        }
+    @Test
+    @available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *)
+    func cleanerInBatchOperation() throws {
         // given
         let container = CoreDataHelper.createNSPersistentContainer(storeURL: storeURL)
         let viewContext = container.viewContext
@@ -81,12 +91,14 @@ class CleanerTests: XCTestCase {
         viewContext.transactionAuthor = AppActor.app1.rawValue
         batchContext.transactionAuthor = AppActor.app2.rawValue // 批量添加使用单独的author
 
-        let fetcher = Fetcher(backgroundContext: backgroundContext,
-                              currentAuthor: AppActor.app1.rawValue,
-                              allAuthors: [AppActor.app1.rawValue, AppActor.app2.rawValue])
+        let fetcher = Fetcher(
+            backgroundContext: backgroundContext,
+            currentAuthor: AppActor.app1.rawValue,
+            allAuthors: [AppActor.app1.rawValue, AppActor.app2.rawValue])
 
-        let cleaner = Cleaner(backgroundContext: backgroundContext,
-                              authors: [AppActor.app1.rawValue, AppActor.app2.rawValue])
+        let cleaner = Cleaner(
+            backgroundContext: backgroundContext,
+            authors: [AppActor.app1.rawValue, AppActor.app2.rawValue])
 
         // when insert by batch
         viewContext.performAndWait {
@@ -98,7 +110,9 @@ class CleanerTests: XCTestCase {
         try batchContext.performAndWait {
             var count = 0
 
-            let batchInsert = NSBatchInsertRequest(entity: Event.entity()) { (dictionary: NSMutableDictionary) in
+            let batchInsert = NSBatchInsertRequest(entity: Event
+                .entity())
+            { (dictionary: NSMutableDictionary) in
                 dictionary["timestamp"] = Date()
                 count += 1
                 return count == 10
@@ -107,13 +121,15 @@ class CleanerTests: XCTestCase {
         }
 
         // then
-        let transactionsBeforeClean = try fetcher.fetchTransactions(from: Date().addingTimeInterval(-2))
-        XCTAssertEqual(transactionsBeforeClean.count, 1)
-        XCTAssertEqual(transactionsBeforeClean.first?.changes?.count, 9)
+        let transactionsBeforeClean = try fetcher
+            .fetchTransactions(from: Date().addingTimeInterval(-2))
+        #expect(transactionsBeforeClean.count == 1)
+        #expect(transactionsBeforeClean.first?.changes?.count == 9)
 
         try cleaner.cleanTransaction(before: Date())
 
-        let transactionsAfterClean = try fetcher.fetchTransactions(from: Date().addingTimeInterval(-2))
-        XCTAssertEqual(transactionsAfterClean.count, 0)
+        let transactionsAfterClean = try fetcher
+            .fetchTransactions(from: Date().addingTimeInterval(-2))
+        #expect(transactionsAfterClean.isEmpty)
     }
 }

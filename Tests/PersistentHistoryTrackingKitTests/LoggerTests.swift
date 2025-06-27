@@ -11,25 +11,28 @@
 //
 
 @testable import PersistentHistoryTrackingKit
-import XCTest
+import Testing
 
-class LoggerTests: XCTestCase {
-    func testLogger() throws {
+@Suite("Logger Tests")
+struct LoggerTests {
+    @Test("Logger should correctly log messages and types")
+    func testLogger() {
         // given
         let logger = LoggerSpy()
         // when
         logger.log(type: .info, message: "hello")
         // then
-        XCTAssertEqual(LoggerSpy.message, "hello")
-        XCTAssertEqual(LoggerSpy.type, .info)
+        #expect(logger.message == "hello")
+        #expect(logger.type == .info)
     }
 }
 
-struct LoggerSpy: PersistentHistoryTrackingKitLoggerProtocol {
-    static var type:PersistentHistoryTrackingKitLogType?
-    static var message:String?
+final class LoggerSpy: PersistentHistoryTrackingKitLoggerProtocol {
+    var type: PersistentHistoryTrackingKitLogType?
+    var message: String?
+
     func log(type: PersistentHistoryTrackingKitLogType, message: String) {
-        Self.type = type
-        Self.message = message
+        self.type = type
+        self.message = message
     }
 }

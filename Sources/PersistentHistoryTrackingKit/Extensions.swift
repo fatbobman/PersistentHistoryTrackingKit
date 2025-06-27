@@ -33,9 +33,9 @@ extension NSManagedObjectContext {
     }
 }
 
-public extension Task where Success == Never, Failure == Never {
-    static func sleep(seconds duration: Double) async throws {
-        try await sleep(nanoseconds: UInt64(duration * 1000000000))
+extension Task where Success == Never, Failure == Never {
+    public static func sleep(seconds duration: Double) async throws {
+        try await sleep(nanoseconds: UInt64(duration * 1_000_000_000))
     }
 }
 
@@ -43,19 +43,24 @@ import Combine
 /// 将Publisher转换成异步序列。
 ///
 /// 同系统内置的 publisher.values 不同，本实现将首先对数据进行缓存。尤其适用于NotificationCenter之类的应用。
-struct CombineAsyncPublisher<P>: AsyncSequence, AsyncIteratorProtocol where P: Publisher, P.Failure == Never {
+struct CombineAsyncPublisher<P>: AsyncSequence, AsyncIteratorProtocol where P: Publisher,
+P.Failure == Never {
     typealias Element = P.Output
     typealias AsyncIterator = CombineAsyncPublisher<P>
 
     func makeAsyncIterator() -> Self {
-        return self
+        self
     }
 
     private let stream: AsyncStream<P.Output>
     private var iterator: AsyncStream<P.Output>.Iterator
     private var cancellable: AnyCancellable?
 
-    init(_ upstream: P, bufferingPolicy limit: AsyncStream<Element>.Continuation.BufferingPolicy = .unbounded) {
+    init(
+        _ upstream: P,
+        bufferingPolicy limit: AsyncStream<Element>.Continuation.BufferingPolicy = .unbounded)
+        where P.Output: Sendable
+    {
         var subscription: AnyCancellable?
         stream = AsyncStream<P.Output>(P.Output.self, bufferingPolicy: limit) { continuation in
             subscription = upstream
@@ -72,7 +77,7 @@ struct CombineAsyncPublisher<P>: AsyncSequence, AsyncIteratorProtocol where P: P
     }
 }
 
-extension Publisher where Self.Failure == Never {
+extension Publisher where Self.Failure == Never, Self.Output: Sendable {
     var sequence: CombineAsyncPublisher<Self> {
         CombineAsyncPublisher(self)
     }
