@@ -6,6 +6,31 @@ Helps you easily handle Core Data's Persistent History Tracking
 
 [中文版说明](https://github.com/fatbobman/PersistentHistoryTrackingKit/blob/main/READMECN.md)
 
+## 🚀 Swift 6 Branch Available!
+
+> **🎯 New Swift 6 Compatible Version Available**
+> 
+> We've created a comprehensive **Swift 6 adaptation** with full concurrency safety, true Sendable compliance, and memory leak fixes. The new version is available in the `swift6-adaptation` branch.
+>
+> **✨ Key Improvements:**
+> - 🔒 **True Sendable Compliance** - Not just `@unchecked Sendable`
+> - 🧵 **Data Race Free** - Comprehensive concurrency testing
+> - 🛡️ **Memory Safe** - Zero retain cycles or memory leaks  
+> - 🧪 **Swift Testing Framework** - Modern testing infrastructure
+> - 📚 **Enhanced Documentation** - Comprehensive guides and examples
+>
+> **🔄 Try it out:**
+> ```swift
+> dependencies: [
+>     .package(url: "https://github.com/fatbobman/PersistentHistoryTrackingKit.git", branch: "swift6-adaptation")
+> ]
+> ```
+>
+> **📝 Feedback Welcome:**  
+> Please test the Swift 6 version and [**create an issue**](https://github.com/fatbobman/PersistentHistoryTrackingKit/issues) with your feedback. We'll merge it to main once we have sufficient real-world validation.
+>
+> **📖 Full Documentation:** [Swift 6 Branch README](https://github.com/fatbobman/PersistentHistoryTrackingKit/blob/swift6-adaptation/README.md)
+
 ## What's This？
 
 > Use persistent history tracking to determine what changes have occurred in the store since the enabling of persistent history tracking.  —— Apple Documentation
