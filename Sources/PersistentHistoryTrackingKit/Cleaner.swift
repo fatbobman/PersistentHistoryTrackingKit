@@ -28,7 +28,7 @@ struct Cleaner: TransactionCleanerProtocol {
 
     func cleanTransaction(before timestamp: Date?) throws {
         guard let timestamp = timestamp else { return }
-        try backgroundContext.performAndWait {
+        try backgroundContext.performAndWaitWithResult {
             if let request = getPersistentStoreRequest(before: timestamp, for: authors) {
                 try backgroundContext.execute(request)
             }

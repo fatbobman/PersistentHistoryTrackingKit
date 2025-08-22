@@ -105,13 +105,13 @@ class FetcherTest: XCTestCase {
                               allAuthors: [AppActor.app1.rawValue, AppActor.app2.rawValue])
 
         // when insert by batch
-        viewContext.performAndWait {
+        viewContext.performAndWaitWithResult {
             let event = Event(context: viewContext)
             event.timestamp = Date()
             viewContext.saveIfChanged()
         }
 
-        try batchContext.performAndWait {
+        try batchContext.performAndWaitWithResult {
             var count = 0
 
             let batchInsert = NSBatchInsertRequest(entity: Event.entity()) { (dictionary: NSMutableDictionary) in

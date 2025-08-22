@@ -26,7 +26,7 @@ extension NSManagedObjectContext {
 
 extension NSManagedObjectContext {
     @discardableResult
-    func performAndWait<T>(_ block: () throws -> T) throws -> T {
+    func performAndWaitWithResult<T>(_ block: () throws -> T) throws -> T {
         var result: Result<T, Error>?
         performAndWait {
             result = Result { try block() }
@@ -35,7 +35,7 @@ extension NSManagedObjectContext {
     }
 
     @discardableResult
-    func performAndWait<T>(_ block: () -> T) -> T {
+    func performAndWaitWithResult<T>(_ block: () -> T) -> T {
         var result: T?
         performAndWait {
             result = block()

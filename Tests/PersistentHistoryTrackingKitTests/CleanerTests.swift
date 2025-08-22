@@ -95,7 +95,7 @@ class CleanerTests: XCTestCase {
             viewContext.saveIfChanged()
         }
 
-        try batchContext.performAndWait {
+        try batchContext.performAndWaitWithResult {
             var count = 0
 
             let batchInsert = NSBatchInsertRequest(entity: Event.entity()) { (dictionary: NSMutableDictionary) in

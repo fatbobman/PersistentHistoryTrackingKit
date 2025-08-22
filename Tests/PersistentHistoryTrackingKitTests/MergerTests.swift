@@ -89,7 +89,7 @@ class MergerTests: XCTestCase {
 
         let merger = Merger()
         // insert by batch
-        try batchContext.performAndWait {
+        try batchContext.performAndWaitWithResult {
             var count = 0
 
             let batchInsert = NSBatchInsertRequest(entity: Event.entity()) { (dictionary: NSMutableDictionary) in
@@ -109,7 +109,7 @@ class MergerTests: XCTestCase {
             fatalError()
         }
         viewContext.retainsRegisteredObjects = true
-        viewContext.performAndWait {
+        viewContext.performAndWaitWithResult {
             XCTAssertNil(viewContext.registeredObject(for: objectID))
         }
         // when
