@@ -179,6 +179,38 @@ cleanStrategy: .byNotification(times: 1),
 cleanStrategy: .byDuration(seconds: 60),
 ```
 
+#### Recommended Strategy
+
+According to Apple's documentation, it's recommended to use a 7-day cleanup strategy to achieve a good balance between performance and storage capacity:
+
+```swift
+cleanStrategy: .byDuration(seconds: 60 * 60 * 24 * 7), // 7 days
+```
+
+This strategy allows sufficient time for all authors (including app extensions and CloudKit) to process and merge transactions before cleanup occurs.
+
+#### Important: Using with NSPersistentCloudKitContainer
+
+**Note:** The default cleanup strategy `.byNotification(times: 1)` can be too aggressive when using CloudKit synchronization and may cause `NSPersistentHistoryTokenExpiredError` (error code 134301), potentially leading to local database purges and re-syncing from CloudKit.
+
+When using CloudKit synchronization, CloudKit internally relies on persistent history to track synchronization state. If history is cleaned up too frequently, CloudKit may lose its tracking tokens before completing its internal operations.
+
+**Recommended strategy:**
+
+Use a time-based cleanup strategy with sufficient duration (such as 7 days) to give CloudKit enough time to process the persistent history:
+
+```swift
+let kit = PersistentHistoryTrackingKit(
+    container: container,
+    currentAuthor: "app1",
+    allAuthors: ["app1", "app2"],
+    cleanStrategy: .byDuration(seconds: 60 * 60 * 24 * 7),  // 7 days
+    userDefaults: userDefaults
+)
+```
+
+**Important:** Do NOT set `includingCloudKitMirroring: true` in this scenario, as CloudKit handles its own synchronization internally. Setting it to true would incorrectly merge CloudKit's internal transactions into your app's contexts. Instead, use a longer cleanup interval to ensure CloudKit has sufficient time to use the persistent history before it gets cleaned up.
+
 When the cleanup policy is set to none, cleanup can be performed at the right time by generating separate cleanup instances.
 
 ```swift

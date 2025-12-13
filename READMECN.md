@@ -179,6 +179,38 @@ cleanStrategy: .byNotification(times: 1),
 cleanStrategy: .byDuration(seconds: 60),
 ```
 
+#### 推荐策略
+
+根据 Apple 的文档建议，推荐使用 7 天的清理策略，以在性能和存储容量之间取得良好的平衡：
+
+```swift
+cleanStrategy: .byDuration(seconds: 60 * 60 * 24 * 7), // 7 天
+```
+
+这种策略允许所有 author（包括应用扩展和 CloudKit）有足够的时间来处理和合并事务，然后再进行清理。
+
+#### 重要：与 NSPersistentCloudKitContainer 配合使用
+
+**注意：** 默认的清理策略 `.byNotification(times: 1)` 在使用 CloudKit 同步时可能过于激进，可能导致 `NSPersistentHistoryTokenExpiredError`（错误代码 134301），从而导致本地数据库被清空并重新从 CloudKit 同步。
+
+当使用 CloudKit 同步时，CloudKit 内部依赖 persistent history 来跟踪同步状态。如果历史记录清理过于频繁，CloudKit 可能会在完成其内部操作之前丢失其跟踪令牌。
+
+**推荐策略：**
+
+使用基于时间的清理策略，并设置足够的持续时间（如 7 天），以给 CloudKit 足够的时间来处理 persistent history：
+
+```swift
+let kit = PersistentHistoryTrackingKit(
+    container: container,
+    currentAuthor: "app1",
+    allAuthors: ["app1", "app2"],
+    cleanStrategy: .byDuration(seconds: 60 * 60 * 24 * 7),  // 7 天
+    userDefaults: userDefaults
+)
+```
+
+**重要提示：** 在此场景下，请勿设置 `includingCloudKitMirroring: true`，因为 CloudKit 会在内部处理自己的同步。将其设置为 true 会错误地将 CloudKit 的内部事务合并到您的应用上下文中。相反，应使用更长的清理间隔，以确保 CloudKit 在清理之前有足够的时间使用 persistent history。
+
 当清理策略设置为 none 时，可以通过生成单独的清理实例，在合适的时机进行清理。
 
 ```swift
