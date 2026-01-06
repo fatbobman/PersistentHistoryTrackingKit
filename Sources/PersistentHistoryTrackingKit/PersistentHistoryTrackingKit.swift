@@ -12,13 +12,12 @@
 
 import CoreData
 import Foundation
-import AsyncAlgorithms
 
 // swiftlint:disable line_length
 
-public final class PersistentHistoryTrackingKit {
+public final class PersistentHistoryTrackingKit: @unchecked Sendable {
     /// 日志显示等级，从0-2级。0 关闭 2 最详尽
-    public var logLevel: Int
+    public private(set) var logLevel: Int
 
     /// 清除策略
     var strategy: TransactionPurgePolicy
@@ -70,7 +69,8 @@ public final class PersistentHistoryTrackingKit {
     let timestampManager: TransactionTimestampManager
 
     /// 处理持久化历史跟踪事件的任务。可以通过start开启，stop停止。
-    var transactionProcessingTasks = [Task<Void, Never>]()
+    private var transactionProcessingTasks = [Task<Void, Never>]()
+    private let taskQueue = DispatchQueue(label: "com.persistenthistorytrackingkit.tasks", attributes: .concurrent)
 
     /// 持久化存储协调器，用于缩小通知返回
     private let coordinator: NSPersistentStoreCoordinator
@@ -81,45 +81,44 @@ public final class PersistentHistoryTrackingKit {
     ///
     /// 通过将持久化历史跟踪记录的通知转换成异步序列，实现了逐个处理的机制。
     func createTransactionProcessingTask() -> Task<Void, Never> {
-        Task {
-            sendMessage(type: .info, level: 1, message: "Persistent History Track Kit Start")
+        Task { [weak self] in
+            guard let self = self else { return }
+
+            self.sendMessage(type: .info, level: 1, message: "Persistent History Track Kit Start")
             // 响应 notification
-            let publisher = NotificationCenter.default.publisher(
-                for: .NSPersistentStoreRemoteChange,
-                object: coordinator
-            )
-            for await _ in publisher.values.buffer(policy: .unbounded) where !Task.isCancelled {
-                sendMessage(type: .info,
+            for await _ in NotificationCenter.default.notifications(named: .NSPersistentStoreRemoteChange, object: self.coordinator) where !Task.isCancelled {
+
+                self.sendMessage(type: .info,
                             level: 2,
                             message: "Get a `NSPersistentStoreRemoteChange` notification")
 
                 // fetch
-                let transactions = fetchTransactions(
-                    for: currentAuthor,
-                    since: timestampManager,
-                    by: fetcher,
-                    logger: sendMessage
+                let transactions = self.fetchTransactions(
+                    for: self.currentAuthor,
+                    since: self.timestampManager,
+                    by: self.fetcher,
+                    logger: self.sendMessage
                 )
-                
+
                 if transactions.isEmpty { continue }
-                
+
                 // merge
-                mergeTransactionsInContexts(
+                self.mergeTransactionsInContexts(
                     transactions: transactions,
-                    by: merger,
-                    timestampManager: timestampManager,
-                    logger: sendMessage
+                    by: self.merger,
+                    timestampManager: self.timestampManager,
+                    logger: self.sendMessage
                 )
-                
-                deduplicator?(deduplicate: transactions, in: contexts)
+
+                self.deduplicator?(deduplicate: transactions, in: self.contexts)
 
                 // clean
-                cleanTransactions(
-                    beforeDate: timestampManager,
-                    allAuthors: allAuthors,
-                    batchAuthors: batchAuthors,
-                    by: cleaner,
-                    logger: sendMessage
+                self.cleanTransactions(
+                    beforeDate: self.timestampManager,
+                    allAuthors: self.allAuthors,
+                    batchAuthors: self.batchAuthors,
+                    by: self.cleaner,
+                    logger: self.sendMessage
                 )
             }
             sendMessage(type: .info, level: 1, message: "Persistent History Track Kit Stop")
@@ -264,18 +263,22 @@ public final class PersistentHistoryTrackingKit {
 public extension PersistentHistoryTrackingKit {
     /// 启动处理任务
     func start() {
-        guard transactionProcessingTasks.isEmpty else {
-            return
+        taskQueue.async(flags: .barrier) {
+            guard self.transactionProcessingTasks.isEmpty else {
+                return
+            }
+            self.transactionProcessingTasks.append(self.createTransactionProcessingTask())
         }
-        transactionProcessingTasks.append(createTransactionProcessingTask())
     }
 
     /// 停止处理任务
     func stop() {
-        transactionProcessingTasks.forEach {
-            $0.cancel()
+        taskQueue.async(flags: .barrier) {
+            self.transactionProcessingTasks.forEach {
+                $0.cancel()
+            }
+            self.transactionProcessingTasks.removeAll()
         }
-        transactionProcessingTasks.removeAll()
     }
 }
 
@@ -384,4 +387,3 @@ public extension PersistentHistoryTrackingKit {
     }
 }
 
-extension Notification:@unchecked Sendable {}

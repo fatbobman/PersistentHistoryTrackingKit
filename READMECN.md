@@ -6,32 +6,64 @@
 
 [English Version](https://github.com/fatbobman/PersistentHistoryTrackingKit/blob/main/README.md)
 
-## 🚀 Swift 6 分支现已可用
+## 🚀 版本 1.3.0 - Swift 6 兼容
 
-> **🎯 新的 Swift 6 兼容版本现已可用**
+> **🎉 当前版本 (1.3.0) 兼容 Swift 6**
 >
-> 我们创建了一个全面的 **Swift 6 适配版本**，具备完整的并发安全性、真正的 Sendable 合规性和内存泄漏修复。新版本可在 `swift6-adaptation` 分支中使用。
+> 最新版本包含了全面的 Swift 6 并发改进：
 >
-> **✨ 主要改进：**
+> **✨ 1.3.0 新特性：**
 >
-> - 🔒 **真正的 Sendable 合规** - 不仅仅是 `@unchecked Sendable`
-> - 🧵 **无数据竞争** - 全面的并发测试
-> - 🛡️ **内存安全** - 零保留循环或内存泄漏
-> - 🧪 **Swift Testing 框架** - 现代测试基础设施
-> - 📚 **增强文档** - 全面的指南和示例
+> - ✅ **Swift 6 兼容** - 支持 Swift 6 严格并发模式
+> - 🔒 **线程安全的任务管理** - 使用 DispatchQueue 屏障保护
+> - 🧵 **无内存泄漏** - 使用 `[weak self]` 防止循环引用
+> - 📱 **Xcode 26+ 兼容** - 解决系统 API 命名冲突
+> - 🚀 **原生通知** - 使用 iOS 15+ `NotificationCenter.notifications()`
+> - 🎯 **Sendable 合规** - 添加 `@unchecked Sendable` 一致性
 >
-> **🔄 试用方法：**
+> **📦 安装最新版本：**
 >
 > ```swift
 > dependencies: [
->     .package(url: "https://github.com/fatbobman/PersistentHistoryTrackingKit.git", branch: "swift6-adaptation")
+>     .package(url: "https://github.com/fatbobman/PersistentHistoryTrackingKit.git", from: "1.3.0")
 > ]
 > ```
 >
-> **📝 欢迎反馈：**  
-> 请测试 Swift 6 版本并[**创建 issue**](https://github.com/fatbobman/PersistentHistoryTrackingKit/issues) 提供您的反馈。一旦我们获得足够的实际使用验证，就会将其合并到 main 分支。
+> **🔜 展望未来：**
 >
-> **📖 完整文档：** [Swift 6 分支 README](https://github.com/fatbobman/PersistentHistoryTrackingKit/blob/swift6-adaptation/READMECN.md)
+> 我们正在积极开发 **版本 2.0**，包含：
+>
+> - 完整的 Swift 6 严格并发模式
+> - iOS 17+ 基于 Actor 的架构
+> - 内置 Hook 回调系统
+> - 删除对象的墓碑机制
+> - 完全的 Sendable 安全性（无需 `@unchecked`）
+>
+> 在 `feature/swift6-optimization-and-hook-system` 分支关注开发进度。
+
+## ⚠️ Xcode 26+ 用户重要 API 说明
+
+**版本 1.3.0+ 完全兼容 Xcode 26 (Swift 6.0)**
+
+从 Xcode 26 Beta 5 开始，Apple 为 `NSManagedObjectContext` 添加了原生的 `performAndWait<T>(_ block: @Sendable () throws -> T) rethrows -> T` 方法。为了避免与系统 API 命名冲突，我们重命名了扩展方法：
+
+### 旧版本 (1.3.0 之前)
+
+```swift
+// ❌ 与 Xcode 26+ 系统API冲突
+let result = try context.performAndWait { ... }
+```
+
+### 新版本 (1.3.0+)
+
+```swift
+// ✅ 兼容所有 Xcode 版本
+let result = try context.performAndWaitWithResult { ... }
+```
+
+**迁移指南：** 如果您之前使用的是旧的 `performAndWait` 扩展，只需将其重命名为 `performAndWaitWithResult`。功能完全相同。
+
+更多详情请参阅 [Issue #6](https://github.com/fatbobman/PersistentHistoryTrackingKit/issues/6)。
 
 ## What's This？
 

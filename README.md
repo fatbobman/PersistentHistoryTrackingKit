@@ -6,32 +6,64 @@ Helps you easily handle Core Data's Persistent History Tracking
 
 [中文版说明](https://github.com/fatbobman/PersistentHistoryTrackingKit/blob/main/READMECN.md)
 
-## 🚀 Swift 6 Branch Available
+## 🚀 Version 1.3.0 - Swift 6 Compatible
 
-> **🎯 New Swift 6 Compatible Version Available**
+> **🎉 Current Version (1.3.0) is Swift 6 Compatible**
 >
-> We've created a comprehensive **Swift 6 adaptation** with full concurrency safety, true Sendable compliance, and memory leak fixes. The new version is available in the `swift6-adaptation` branch.
+> The latest release includes comprehensive Swift 6 concurrency improvements:
 >
-> **✨ Key Improvements:**
+> **✨ What's New in 1.3.0:**
 >
-> - 🔒 **True Sendable Compliance** - Not just `@unchecked Sendable`
-> - 🧵 **Data Race Free** - Comprehensive concurrency testing
-> - 🛡️ **Memory Safe** - Zero retain cycles or memory leaks  
-> - 🧪 **Swift Testing Framework** - Modern testing infrastructure
-> - 📚 **Enhanced Documentation** - Comprehensive guides and examples
+> - ✅ **Swift 6 Compatible** - Works with Swift 6 strict concurrency mode
+> - 🔒 **Thread-Safe Task Management** - Protected with DispatchQueue barriers
+> - 🧵 **No Retain Cycles** - Uses `[weak self]` to prevent memory leaks
+> - 📱 **Xcode 26+ Compatible** - Resolves system API naming conflicts
+> - 🚀 **Native Notifications** - Uses iOS 15+ `NotificationCenter.notifications()`
+> - 🎯 **Sendable Compliance** - Added `@unchecked Sendable` conformance
 >
-> **🔄 Try it out:**
+> **📦 Install the latest version:**
 >
 > ```swift
 > dependencies: [
->     .package(url: "https://github.com/fatbobman/PersistentHistoryTrackingKit.git", branch: "swift6-adaptation")
+>     .package(url: "https://github.com/fatbobman/PersistentHistoryTrackingKit.git", from: "1.3.0")
 > ]
 > ```
 >
-> **📝 Feedback Welcome:**  
-> Please test the Swift 6 version and [**create an issue**](https://github.com/fatbobman/PersistentHistoryTrackingKit/issues) with your feedback. We'll merge it to main once we have sufficient real-world validation.
+> **🔜 Looking ahead:**
 >
-> **📖 Full Documentation:** [Swift 6 Branch README](https://github.com/fatbobman/PersistentHistoryTrackingKit/blob/swift6-adaptation/README.md)
+> We're actively developing **Version 2.0** with:
+>
+> - Full Swift 6 strict concurrency mode
+> - iOS 17+ with Actor-based architecture
+> - Built-in Hook callback system
+> - Tombstone mechanism for deleted objects
+> - Complete Sendable safety without `@unchecked`
+>
+> Follow progress in the `feature/swift6-optimization-and-hook-system` branch.
+
+## ⚠️ Important API Note for Xcode 26+ Users
+
+Version 1.3.0+ is fully compatible with Xcode 26 (Swift 6.0)
+
+Since Xcode 26 Beta 5, Apple has added a native `performAndWait<T>(_ block: @Sendable () throws -> T) rethrows -> T` method to `NSManagedObjectContext`. To avoid naming conflicts with this system API, we renamed our extension method:
+
+### Old (before 1.3.0)
+
+```swift
+// ❌ Conflicts with Xcode 26+ system API
+let result = try context.performAndWait { ... }
+```
+
+### New (1.3.0+)
+
+```swift
+// ✅ Works with all Xcode versions
+let result = try context.performAndWaitWithResult { ... }
+```
+
+**Migration:** If you were using the old `performAndWait` extension, simply rename it to `performAndWaitWithResult`. The functionality is identical.
+
+For more details, see [Issue #6](https://github.com/fatbobman/PersistentHistoryTrackingKit/issues/6).
 
 ## What's This？
 
