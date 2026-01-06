@@ -17,7 +17,6 @@ import Foundation
 
 /// V2: 基于 Actor 的持久化历史跟踪 Kit
 public final class PersistentHistoryTrackingKit: @unchecked Sendable {
-
     // MARK: - Properties
 
     /// 日志显示等级，从 0-2 级。0 关闭 2 最详尽
@@ -26,7 +25,7 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
     }
 
     public func getLogLevel() -> Int {
-        return _logLevel
+        _logLevel
     }
 
     /// 当前 author
@@ -40,13 +39,19 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
 
     /// 事务处理器
     /// Note: 标记为 internal 以便测试访问
-    internal let transactionProcessor: TransactionProcessorActor
+    let transactionProcessor: TransactionProcessorActor
 
     /// 日志显示等级，从 0-2 级。0 关闭 2 最详尽
     private let _logLevel: Int
 
     /// 需要合并的上下文列表
     private let contexts: [NSManagedObjectContext]
+
+    /// 是否包含 CloudKit mirroring author
+    private let includingCloudKitMirroring: Bool
+
+    /// CloudKit mirroring authors
+    private static let cloudMirrorAuthors = ["NSCloudKitMirroringDelegate.import"]
 
     /// 处理任务
     private var processingTask: Task<Void, Never>?
@@ -88,36 +93,38 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
         uniqueString: String = "PersistentHistoryTrackingKit.lastToken.",
         logger: PersistentHistoryTrackingKitLoggerProtocol? = nil,
         logLevel: Int = 1,
-        autoStart: Bool = true
-    ) {
+        autoStart: Bool = true)
+    {
         self.currentAuthor = currentAuthor
         self.allAuthors = allAuthors
         self.container = container
-        self.coordinator = container.persistentStoreCoordinator
+        coordinator = container.persistentStoreCoordinator
         self.logger = logger ?? DefaultLogger()
-        self._logLevel = logLevel
+        _logLevel = logLevel
         self.contexts = contexts ?? [container.viewContext]
         self.userDefaults = userDefaults
         self.uniqueString = uniqueString
         self.maximumDuration = maximumDuration
         self.batchAuthors = batchAuthors
+        self.includingCloudKitMirroring = includingCloudKitMirroring
+        if includingCloudKitMirroring {
+            self.logger.log(type: .notice, message: "⚠️ 在清理中包含 CloudKit mirroring author，可能会导致云同步数据被破坏，请确保了解相关风险！")
+        }
 
         // 创建 actors
-        self.hookRegistry = HookRegistryActor()
+        hookRegistry = HookRegistryActor()
 
         // 创建时间戳管理器
         let timestampManager = TransactionTimestampManager(
             userDefaults: userDefaults,
             maximumDuration: maximumDuration,
-            uniqueString: uniqueString
-        )
+            uniqueString: uniqueString)
 
-        self.transactionProcessor = TransactionProcessorActor(
+        transactionProcessor = TransactionProcessorActor(
             container: container,
             hookRegistry: hookRegistry,
             cleanStrategy: cleanStrategy,
-            timestampManager: timestampManager
-        )
+            timestampManager: timestampManager)
 
         if autoStart {
             start()
@@ -138,12 +145,15 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
     public func registerHook(
         entityName: String,
         operation: HookOperation,
-        callback: @escaping HookCallback
-    ) {
+        callback: @escaping HookCallback)
+    {
         Task { @Sendable [weak self] in
-            guard let self = self else { return }
-            await self.hookRegistry.registerObserver(entityName: entityName, operation: operation, callback: callback)
-            self.log(.info, level: 2, "Registered observer hook for \(entityName).\(operation.rawValue)")
+            guard let self else { return }
+            await hookRegistry.registerObserver(
+                entityName: entityName,
+                operation: operation,
+                callback: callback)
+            log(.info, level: 2, "Registered observer hook for \(entityName).\(operation.rawValue)")
         }
     }
 
@@ -153,12 +163,12 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
     ///   - operation: 操作类型
     public func removeHook(
         entityName: String,
-        operation: HookOperation
-    ) {
+        operation: HookOperation)
+    {
         Task { @Sendable [weak self] in
-            guard let self = self else { return }
-            await self.hookRegistry.removeObserver(entityName: entityName, operation: operation)
-            self.log(.info, level: 2, "Removed observer hook for \(entityName).\(operation.rawValue)")
+            guard let self else { return }
+            await hookRegistry.removeObserver(entityName: entityName, operation: operation)
+            log(.info, level: 2, "Removed observer hook for \(entityName).\(operation.rawValue)")
         }
     }
 
@@ -172,8 +182,8 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
     @discardableResult
     public func registerMergeHook(
         before hookId: UUID? = nil,
-        callback: @escaping MergeHookCallback
-    ) async -> UUID {
+        callback: @escaping MergeHookCallback) async -> UUID
+    {
         let id = await transactionProcessor.registerMergeHook(before: hookId, callback: callback)
         log(.info, level: 2, "Registered merge hook: \(id)")
         return id
@@ -214,8 +224,7 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
             userDefaults: userDefaults,
             uniqueString: uniqueString,
             logger: logger,
-            logLevel: _logLevel
-        )
+            logLevel: _logLevel)
     }
 
     /// 启动处理任务
@@ -223,19 +232,21 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
         guard processingTask == nil else { return }
 
         processingTask = Task { @Sendable [weak self, coordinator] in
-            guard let self = self else { return }
+            guard let self else { return }
 
-            self.log(.info, level: 1, "Persistent History Tracking Kit V2 Started")
+            log(.info, level: 1, "Persistent History Tracking Kit V2 Started")
 
             // 监听 NSPersistentStoreRemoteChange 通知
             let center = NotificationCenter.default
             let name = NSNotification.Name.NSPersistentStoreRemoteChange
 
-            for await _ in center.notifications(named: name, object: coordinator) where !Task.isCancelled {
+            for await _ in center.notifications(named: name, object: coordinator)
+                where !Task.isCancelled
+            {
                 await self.handleRemoteChangeNotification()
             }
 
-            self.log(.info, level: 1, "Persistent History Tracking Kit V2 Stopped")
+            log(.info, level: 1, "Persistent History Tracking Kit V2 Stopped")
         }
 
         log(.info, level: 2, "Started transaction processing task")
@@ -257,15 +268,20 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
         // 从 UserDefaults 读取上次处理的时间戳
         let lastTimestamp = getLastTimestampFromUserDefaults(for: currentAuthor)
 
+        // 计算需要处理的 authors（如果包含 CloudKit mirroring，则添加 CloudKit authors）
+        let authorsToProcess = includingCloudKitMirroring
+            ? Array(Set(allAuthors + Self.cloudMirrorAuthors))
+            : allAuthors
+
         do {
             // 处理新事务并自动管理时间戳
-            let count = try await transactionProcessor.processNewTransactionsWithTimestampManagement(
-                from: allAuthors,
-                after: lastTimestamp,
-                mergeInto: contexts,
-                currentAuthor: currentAuthor,
-                batchAuthors: batchAuthors
-            )
+            let count = try await transactionProcessor
+                .processNewTransactionsWithTimestampManagement(
+                    from: authorsToProcess,
+                    after: lastTimestamp,
+                    mergeInto: contexts,
+                    currentAuthor: currentAuthor,
+                    batchAuthors: batchAuthors)
 
             log(.info, level: 2, "Processed \(count) transactions")
         } catch {
@@ -285,4 +301,3 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
         logger.log(type: type, message: message)
     }
 }
-
