@@ -12,9 +12,9 @@ import Testing
 
 @Suite("MergeHook Tests", .serialized)
 struct MergeHookTests {
-    // MARK: - 基础注册和移除测试
+    // MARK: - Basic Registration and Removal Tests
 
-    @Test("注册和移除 Merge Hook")
+    @Test("Register and remove merge hook")
     func registerAndRemoveMergeHook() async throws {
         let container = TestModelBuilder.createContainer(
             author: "TestAuthor",
@@ -30,23 +30,23 @@ struct MergeHookTests {
             cleanStrategy: .none,
             timestampManager: timestampManager)
 
-        // 注册 Merge Hook
+        // Register a merge hook.
         let hookId = await processor.registerMergeHook { _ in
             .goOn
         }
 
         #expect(hookId != UUID())
 
-        // 移除 Merge Hook
+        // Remove the merge hook.
         let removed = await processor.removeMergeHook(id: hookId)
         #expect(removed == true)
 
-        // 再次移除应返回 false
+        // Removing again should return false.
         let removedAgain = await processor.removeMergeHook(id: hookId)
         #expect(removedAgain == false)
     }
 
-    @Test("移除所有 Merge Hook")
+    @Test("Remove all merge hooks")
     func removeAllMergeHooks() async throws {
         let container = TestModelBuilder.createContainer(
             author: "TestAuthor",
@@ -62,23 +62,23 @@ struct MergeHookTests {
             cleanStrategy: .none,
             timestampManager: timestampManager)
 
-        // 注册多个 Merge Hook
+        // Register multiple merge hooks.
         let hookId1 = await processor.registerMergeHook { _ in .goOn }
         let hookId2 = await processor.registerMergeHook { _ in .goOn }
 
-        // 移除所有
+        // Remove them all.
         await processor.removeAllMergeHooks()
 
-        // 验证都已移除
+        // Confirm they are gone.
         let removed1 = await processor.removeMergeHook(id: hookId1)
         let removed2 = await processor.removeMergeHook(id: hookId2)
         #expect(removed1 == false)
         #expect(removed2 == false)
     }
 
-    // MARK: - 管道执行测试
+    // MARK: - Pipeline Execution Tests
 
-    @Test("Merge Hook 管道 - goOn 继续执行")
+    @Test("Merge hook pipeline - goOn keeps running")
     func mergeHookPipelineGoOn() async throws {
         let container = TestModelBuilder.createContainer(
             author: "TestAuthor",
@@ -102,7 +102,7 @@ struct MergeHookTests {
 
         let counter = Counter()
 
-        // 注册两个返回 .goOn 的 hook
+        // Register two hooks that both return .goOn.
         _ = await processor.registerMergeHook { _ in
             await counter.increment()
             return .goOn
@@ -113,7 +113,7 @@ struct MergeHookTests {
             return .goOn
         }
 
-        // 创建测试数据触发事务
+        // Generate test data to trigger transactions.
         let bgContext = container.newBackgroundContext()
         bgContext.transactionAuthor = "OtherAuthor"
 
@@ -122,7 +122,7 @@ struct MergeHookTests {
             try bgContext.save()
         }
 
-        // 处理事务
+        // Process the transactions.
         let context2 = container.newBackgroundContext()
         _ = try await processor.processNewTransactions(
             from: ["OtherAuthor"],
@@ -130,12 +130,12 @@ struct MergeHookTests {
             mergeInto: [context2],
             currentAuthor: "TestAuthor")
 
-        // 两个 hook 都应该被执行
+        // Both hooks should have run.
         let finalCount = await counter.get()
         #expect(finalCount == 2)
     }
 
-    @Test("Merge Hook 管道 - finish 终止执行")
+    @Test("Merge hook pipeline - finish stops execution")
     func mergeHookPipelineFinish() async throws {
         let container = TestModelBuilder.createContainer(
             author: "TestAuthor",
@@ -161,19 +161,19 @@ struct MergeHookTests {
 
         let tracker = Tracker()
 
-        // 第一个 hook 返回 .finish
+        // First hook returns .finish.
         _ = await processor.registerMergeHook { _ in
             await tracker.setHook1Called()
             return .finish
         }
 
-        // 第二个 hook 不应该被执行
+        // Second hook should be skipped.
         _ = await processor.registerMergeHook { _ in
             await tracker.setHook2Called()
             return .goOn
         }
 
-        // 创建测试数据触发事务
+        // Generate test data to trigger transactions.
         let bgContext = container.newBackgroundContext()
         bgContext.transactionAuthor = "OtherAuthor"
 
@@ -182,7 +182,7 @@ struct MergeHookTests {
             try bgContext.save()
         }
 
-        // 处理事务
+        // Process the transactions.
         let context2 = container.newBackgroundContext()
         _ = try await processor.processNewTransactions(
             from: ["OtherAuthor"],
@@ -190,15 +190,15 @@ struct MergeHookTests {
             mergeInto: [context2],
             currentAuthor: "TestAuthor")
 
-        // 只有第一个 hook 被执行
+        // Only the first hook should have run.
         let state = await tracker.getState()
         #expect(state.0 == true)
         #expect(state.1 == false)
     }
 
-    // MARK: - Hook 顺序测试
+    // MARK: - Hook Ordering Tests
 
-    @Test("Merge Hook 执行顺序")
+    @Test("Merge hook execution order")
     func mergeHookExecutionOrder() async throws {
         let container = TestModelBuilder.createContainer(
             author: "TestAuthor",
@@ -222,7 +222,7 @@ struct MergeHookTests {
 
         let tracker = OrderTracker()
 
-        // 按顺序注册三个 hook
+        // Register three hooks in order.
         _ = await processor.registerMergeHook { _ in
             await tracker.append(1)
             return .goOn
@@ -238,7 +238,7 @@ struct MergeHookTests {
             return .goOn
         }
 
-        // 创建测试数据触发事务
+        // Generate test data.
         let bgContext = container.newBackgroundContext()
         bgContext.transactionAuthor = "OtherAuthor"
 
@@ -247,7 +247,7 @@ struct MergeHookTests {
             try bgContext.save()
         }
 
-        // 处理事务
+        // Process the transactions.
         let context2 = container.newBackgroundContext()
         _ = try await processor.processNewTransactions(
             from: ["OtherAuthor"],
@@ -255,12 +255,12 @@ struct MergeHookTests {
             mergeInto: [context2],
             currentAuthor: "TestAuthor")
 
-        // 验证执行顺序
+        // Verify execution order.
         let order = await tracker.get()
         #expect(order == [1, 2, 3])
     }
 
-    @Test("使用 before 参数插入 Merge Hook")
+    @Test("Insert merge hook using the before parameter")
     func mergeHookInsertBefore() async throws {
         let container = TestModelBuilder.createContainer(
             author: "TestAuthor",
@@ -284,19 +284,19 @@ struct MergeHookTests {
 
         let tracker = OrderTracker()
 
-        // 先注册 hook A
+        // Register hook A first.
         let hookA = await processor.registerMergeHook { _ in
             await tracker.append("A")
             return .goOn
         }
 
-        // 在 hook A 之前插入 hook B
+        // Insert hook B before hook A.
         _ = await processor.registerMergeHook(before: hookA) { _ in
             await tracker.append("B")
             return .goOn
         }
 
-        // 创建测试数据触发事务
+        // Generate test data.
         let bgContext = container.newBackgroundContext()
         bgContext.transactionAuthor = "OtherAuthor"
 
@@ -305,7 +305,7 @@ struct MergeHookTests {
             try bgContext.save()
         }
 
-        // 处理事务
+        // Process the transactions.
         let context2 = container.newBackgroundContext()
         _ = try await processor.processNewTransactions(
             from: ["OtherAuthor"],
@@ -313,14 +313,14 @@ struct MergeHookTests {
             mergeInto: [context2],
             currentAuthor: "TestAuthor")
 
-        // B 应该在 A 之前执行
+        // Hook B should execute before hook A.
         let order = await tracker.get()
         #expect(order == ["B", "A"])
     }
 
-    // MARK: - MergeHookInput 访问测试
+    // MARK: - MergeHookInput Access Tests
 
-    @Test("Merge Hook 可以访问 transactions 和 contexts")
+    @Test("Merge hook can access transactions and contexts")
     func mergeHookAccessInput() async throws {
         let container = TestModelBuilder.createContainer(
             author: "TestAuthor",
@@ -362,7 +362,7 @@ struct MergeHookTests {
             return .goOn
         }
 
-        // 创建测试数据触发事务
+        // Generate test data.
         let bgContext = container.newBackgroundContext()
         bgContext.transactionAuthor = "OtherAuthor"
 
@@ -371,7 +371,7 @@ struct MergeHookTests {
             try bgContext.save()
         }
 
-        // 处理事务
+        // Process the transactions.
         let context2 = container.newBackgroundContext()
         _ = try await processor.processNewTransactions(
             from: ["OtherAuthor"],
@@ -385,9 +385,9 @@ struct MergeHookTests {
         #expect(result.2 == true) // author is correct
     }
 
-    // MARK: - 默认合并兜底测试
+    // MARK: - Default Merge Fallback Tests
 
-    @Test("无 Merge Hook 时使用默认合并")
+    @Test("Fall back to default merge when no hooks exist")
     func defaultMergeWithoutHooks() async throws {
         let container = TestModelBuilder.createContainer(
             author: "TestAuthor",
@@ -403,9 +403,9 @@ struct MergeHookTests {
             cleanStrategy: .none,
             timestampManager: timestampManager)
 
-        // 不注册任何 merge hook
+        // Do not register any merge hooks.
 
-        // 创建测试数据
+        // Generate test data.
         let bgContext = container.newBackgroundContext()
         bgContext.transactionAuthor = "OtherAuthor"
 
@@ -414,7 +414,7 @@ struct MergeHookTests {
             try bgContext.save()
         }
 
-        // 处理事务
+        // Process the transactions.
         let context2 = container.newBackgroundContext()
         let count = try await processor.processNewTransactions(
             from: ["OtherAuthor"],
@@ -424,7 +424,7 @@ struct MergeHookTests {
 
         #expect(count >= 1)
 
-        // 验证数据已合并
+        // Ensure the data merged correctly.
         try await context2.perform {
             let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Person")
             fetchRequest.predicate = NSPredicate(format: "name == %@", "DefaultMergeTest")
@@ -433,4 +433,3 @@ struct MergeHookTests {
         }
     }
 }
-

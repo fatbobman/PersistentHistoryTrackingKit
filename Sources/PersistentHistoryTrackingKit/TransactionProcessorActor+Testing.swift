@@ -10,15 +10,15 @@
 import Foundation
 
 #if DEBUG
-/// 测试扩展：在 Actor 内部执行测试逻辑，避免 NSPersistentHistoryTransaction 跨越 Actor 边界
+/// Testing helpers executed inside the actor to avoid passing NSPersistentHistoryTransaction across actor boundaries.
 extension TransactionProcessorActor {
 
-    /// 测试 fetchTransactions 是否正确排除指定 author
+    /// Verify that `fetchTransactions` correctly excludes a given author.
     /// - Parameters:
-    ///   - authors: 要获取的作者列表
-    ///   - date: 起始时间戳
-    ///   - excludeAuthor: 要排除的 author
-    /// - Returns: (事务数量, 是否所有事务都不包含被排除的 author)
+    ///   - authors: Authors to fetch.
+    ///   - date: Starting timestamp.
+    ///   - excludeAuthor: Author to exclude.
+    /// - Returns: (transaction count, whether every transaction excludes the target author)
     public func testFetchTransactionsExcludesAuthor(
         from authors: [String],
         after date: Date?,
@@ -26,7 +26,7 @@ extension TransactionProcessorActor {
     ) throws -> (count: Int, allExcluded: Bool) {
         let transactions = try fetchTransactions(from: authors, after: date, excludeAuthor: excludeAuthor)
 
-        // 验证所有事务都不包含被排除的 author
+        // Ensure no transaction matches the excluded author.
         let allExcluded: Bool
         if let excludeAuthor = excludeAuthor {
             allExcluded = transactions.allSatisfy { $0.author != excludeAuthor }
@@ -37,47 +37,47 @@ extension TransactionProcessorActor {
         return (transactions.count, allExcluded)
     }
 
-    /// 测试 cleanTransactions 的删除结果
+    /// Test the deletion results of `cleanTransactions`.
     /// - Parameters:
-    ///   - timestamp: 清理该时间戳之前的事务
-    ///   - authors: 要清理的作者列表
-    ///   - expectedBefore: 清理前预期的事务数量（用于验证）
-    /// - Returns: (删除的事务数量, 清理后剩余的事务数量)
+    ///   - timestamp: Delete transactions before this timestamp.
+    ///   - authors: Authors to clean.
+    ///   - expectedBefore: Optional expected count before cleanup (validation aid).
+    /// - Returns: (deleted count, remaining count)
     public func testCleanTransactions(
         before timestamp: Date,
         for authors: [String],
         expectedBefore: Int?
     ) throws -> (deletedCount: Int, remainingCount: Int) {
-        // 清理前获取事务数量
+        // Count transactions before cleanup.
         let beforeTransactions = try fetchTransactions(from: authors, after: nil)
         let beforeCount = beforeTransactions.count
 
-        // 如果提供了预期值，验证它
+        // Validate against the provided expectation when set.
         if let expected = expectedBefore {
             guard beforeCount == expected else {
                 throw TestError.unexpectedCount(expected: expected, actual: beforeCount)
             }
         }
 
-        // 执行清理
+        // Perform cleanup.
         let deletedCount = try cleanTransactions(before: timestamp, for: authors)
 
-        // 清理后获取剩余事务数量
+        // Count the remaining transactions.
         let afterTransactions = try fetchTransactions(from: authors, after: nil)
         let remainingCount = afterTransactions.count
 
         return (deletedCount, remainingCount)
     }
 
-    /// 测试 processNewTransactions 完整流程
+    /// Test the full `processNewTransactions` flow.
     /// - Parameters:
-    ///   - authors: 要处理的作者列表
-    ///   - lastTimestamp: 上次处理的时间戳
-    ///   - contexts: 要合并到的上下文列表
-    ///   - currentAuthor: 当前作者
-    ///   - cleanBeforeTimestamp: 清理时间戳
-    ///   - expectedEntityName: 预期的实体名称（用于验证）
-    /// - Returns: (处理的事务数量, 第一个事务的作者, 第一个变更的实体名称)
+    ///   - authors: Authors whose transactions should be processed.
+    ///   - lastTimestamp: Last processed timestamp.
+    ///   - contexts: Target contexts.
+    ///   - currentAuthor: Current author.
+    ///   - cleanBeforeTimestamp: Cleanup cutoff timestamp.
+    ///   - expectedEntityName: Expected entity name for validation.
+    /// - Returns: (transaction count, first transaction author, first change entity name)
     public func testProcessNewTransactions(
         from authors: [String],
         after lastTimestamp: Date?,
@@ -86,20 +86,20 @@ extension TransactionProcessorActor {
         cleanBeforeTimestamp: Date?,
         expectedEntityName: String?
     ) async throws -> (count: Int, firstAuthor: String?, firstEntityName: String?) {
-        // 获取处理前的事务信息
+        // Fetch transactions before running the workflow.
         let transactions = try fetchTransactions(from: authors, after: lastTimestamp, excludeAuthor: currentAuthor)
 
         let firstAuthor = transactions.first?.author
         let firstEntityName = transactions.first?.changes?.first?.changedObjectID.entity.name
 
-        // 如果提供了预期的实体名称，验证它
+        // Validate the entity name when an expectation is provided.
         if let expected = expectedEntityName, let actual = firstEntityName {
             guard actual == expected else {
                 throw TestError.unexpectedEntityName(expected: expected, actual: actual)
             }
         }
 
-        // 执行完整的处理流程
+        // Execute the complete processing pipeline.
         let count = try await processNewTransactions(
             from: authors,
             after: lastTimestamp,
@@ -111,17 +111,17 @@ extension TransactionProcessorActor {
         return (count, firstAuthor, firstEntityName)
     }
 
-    /// 测试 getLastTransactionTimestamp
-    /// - Parameter author: 作者名称
-    /// - Returns: (是否存在时间戳, 时间戳值, 是否在合理范围内)
+    /// Test helper for `getLastTransactionTimestamp`.
+    /// - Parameter author: Author name.
+    /// - Returns: (timestamp exists, timestamp value, is timestamp within allowed age)
     public func testGetLastTransactionTimestamp(
         for author: String,
-        maxAge: TimeInterval = 10 // 默认 10 秒内
+        maxAge: TimeInterval = 10 // Default tolerance: 10 seconds.
     ) throws -> (hasTimestamp: Bool, timestamp: Date?, isRecent: Bool) {
         let timestamp = try getLastTransactionTimestamp(for: author)
         let hasTimestamp = timestamp != nil
 
-        // 验证时间戳是否在合理范围内（不早于 maxAge 秒前，不晚于现在）
+        // Ensure the timestamp is within the acceptable range (not older than `maxAge` seconds and not later than now).
         let isRecent: Bool
         if let timestamp = timestamp {
             let now = Date()
@@ -134,13 +134,13 @@ extension TransactionProcessorActor {
         return (hasTimestamp, timestamp, isRecent)
     }
 
-    /// 测试 Hook 是否被正确触发
+    /// Verify that hooks are triggered as expected.
     /// - Parameters:
-    ///   - authors: 要处理的作者列表
-    ///   - contexts: 要合并到的上下文列表
-    ///   - expectedEntityName: 预期触发 Hook 的实体名称
-    ///   - expectedOperation: 预期的操作类型
-    /// - Returns: (处理的事务数量, 第一个变更的详细信息)
+    ///   - authors: Authors to process.
+    ///   - contexts: Contexts to merge into.
+    ///   - expectedEntityName: Expected entity name for the hook.
+    ///   - expectedOperation: Expected operation type.
+    /// - Returns: (transaction count, first change entity name, first change operation)
     public func testHookTrigger(
         from authors: [String],
         after date: Date?,
@@ -155,7 +155,7 @@ extension TransactionProcessorActor {
         let entityName = firstChange?.changedObjectID.entity.name
         let operation = firstChange.map { convertToHookOperation($0.changeType) }
 
-        // 验证实体名称和操作类型
+        // Validate entity name and operation type.
         if let entityName = entityName, entityName != expectedEntityName {
             throw TestError.unexpectedEntityName(expected: expectedEntityName, actual: entityName)
         }
@@ -164,7 +164,7 @@ extension TransactionProcessorActor {
             throw TestError.unexpectedOperation(expected: expectedOperation, actual: operation)
         }
 
-        // 执行处理（会触发 Hook）
+        // Process transactions, which should trigger the hook.
         let count = try await processNewTransactions(
             from: authors,
             after: date,

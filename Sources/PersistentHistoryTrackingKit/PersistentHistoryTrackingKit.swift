@@ -15,64 +15,64 @@ import Foundation
 
 // swiftlint:disable line_length
 
-/// V2: 基于 Actor 的持久化历史跟踪 Kit
+/// V2: Actor-based persistent history tracking kit.
 public final class PersistentHistoryTrackingKit: @unchecked Sendable {
     // MARK: - Properties
 
-    /// 日志显示等级，从 0-2 级。0 关闭 2 最详尽
-    /// - Note: V2 中 logLevel 在初始化时设置，运行时不可更改
+    /// Log verbosity level from 0–2 (0 disables logging, 2 is the most verbose).
+    /// - Note: In V2 the log level is fixed at initialization time.
     public var logLevel: Int {
         _logLevel
     }
 
-    /// 当前 author
+    /// Current author identifier.
     private let currentAuthor: String
 
-    /// 全部 authors
+    /// All authors to monitor.
     private let allAuthors: [String]
 
-    /// Hook 注册表
+    /// Hook registry.
     private let hookRegistry: HookRegistryActor
 
-    /// 事务处理器
-    /// Note: 标记为 internal 以便测试访问
+    /// Transaction processor.
+    /// Note: Internal for test visibility.
     let transactionProcessor: TransactionProcessorActor
 
-    /// 日志显示等级，从 0-2 级。0 关闭 2 最详尽
+    /// Cached log level value (0–2, where 0 disables logging).
     private let _logLevel: Int
 
-    /// 需要合并的上下文列表
+    /// Contexts that receive merged transactions.
     private let contexts: [NSManagedObjectContext]
 
-    /// 是否包含 CloudKit mirroring author
+    /// Whether CloudKit mirroring authors are included.
     private let includingCloudKitMirroring: Bool
 
     /// CloudKit mirroring authors
     private static let cloudMirrorAuthors = ["NSCloudKitMirroringDelegate.import"]
 
-    /// 处理任务
+    /// Background processing task.
     private var processingTask: Task<Void, Never>?
 
-    /// 持久化存储容器（用于创建 cleanerBuilder）
+    /// Persistent container (used to build manual cleaners).
     private let container: NSPersistentContainer
 
-    /// 持久化存储协调器
+    /// Persistent store coordinator.
     private let coordinator: NSPersistentStoreCoordinator
 
-    /// 日志管理器
+    /// Logger instance.
     private let logger: PersistentHistoryTrackingKitLoggerProtocol
 
-    /// UserDefaults 用于保存时间戳
-    /// ⚠️ UserDefaults 非 Sendable，但本身是线程安全的
+    /// UserDefaults used to persist timestamps.
+    /// ⚠️ UserDefaults is not Sendable but is thread-safe in practice.
     private let userDefaults: UserDefaults
 
-    /// 时间戳保存的 Key 前缀
+    /// Key prefix for timestamp storage.
     private let uniqueString: String
 
-    /// 最大持续时间（秒）
+    /// Maximum retention duration (seconds).
     private let maximumDuration: TimeInterval
 
-    /// 批量操作的 authors
+    /// Authors participating in a batch job (excluded from cleanup thresholds).
     private let batchAuthors: [String]
 
     // MARK: - Initialization
@@ -107,13 +107,13 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
         if includingCloudKitMirroring {
             self.logger.log(
                 type: .notice,
-                message: "⚠️ 在清理中包含 CloudKit mirroring author，可能会导致云同步数据被破坏，请确保了解相关风险！")
+                message: "⚠️ Cleaning while including CloudKit mirroring authors can corrupt cloud-sync data. Proceed only if you understand the risks.")
         }
 
-        // 创建 actors
+        // Instantiate helper actors.
         hookRegistry = HookRegistryActor()
 
-        // 创建时间戳管理器
+        // Build the timestamp manager.
         let timestampManager = TransactionTimestampManager(
             userDefaults: userDefaults,
             maximumDuration: maximumDuration,
@@ -136,11 +136,11 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
 
     // MARK: - Public Methods
 
-    /// 注册 Observer Hook（用于通知/监听，不影响数据）
+    /// Register an Observer Hook (notification/monitoring only, no data changes).
     /// - Parameters:
-    ///   - entityName: 实体名称
-    ///   - operation: 操作类型
-    ///   - callback: 回调函数
+    ///   - entityName: Entity name.
+    ///   - operation: Operation type.
+    ///   - callback: Callback.
     public func registerHook(
         entityName: String,
         operation: HookOperation,
@@ -156,10 +156,10 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
         }
     }
 
-    /// 移除 Observer Hook
+    /// Remove an Observer Hook.
     /// - Parameters:
-    ///   - entityName: 实体名称
-    ///   - operation: 操作类型
+    ///   - entityName: Entity name.
+    ///   - operation: Operation type.
     public func removeHook(
         entityName: String,
         operation: HookOperation)
@@ -173,11 +173,11 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
 
     // MARK: - Merge Hook API
 
-    /// 注册 Merge Hook（管道模式，可自定义合并逻辑）
+    /// Register a Merge Hook (pipeline style for custom merge logic).
     /// - Parameters:
-    ///   - before: 可选，插入到此 hook 之前；如果为 nil，添加到末尾
-    ///   - callback: 回调函数，接收 MergeHookInput 参数
-    /// - Returns: 该 hook 的 UUID，用于后续移除
+    ///   - before: Optional hook ID to insert before; appended to the end if nil.
+    ///   - callback: Callback receiving `MergeHookInput`.
+    /// - Returns: Hook UUID for later removal.
     @discardableResult
     public func registerMergeHook(
         before hookId: UUID? = nil,
@@ -188,9 +188,9 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
         return id
     }
 
-    /// 移除指定的 Merge Hook
-    /// - Parameter hookId: hook 的 UUID
-    /// - Returns: 是否成功移除
+    /// Remove a specific Merge Hook.
+    /// - Parameter hookId: Hook UUID.
+    /// - Returns: Whether the hook was removed.
     @discardableResult
     public func removeMergeHook(id hookId: UUID) async -> Bool {
         let result = await transactionProcessor.removeMergeHook(id: hookId)
@@ -198,20 +198,20 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
         return result
     }
 
-    /// 移除所有 Merge Hook
+    /// Remove every registered Merge Hook.
     public func removeAllMergeHooks() async {
         await transactionProcessor.removeAllMergeHooks()
         log(.info, level: 2, "Removed all merge hooks")
     }
 
-    /// 创建手动清理器
+    /// Create a manual cleaner actor.
     ///
-    /// 使用示例：
+    /// Usage example:
     /// ```swift
     /// let kit = PersistentHistoryTrackingKit(...)
     /// let cleaner = kit.cleanerBuilder()
     ///
-    /// // 在需要清理的地方（比如 app 进入后台）
+    /// // Whenever cleanup is appropriate (e.g., when the app moves to background)
     /// Task {
     ///     await cleaner.clean()
     /// }
@@ -226,7 +226,7 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
             logLevel: _logLevel)
     }
 
-    /// 启动处理任务
+    /// Start the background processing task.
     public func start() {
         guard processingTask == nil else { return }
 
@@ -235,7 +235,7 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
 
             log(.info, level: 1, "Persistent History Tracking Kit V2 Started")
 
-            // 监听 NSPersistentStoreRemoteChange 通知
+            // Listen for NSPersistentStoreRemoteChange notifications.
             let center = NotificationCenter.default
             let name = NSNotification.Name.NSPersistentStoreRemoteChange
 
@@ -251,7 +251,7 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
         log(.info, level: 2, "Started transaction processing task")
     }
 
-    /// 停止处理任务
+    /// Stop the background processing task.
     public func stop() {
         processingTask?.cancel()
         processingTask = nil
@@ -260,20 +260,20 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
 
     // MARK: - Private Methods
 
-    /// 处理远程变更通知
+    /// Handle remote change notifications.
     private func handleRemoteChangeNotification() async {
         log(.info, level: 2, "Received NSPersistentStoreRemoteChange notification")
 
-        // 从 UserDefaults 读取上次处理的时间戳
+        // Read the last processed timestamp from UserDefaults.
         let lastTimestamp = getLastTimestampFromUserDefaults(for: currentAuthor)
 
-        // 计算需要处理的 authors（如果包含 CloudKit mirroring，则添加 CloudKit authors）
+        // Determine which authors to process (add CloudKit authors when needed).
         let authorsToProcess = includingCloudKitMirroring
             ? Array(Set(allAuthors + Self.cloudMirrorAuthors))
             : allAuthors
 
         do {
-            // 处理新事务并自动管理时间戳
+            // Process new transactions and update timestamps automatically.
             let count = try await transactionProcessor
                 .processNewTransactionsWithTimestampManagement(
                     from: authorsToProcess,
@@ -288,13 +288,13 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
         }
     }
 
-    /// 从 UserDefaults 读取上次处理的时间戳
+    /// Read the last processed timestamp stored in UserDefaults.
     private func getLastTimestampFromUserDefaults(for author: String) -> Date? {
         let key = uniqueString + author
         return userDefaults.object(forKey: key) as? Date
     }
 
-    /// 记录日志
+    /// Log helper respecting the configured verbosity.
     private func log(_ type: PersistentHistoryTrackingKitLogType, level: Int, _ message: String) {
         guard level <= _logLevel else { return }
         logger.log(type: type, message: message)

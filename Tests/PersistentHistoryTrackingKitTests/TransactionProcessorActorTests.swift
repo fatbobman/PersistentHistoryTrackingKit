@@ -12,9 +12,9 @@ import Testing
 @Suite("TransactionProcessorActor Tests", .serialized)
 struct TransactionProcessorActorTests {
 
-    @Test("Fetch transactions - 排除当前 author")
+    @Test("Fetch transactions - excludes current author")
     func fetchTransactionsExcludeCurrentAuthor() async throws {
-        // 创建容器
+        // Create a container for App1.
         let container = TestModelBuilder.createContainer(author: "App1")
         let context = container.viewContext
 
@@ -22,12 +22,12 @@ struct TransactionProcessorActorTests {
         TestModelBuilder.createPerson(name: "Alice", age: 30, in: context)
         try context.save()
 
-        // 切换到 App2 author
+        // Switch the author to App2.
         context.transactionAuthor = "App2"
         TestModelBuilder.createPerson(name: "Bob", age: 25, in: context)
         try context.save()
 
-        // 创建 processor
+        // Build the processor.
         let hookRegistry = HookRegistryActor()
         let timestampManager = TransactionTimestampManager(
             userDefaults: UserDefaults.standard,
@@ -47,30 +47,30 @@ struct TransactionProcessorActorTests {
             excludeAuthor: "App2"
         )
 
-        // 验证排除逻辑正确
+        // Validate that the exclusion logic works.
         #expect(result.count >= 1) // At least App1 transactions exist
         #expect(result.allExcluded == true) // All transactions exclude App2
     }
 
-    @Test("Clean transactions - 按时间戳和 authors")
+    @Test("Clean transactions - timestamp and author filter")
     func cleanTransactionsByTimestampAndAuthors() async throws {
         let container = TestModelBuilder.createContainer(author: "App1")
         let context = container.viewContext
 
-        // 创建第一批数据
+        // Create the first batch of data.
         TestModelBuilder.createPerson(name: "Alice", age: 30, in: context)
         try context.save()
 
         let firstTimestamp = Date()
 
-        // 等待一点时间
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 秒
+        // Wait briefly.
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
 
-        // 创建第二批数据
+        // Create the second batch of data.
         TestModelBuilder.createPerson(name: "Bob", age: 25, in: context)
         try context.save()
 
-        // 创建 processor
+        // Build the processor.
         let hookRegistry = HookRegistryActor()
         let timestampManager = TransactionTimestampManager(
             userDefaults: UserDefaults.standard,
@@ -90,22 +90,22 @@ struct TransactionProcessorActorTests {
             expectedBefore: nil // No expected value specified
         )
 
-        // 应该删除了一些事务
+        // Some transactions should have been deleted.
         #expect(result.deletedCount >= 0)
-        // 清理后应该还有剩余事务（第二批）
+        // Transactions from the second batch should remain after cleanup.
         #expect(result.remainingCount >= 1)
     }
 
-    @Test("Process new transactions - 完整流程")
+    @Test("Process new transactions - full flow")
     func processNewTransactionsFullFlow() async throws {
-        // 使用同一个容器的不同 context（模拟同一数据库的多个访问点）
+        // Use two contexts from the same container (simulating multiple access points).
         let container = TestModelBuilder.createContainer(author: "App1")
 
-        // context1 用于写入数据（模拟 App1）
+        // context1 writes data (App1).
         let context1 = container.newBackgroundContext()
         context1.transactionAuthor = "App1"
 
-        // context2 用于接收合并（模拟 App2 的 viewContext）
+        // context2 receives merges (App2 viewContext).
         let context2 = container.newBackgroundContext()
         context2.transactionAuthor = "App2"
 
@@ -115,7 +115,7 @@ struct TransactionProcessorActorTests {
             try context1.save()
         }
 
-        // 创建 processor
+        // Build the processor.
         let hookRegistry = HookRegistryActor()
         let timestampManager = TransactionTimestampManager(
             userDefaults: UserDefaults.standard,
@@ -128,7 +128,7 @@ struct TransactionProcessorActorTests {
             timestampManager: timestampManager
         )
 
-        // 处理新事务（排除 App2 自己的事务，合并 App1 的事务）
+        // Process new transactions (exclude App2's own changes, merge App1's).
         let count = try await processor.processNewTransactions(
             from: ["App1"],
             after: nil,
@@ -139,7 +139,7 @@ struct TransactionProcessorActorTests {
 
         #expect(count >= 1)
 
-        // 验证 context2 中有数据
+        // Ensure context2 received the data.
         try await context2.perform {
             let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Person")
             let results = try context2.fetch(fetchRequest)
@@ -153,11 +153,11 @@ struct TransactionProcessorActorTests {
         let container = TestModelBuilder.createContainer(author: "App1")
         let context = container.viewContext
 
-        // 创建数据
+        // Create seed data.
         TestModelBuilder.createPerson(name: "Alice", age: 30, in: context)
         try context.save()
 
-        // 创建 hook registry 并注册 hook
+        // Create a hook registry and register a hook.
         let hookRegistry = HookRegistryActor()
 
         actor HookTracker {
@@ -176,7 +176,7 @@ struct TransactionProcessorActorTests {
 
         await hookRegistry.registerObserver(entityName: "Person", operation: .insert, callback: callback)
 
-        // 创建 processor
+        // Build the processor.
         let timestampManager = TransactionTimestampManager(
             userDefaults: UserDefaults.standard,
             maximumDuration: 604800
@@ -188,7 +188,7 @@ struct TransactionProcessorActorTests {
             timestampManager: timestampManager
         )
 
-        // 处理事务（应该触发 hook）
+        // Process transactions (should trigger the hook).
         let context2 = container.newBackgroundContext()
         _ = try await processor.processNewTransactions(
             from: ["App1"],
@@ -198,7 +198,7 @@ struct TransactionProcessorActorTests {
             cleanBeforeTimestamp: nil as Date?
         )
 
-        // 验证 hook 被触发
+        // Verify that the hook was triggered.
         let wasTriggered = await tracker.isTriggered()
         #expect(wasTriggered == true)
     }
@@ -208,11 +208,11 @@ struct TransactionProcessorActorTests {
         let container = TestModelBuilder.createContainer(author: "App1")
         let context = container.viewContext
 
-        // 创建数据
+        // Create seed data.
         TestModelBuilder.createPerson(name: "Alice", age: 30, in: context)
         try context.save()
 
-        // 创建 processor
+        // Build the processor.
         let hookRegistry = HookRegistryActor()
         let timestampManager = TransactionTimestampManager(
             userDefaults: UserDefaults.standard,

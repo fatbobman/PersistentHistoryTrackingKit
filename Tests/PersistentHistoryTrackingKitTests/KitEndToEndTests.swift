@@ -9,11 +9,11 @@ import CoreData
 import Testing
 @testable import PersistentHistoryTrackingKit
 
-/// V2 Kit 端到端测试，模拟真实使用场景
+/// V2 kit end-to-end scenarios that simulate real usage.
 @Suite("Kit End-to-End Tests", .serialized)
 struct KitEndToEndTests {
 
-    @Test("Kit 自动同步 - start/stop")
+    @Test("Kit auto sync - start/stop")
     func kitAutoSyncStartStop() async throws {
         // Create shared container
         let container = TestModelBuilder.createContainer(author: "App1")
@@ -23,7 +23,7 @@ struct KitEndToEndTests {
         context1.transactionAuthor = "App1"
         context2.transactionAuthor = "App2"
 
-        // Create Kit（App2 视角，手动启动）
+        // Create the kit from App2's perspective (manual start).
         let userDefaults = UserDefaults.standard
         let uniqueString = "TestKit.AutoSync.\(UUID().uuidString)."
 
@@ -42,9 +42,9 @@ struct KitEndToEndTests {
         TestModelBuilder.createPerson(name: "Bob", age: 25, in: context1)
         try context1.save()
 
-        // Manual sync（测试 start/stop 机制）
+        // Manual sync (exercise start/stop behavior).
         kit.start()
-        try await Task.sleep(nanoseconds: 100_000_000) // 等待启动
+        try await Task.sleep(nanoseconds: 100_000_000) // Wait for the task to start.
         kit.stop()
 
         // Verify data synced
@@ -55,7 +55,7 @@ struct KitEndToEndTests {
         }
     }
 
-    @Test("Kit 手动清理器 - cleanerBuilder")
+    @Test("Kit manual cleaner via cleanerBuilder")
     func kitManualCleaner() async throws {
         let container = TestModelBuilder.createContainer(author: "App1")
         let context1 = container.viewContext
@@ -67,7 +67,7 @@ struct KitEndToEndTests {
         let userDefaults = UserDefaults.standard
         let uniqueString = "TestKit.ManualClean.\(UUID().uuidString)."
 
-        // Create Kit（不自动清理）
+        // Create the kit (without automatic cleanup).
         let kit = PersistentHistoryTrackingKit(
             container: container,
             contexts: [context2],
@@ -102,11 +102,11 @@ struct KitEndToEndTests {
             #expect(results.count == 1)
         }
 
-        // 手动清理事务（仅验证不崩溃）
+        // Manually run cleanup (just verify it succeeds).
         await cleaner.clean()
     }
 
-    @Test("Kit 多 Context 同步")
+    @Test("Kit multi-context synchronization")
     func kitMultiContextSync() async throws {
         let container = TestModelBuilder.createContainer(author: "App1")
 
@@ -122,7 +122,7 @@ struct KitEndToEndTests {
         let userDefaults = UserDefaults.standard
         let uniqueString = "TestKit.MultiContext.\(UUID().uuidString)."
 
-        // Kit 同时合并到 context2 和 context3
+        // Kit merges into both context2 and context3.
         let kit = PersistentHistoryTrackingKit(
             container: container,
             contexts: [context2, context3],
@@ -146,7 +146,7 @@ struct KitEndToEndTests {
             currentAuthor: "App3"
         )
 
-        // 验证 context2 和 context3 都有数据
+        // Ensure context2 and context3 both receive the data.
         try await context2.perform {
             let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Person")
             let results = try context2.fetch(fetchRequest)
@@ -160,15 +160,15 @@ struct KitEndToEndTests {
         }
     }
 
-    // TODO: 时间戳持久化测试需要在 V2 实现自动时间戳管理后才能正常工作
-    // 参考 PersistentHistoryTrackingKit.swift:248-268 的 TODO 注释
+    // TODO: Timestamp persistence tests depend on automated timestamp management.
+    // See the TODO comment around PersistentHistoryTrackingKit.swift:248-268.
     //
-    // @Test("Kit 时间戳持久化")
+    // @Test("Kit timestamp persistence")
     // func kitTimestampPersistence() async throws {
-    //     // ... 测试代码 ...
+    //     // ... test code ...
     // }
 
-    @Test("Kit 注册 Observer Hook")
+    @Test("Kit registers an observer hook")
     func kitRegisterObserverHook() async throws {
         let container = TestModelBuilder.createContainer(author: "App1")
         let context1 = container.viewContext
@@ -191,7 +191,7 @@ struct KitEndToEndTests {
             autoStart: false
         )
 
-        // Track if Hook was triggered（使用 Sendable 的 actor）
+        // Track if the hook was triggered (using a Sendable actor).
         actor HookTracker {
             var triggered = false
             var entityName: String?
@@ -213,7 +213,7 @@ struct KitEndToEndTests {
             }
         }
 
-        // 等待 Hook 注册完成
+        // Wait for hook registration to complete.
         try await Task.sleep(nanoseconds: 100_000_000)
 
         // App1 creates data
@@ -228,7 +228,7 @@ struct KitEndToEndTests {
             currentAuthor: "App2"
         )
 
-        // 等待 Hook 执行
+        // Wait for the hook to fire.
         try await Task.sleep(nanoseconds: 100_000_000)
 
         // Verify Hook was triggered
@@ -241,7 +241,7 @@ struct KitEndToEndTests {
         #expect(operation == .insert)
     }
 
-    @Test("Kit 注册 Merge Hook")
+    @Test("Kit registers a merge hook")
     func kitRegisterMergeHook() async throws {
         let container = TestModelBuilder.createContainer(author: "App1")
         let context1 = container.viewContext
@@ -264,7 +264,7 @@ struct KitEndToEndTests {
             autoStart: false
         )
 
-        // Track if Merge Hook was called（使用 Sendable 的 actor）
+        // Track if the merge hook was called (Sendable actor).
         actor MergeHookTracker {
             var called = false
             var transactionCount = 0
@@ -279,7 +279,7 @@ struct KitEndToEndTests {
 
         let tracker = MergeHookTracker()
 
-        // 注册 Merge Hook
+        // Register the merge hook.
         await kit.registerMergeHook { input in
             await tracker.markCalled(
                 transactionCount: input.transactions.count,
@@ -300,16 +300,16 @@ struct KitEndToEndTests {
             currentAuthor: "App2"
         )
 
-        // 验证 Merge Hook 被调用
+        // Verify that the merge hook ran.
         let (called, transactionCount, contextCount) = await (tracker.called, tracker.transactionCount, tracker.contextCount)
         #expect(called == true)
         #expect(transactionCount >= 1)
         #expect(contextCount == 1)
     }
 
-    @Test("两个 App 都使用 Kit（V2）")
+    @Test("Two apps use the kit (V2)")
     func twoAppsWithKit() async throws {
-        // 创建共享容器（模拟 App Group 或 iCloud 共享数据库）
+        // Create a shared container (simulating an App Group or shared iCloud store).
         let container = TestModelBuilder.createContainer(author: "App1")
 
         let context1 = container.viewContext
@@ -318,7 +318,7 @@ struct KitEndToEndTests {
         context1.transactionAuthor = "App1"
         context2.transactionAuthor = "App2"
 
-        // App1 创建 Kit
+        // App1 creates a kit.
         let userDefaults = UserDefaults.standard
         let uniqueString1 = "TestKit.TwoApp1.\(UUID().uuidString)."
 
@@ -334,7 +334,7 @@ struct KitEndToEndTests {
             autoStart: false
         )
 
-        // App2 创建 Kit
+        // App2 creates a kit.
         let uniqueString2 = "TestKit.TwoApp2.\(UUID().uuidString)."
 
         let kit2 = PersistentHistoryTrackingKit(
@@ -349,14 +349,14 @@ struct KitEndToEndTests {
             autoStart: false
         )
 
-        // App3 创建数据
+        // App3 writes data.
         let context3 = container.newBackgroundContext()
         context3.transactionAuthor = "App3"
 
         TestModelBuilder.createPerson(name: "Jack", age: 55, in: context3)
         try context3.save()
 
-        // App1 和 App2 都同步数据
+        // App1 and App2 both sync the changes.
         try await kit1.transactionProcessor.processNewTransactions(
             from: ["App1", "App2", "App3"],
             after: nil as Date?,
@@ -373,7 +373,7 @@ struct KitEndToEndTests {
             cleanBeforeTimestamp: nil as Date?
         )
 
-        // 验证 App1 和 App2 都有数据
+        // Ensure App1 and App2 each have the data.
         try await context1.perform {
             let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Person")
             let results = try context1.fetch(fetchRequest)

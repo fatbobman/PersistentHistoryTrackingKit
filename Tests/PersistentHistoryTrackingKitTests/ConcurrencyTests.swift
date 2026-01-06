@@ -12,11 +12,11 @@ import Testing
 @Suite("Concurrency Safety Tests", .serialized)
 struct ConcurrencyTests {
 
-    @Test("多线程并发写入")
+    @Test("Multithreaded concurrent writes")
     func concurrentWrites() async throws {
         let container = TestModelBuilder.createContainer(author: "App1")
 
-        // 并发创建多个 context 并写入数据
+        // Spawn multiple contexts and write concurrently.
         await withTaskGroup(of: Void.self) { group in
             for i in 0..<5 {
                 group.addTask {
@@ -37,25 +37,25 @@ struct ConcurrencyTests {
             }
         }
 
-        // 验证所有数据都写入成功
+        // Ensure every record was persisted.
         let context = container.viewContext
         let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Person")
         let results = try context.fetch(fetchRequest)
         #expect(results.count == 5)
     }
 
-    @Test("多 Actor 并发访问")
+    @Test("Multiple actors accessing concurrently")
     func multipleActorsConcurrentAccess() async throws {
         let container = TestModelBuilder.createContainer(author: "App1")
         let context = container.viewContext
 
-        // 创建初始数据
+        // Seed initial data.
         for i in 0..<10 {
             TestModelBuilder.createPerson(name: "Person\(i)", age: Int32(20 + i), in: context)
         }
         try context.save()
 
-        // 创建多个 processor 并发访问
+        // Spin up several processors that access concurrently.
         let hookRegistry = HookRegistryActor()
 
         await withTaskGroup(of: Void.self) { group in
@@ -79,7 +79,7 @@ struct ConcurrencyTests {
                             after: nil as Date?,
                             excludeAuthor: nil as String?
                         )
-                        // 验证至少获取到了数据
+                        // Ensure at least one transaction is returned.
                         guard result.count >= 1 else {
                             Issue.record("Expected at least 1 transaction")
                             return
@@ -94,12 +94,12 @@ struct ConcurrencyTests {
         #expect(true) // Mainly verify no crash
     }
 
-    @Test("Clean 和 Fetch 并发")
+    @Test("Clean and fetch concurrently")
     func cleanAndFetchConcurrent() async throws {
         let container = TestModelBuilder.createContainer(author: "App1")
         let context = container.viewContext
 
-        // 创建数据
+        // Seed initial data.
         TestModelBuilder.createPerson(name: "Alice", age: 30, in: context)
         try context.save()
 
@@ -115,9 +115,9 @@ struct ConcurrencyTests {
             timestampManager: timestampManager
         )
 
-        // 并发执行 fetch 和 clean
+        // Run fetch and clean concurrently.
         await withTaskGroup(of: Void.self) { group in
-            // Fetch task
+            // Fetch task.
             group.addTask {
                 do {
                     for _ in 0..<5 {
@@ -132,7 +132,7 @@ struct ConcurrencyTests {
                 }
             }
 
-            // Clean task
+            // Clean task.
             group.addTask {
                 do {
                     for _ in 0..<5 {
@@ -151,7 +151,7 @@ struct ConcurrencyTests {
         #expect(true) // Mainly verify no crash
     }
 
-    @Test("Hook 并发触发")
+    @Test("Concurrent hook triggering")
     func concurrentHookTriggering() async throws {
         let hookRegistry = HookRegistryActor()
 
@@ -163,13 +163,13 @@ struct ConcurrencyTests {
 
         let counter = Counter()
 
-        // 注册 Hook
+        // Register the hook.
         let callback: HookCallback = { _ in
             await counter.increment()
         }
         await hookRegistry.registerObserver(entityName: "Person", operation: .insert, callback: callback)
 
-        // 并发触发 Hook
+        // Fire hooks concurrently.
         await withTaskGroup(of: Void.self) { group in
             for i in 0..<100 {
                 group.addTask {
@@ -187,16 +187,16 @@ struct ConcurrencyTests {
             }
         }
 
-        // 验证所有 Hook 都被触发
+        // Ensure every hook ran.
         let finalCount = await counter.get()
         #expect(finalCount == 100)
     }
 
-    @Test("多个 Kit 实例并发运行")
+    @Test("Multiple kit instances running concurrently")
     func multipleKitInstancesConcurrent() async throws {
         let container = TestModelBuilder.createContainer(author: "App1")
 
-        // 创建多个 Kit 实例
+        // Create several kit instances.
         await withTaskGroup(of: Void.self) { group in
             for i in 0..<3 {
                 group.addTask {
@@ -214,7 +214,7 @@ struct ConcurrencyTests {
                         autoStart: false
                     )
 
-                    // Execute some operations (using internal Actor test methods)
+                    // Execute some operations (using internal actor test helpers).
                     do {
                         _ = try await kit.transactionProcessor.testFetchTransactionsExcludesAuthor(
                             from: ["App1"],
@@ -231,16 +231,16 @@ struct ConcurrencyTests {
         #expect(true) // Mainly verify no crash
     }
 
-    @Test("Cleaner 并发执行")
+    @Test("Cleaners executing concurrently")
     func concurrentCleaners() async throws {
         let container = TestModelBuilder.createContainer(author: "App1")
         let context = container.viewContext
 
-        // 创建数据
+        // Seed initial data.
         TestModelBuilder.createPerson(name: "Alice", age: 30, in: context)
         try context.save()
 
-        // 创建多个 cleaner 并发执行
+        // Launch several cleaners concurrently.
         await withTaskGroup(of: Void.self) { group in
             for i in 0..<3 {
                 group.addTask {
@@ -262,7 +262,7 @@ struct ConcurrencyTests {
             }
         }
 
-        // 验证数据仍然存在
+        // Ensure the managed data remains.
         let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Person")
         let results = try context.fetch(fetchRequest)
         #expect(results.count == 1)

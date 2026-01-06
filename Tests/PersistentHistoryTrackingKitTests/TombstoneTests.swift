@@ -12,7 +12,7 @@ import Testing
 
 @Suite("Tombstone Tests", .serialized)
 struct TombstoneTests {
-    @Test("删除对象时 Observer Hook 收到墓碑数据")
+    @Test("Observer Hook sees tombstone when deleting objects")
     func tombstoneInObserverHook() async throws {
         let container = TestModelBuilder.createContainer(
             author: "App1",
@@ -66,7 +66,7 @@ struct TombstoneTests {
             try bgContext.save()
         }
 
-        // 处理事务
+        // Process the transactions.
         let context2 = container.newBackgroundContext()
         _ = try await processor.processNewTransactions(
             from: ["App1"],
@@ -74,21 +74,21 @@ struct TombstoneTests {
             mergeInto: [context2],
             currentAuthor: "App2")
 
-        // 验证墓碑数据
+        // Validate the tombstone data.
         let tombstones = await collector.getTombstones()
         let deletedNames = await collector.getDeletedNames()
 
         #expect(tombstones.count >= 1)
         #expect(deletedNames.contains("TombstoneTest"))
 
-        // 验证墓碑包含 name 属性（因为我们设置了 preservesValueInHistoryOnDeletion）
+        // Ensure the tombstone includes the `name` attribute (because preservesValueInHistoryOnDeletion is enabled).
         if let tombstone = tombstones.first {
             #expect(tombstone.attributes["name"] == "TombstoneTest")
             #expect(tombstone.deletedDate != nil)
         }
     }
 
-    @Test("墓碑包含 preservesValueInHistoryOnDeletion 标记的属性")
+    @Test("Tombstone includes attributes flagged with preservesValueInHistoryOnDeletion")
     func tombstoneContainsPreservedAttributes() async throws {
         let container = TestModelBuilder.createContainer(
             author: "App1",
@@ -122,7 +122,7 @@ struct TombstoneTests {
             }
         }
 
-        // 创建并删除数据
+        // Create and immediately delete data.
         let bgContext = container.newBackgroundContext()
         bgContext.transactionAuthor = "App1"
 
@@ -135,12 +135,12 @@ struct TombstoneTests {
             person.setValue(testUUID, forKey: "id")
             try bgContext.save()
 
-            // 立即删除
+            // Delete immediately.
             bgContext.delete(person)
             try bgContext.save()
         }
 
-        // 处理事务
+        // Process the transactions.
         let context2 = container.newBackgroundContext()
         _ = try await processor.processNewTransactions(
             from: ["App1"],
@@ -148,18 +148,17 @@ struct TombstoneTests {
             mergeInto: [context2],
             currentAuthor: "App2")
 
-        // 验证墓碑属性
+        // Validate the tombstone attributes.
         let attributes = await collector.get()
 
-        // name 和 id 设置了 preservesValueInHistoryOnDeletion = true
+        // Both name and id have preservesValueInHistoryOnDeletion = true.
         #expect(attributes["name"] == "PreservedName")
         #expect(attributes["id"] != nil) // UUID should be preserved
 
-        // age 没有设置 preservesValueInHistoryOnDeletion，可能不在墓碑中
-        // 注意：这取决于 Core Data 的具体行为
+        // The age attribute is not preserved, so Core Data may omit it.
     }
 
-    @Test("插入和更新操作没有墓碑")
+    @Test("Insert and update operations produce no tombstones")
     func noTombstoneForInsertAndUpdate() async throws {
         let container = TestModelBuilder.createContainer(
             author: "App1",
@@ -209,7 +208,7 @@ struct TombstoneTests {
             try bgContext.save()
         }
 
-        // 处理事务
+        // Process the transactions.
         let context2 = container.newBackgroundContext()
         _ = try await processor.processNewTransactions(
             from: ["App1"],
@@ -217,7 +216,7 @@ struct TombstoneTests {
             mergeInto: [context2],
             currentAuthor: "App2")
 
-        // 验证：插入和更新操作没有墓碑
+        // Verify that insert and update operations do not have tombstones.
         let insertTombstone = await tracker.getInsert()
         let updateTombstone = await tracker.getUpdate()
 
@@ -225,4 +224,3 @@ struct TombstoneTests {
         #expect(updateTombstone == nil)
     }
 }
-

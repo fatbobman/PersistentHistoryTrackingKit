@@ -8,16 +8,16 @@
 import CoreData
 import Foundation
 
-/// 测试用的 Core Data Stack Helper
-/// 纯代码创建 NSManagedObjectModel，包含两个 Entity：Person 和 Item
+/// Core Data stack helper for tests.
+/// Builds an NSManagedObjectModel entirely in code with two entities: Person and Item.
 enum TestModelBuilder {
-    /// 共享的 NSManagedObjectModel 实例（线程安全的懒加载）
-    /// - Note: Core Data 要求同一个 schema 使用同一个 model 实例，否则并发时可能出问题
-    /// NSManagedObjectModel 本身是线程安全的，使用 nonisolated(unsafe) 标记
+    /// Shared NSManagedObjectModel instance (thread-safe lazy initialization).
+    /// - Note: Core Data expects a single model instance per schema; mixing instances can create concurrency issues.
+    /// NSManagedObjectModel is thread-safe, so we mark it `nonisolated(unsafe)`.
     nonisolated(unsafe) private static let sharedModel: NSManagedObjectModel = {
         let model = NSManagedObjectModel()
 
-        // 创建 Person Entity（带墓碑属性）
+        // Build the Person entity (with tombstone-friendly properties).
         let personEntity = NSEntityDescription()
         personEntity.name = "Person"
         personEntity.managedObjectClassName = NSStringFromClass(NSManagedObject.self)
@@ -26,7 +26,7 @@ enum TestModelBuilder {
         personNameAttribute.name = "name"
         personNameAttribute.attributeType = .stringAttributeType
         personNameAttribute.isOptional = false
-        // 启用墓碑保留：删除时保留 name 值
+        // Preserve `name` in tombstones.
         personNameAttribute.preservesValueInHistoryOnDeletion = true
 
         let personAgeAttribute = NSAttributeDescription()
@@ -40,12 +40,12 @@ enum TestModelBuilder {
         personIDAttribute.attributeType = .UUIDAttributeType
         personIDAttribute.isOptional = false
         personIDAttribute.defaultValue = UUID()
-        // 启用墓碑保留：删除时保留 id 值
+        // Preserve `id` in tombstones.
         personIDAttribute.preservesValueInHistoryOnDeletion = true
 
         personEntity.properties = [personNameAttribute, personAgeAttribute, personIDAttribute]
 
-        // 创建 Item Entity
+        // Build the Item entity.
         let itemEntity = NSEntityDescription()
         itemEntity.name = "Item"
         itemEntity.managedObjectClassName = NSStringFromClass(NSManagedObject.self)
@@ -73,28 +73,28 @@ enum TestModelBuilder {
         return model
     }()
 
-    /// 获取共享的 NSManagedObjectModel
-    /// - Returns: 共享的 Model 实例
+    /// Get the shared NSManagedObjectModel.
+    /// - Returns: Shared model instance.
     static func createModel() -> NSManagedObjectModel {
         sharedModel
     }
 
-    /// 创建测试用的 NSPersistentContainer（SQLite 文件）
+    /// Create a test NSPersistentContainer (SQLite store).
     /// - Parameters:
     ///   - author: Transaction author
-    ///   - testName: 测试名称（用于生成唯一的数据库文件名）
-    /// - Returns: 配置好的容器
+    ///   - testName: Test name used to build a unique store filename.
+    /// - Returns: Configured container.
     static func createContainer(author: String, testName: String = #function) -> NSPersistentContainer {
         let model = createModel()
         let container = NSPersistentContainer(name: "TestModel", managedObjectModel: model)
 
-        // 使用 SQLite Store（支持 Persistent History）
-        // 加入 UUID 确保并行测试时文件名唯一
+        // Use an SQLite store (required for persistent history).
+        // Add a UUID suffix so parallel tests get unique filenames.
         let tempDir = FileManager.default.temporaryDirectory
         let uniqueId = UUID().uuidString.prefix(8)
         let storeURL = tempDir.appendingPathComponent("TestModel_\(testName)_\(uniqueId).sqlite")
 
-        // 删除旧文件（如果存在）- 由于使用 UUID，通常不需要
+        // Remove any stale files; the UUID normally keeps paths unique.
         try? FileManager.default.removeItem(at: storeURL)
         try? FileManager.default.removeItem(at: storeURL.appendingPathExtension("sqlite-shm"))
         try? FileManager.default.removeItem(at: storeURL.appendingPathExtension("sqlite-wal"))
@@ -103,7 +103,7 @@ enum TestModelBuilder {
         description.type = NSSQLiteStoreType
         description.shouldAddStoreAsynchronously = false
 
-        // 启用 Persistent History Tracking
+        // Enable Persistent History Tracking.
         description.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
         description.setOption(true as NSNumber, forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
 
@@ -118,7 +118,7 @@ enum TestModelBuilder {
             fatalError("Failed to load store: \(error)")
         }
 
-        // 配置 viewContext
+        // Configure the viewContext.
         container.viewContext.automaticallyMergesChangesFromParent = true
         container.viewContext.mergePolicy = NSMergePolicy.mergeByPropertyObjectTrump
         container.viewContext.transactionAuthor = author
@@ -126,7 +126,7 @@ enum TestModelBuilder {
         return container
     }
 
-    /// 创建 Person 对象
+    /// Create a Person object.
     @discardableResult
     static func createPerson(
         name: String,
@@ -143,7 +143,7 @@ enum TestModelBuilder {
         return person
     }
 
-    /// 创建 Item 对象
+    /// Create an Item object.
     @discardableResult
     static func createItem(
         title: String,

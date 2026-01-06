@@ -10,18 +10,18 @@
 import CoreDataEvolution
 import Foundation
 
-/// 事务处理器，负责 fetch、merge、hook、clean
+/// Transaction processor responsible for fetch, merge, hook, and clean steps.
 @NSModelActor(disableGenerateInit: true)
 public actor TransactionProcessorActor {
     private let hookRegistry: HookRegistryActor
 
-    /// 清理策略（在 Actor 内部管理，线程安全）
+    /// Cleanup policy managed inside the actor (thread-safe).
     private var cleanStrategy: TransactionPurgePolicy
 
-    /// 时间戳管理器
+    /// Timestamp manager.
     private let timestampManager: TransactionTimestampManager
 
-    // MARK: - Merge Hooks（在同一 Actor 内管理，避免跨 Actor 传递非 Sendable 类型）
+    // MARK: - Merge Hooks (managed inside the same actor to avoid passing non-Sendable types)
 
     private struct MergeHookItem {
         let id: UUID
@@ -39,7 +39,7 @@ public actor TransactionProcessorActor {
         self.hookRegistry = hookRegistry
         self.timestampManager = timestampManager
 
-        // 初始化清理策略
+        // Initialize the cleanup strategy configuration.
         switch cleanStrategy {
             case .none:
                 self.cleanStrategy = TransactionCleanStrategyNone()
@@ -49,19 +49,19 @@ public actor TransactionProcessorActor {
                 self.cleanStrategy = TransactionCleanStrategyByNotification(strategy: cleanStrategy)
         }
 
-        // 手动初始化 @NSModelActor 提供的属性
+        // Manually initialize the properties that @NSModelActor usually synthesizes.
         let context = container.newBackgroundContext()
         modelExecutor = NSModelObjectContextExecutor(context: context)
         modelContainer = container
     }
 
-    // MARK: - Merge Hook 注册
+    // MARK: - Merge Hook Registration
 
-    /// 注册 Merge Hook（管道模式，可自定义合并逻辑）
+    /// Register a Merge Hook (pipeline style, allowing custom merge logic).
     /// - Parameters:
-    ///   - before: 可选，插入到此 hook 之前；如果为 nil，添加到末尾
-    ///   - callback: 回调函数，在同一 Actor 内执行
-    /// - Returns: 该 hook 的 UUID，用于后续移除
+    ///   - before: Optional hook ID to insert before; appends to the end if nil.
+    ///   - callback: Callback executed within the same actor.
+    /// - Returns: The UUID of the hook for later removal.
     @discardableResult
     public func registerMergeHook(
         before hookId: UUID? = nil,
@@ -81,9 +81,9 @@ public actor TransactionProcessorActor {
         return newId
     }
 
-    /// 移除指定的 Merge Hook
-    /// - Parameter hookId: hook 的 UUID
-    /// - Returns: 是否成功移除
+    /// Remove a specific Merge Hook.
+    /// - Parameter hookId: The hook UUID.
+    /// - Returns: Whether the hook was removed.
     @discardableResult
     public func removeMergeHook(id hookId: UUID) -> Bool {
         let initialCount = mergeHooks.count
@@ -91,19 +91,19 @@ public actor TransactionProcessorActor {
         return mergeHooks.count < initialCount
     }
 
-    /// 移除所有 Merge Hook
+    /// Remove all registered Merge Hooks.
     public func removeAllMergeHooks() {
         mergeHooks.removeAll()
     }
 
-    /// 主入口：处理新事务
+    /// Main entry point for processing new transactions.
     /// - Parameters:
-    ///   - authors: 需要处理的作者列表
-    ///   - lastTimestamp: 上次处理的时间戳
-    ///   - contexts: 需要合并到的上下文列表
-    ///   - currentAuthor: 当前作者（用于排除自己的事务）
-    ///   - cleanBeforeTimestamp: 清理该时间戳之前的事务（可选）
-    /// - Returns: 处理的事务数量
+    ///   - authors: Authors whose transactions need to be merged.
+    ///   - lastTimestamp: The last processed timestamp.
+    ///   - contexts: Target contexts for merging.
+    ///   - currentAuthor: Current author (used to exclude self-authored transactions).
+    ///   - cleanBeforeTimestamp: Optional timestamp; history before this will be cleaned.
+    /// - Returns: Number of transactions processed.
     @discardableResult
     public func processNewTransactions(
         from authors: [String],
@@ -112,21 +112,21 @@ public actor TransactionProcessorActor {
         currentAuthor: String? = nil,
         cleanBeforeTimestamp: Date? = nil) async throws -> Int
     {
-        // 1. Fetch（排除当前 author）
+        // 1. Fetch (exclude the current author).
         let transactions = try fetchTransactions(
             from: authors,
             after: lastTimestamp,
             excludeAuthor: currentAuthor)
         guard !transactions.isEmpty else { return 0 }
 
-        // 2. Trigger Observer Hooks（不影响数据）
+        // 2. Trigger Observer Hooks (read-only, no data mutations).
         await triggerObserverHooks(for: transactions)
 
-        // 3. Trigger Merge Hooks（管道模式，可能影响数据）
-        // 在同一 Actor 内执行，避免跨 Actor 传递非 Sendable 类型
+        // 3. Trigger Merge Hooks (pipeline, may mutate data).
+        // Runs within the same actor to avoid cross-actor non-Sendable transfers.
         try await triggerMergeHooks(transactions: transactions, contexts: contexts)
 
-        // 4. Clean（如果指定了清理时间戳）
+        // 4. Run cleanup when a timestamp is provided.
         if let cleanTimestamp = cleanBeforeTimestamp {
             _ = try cleanTransactions(before: cleanTimestamp, for: authors)
         }
@@ -134,14 +134,14 @@ public actor TransactionProcessorActor {
         return transactions.count
     }
 
-    /// 处理新事务并自动管理时间戳（内部使用）
+    /// Process new transactions while automatically managing timestamps (internal helper).
     /// - Parameters:
-    ///   - authors: 需要处理的作者列表
-    ///   - lastTimestamp: 上次处理的时间戳
-    ///   - contexts: 需要合并到的上下文列表
-    ///   - currentAuthor: 当前作者（用于排除自己的事务和更新时间戳）
-    ///   - batchAuthors: 批量操作的 authors（从清理计算中排除）
-    /// - Returns: 处理的事务数量
+    ///   - authors: Authors whose transactions need to be merged.
+    ///   - lastTimestamp: The last processed timestamp.
+    ///   - contexts: Target contexts for merging.
+    ///   - currentAuthor: Current author (excluded from fetch and used to update timestamp).
+    ///   - batchAuthors: Authors participating in batch work (excluded from cleanup calculation).
+    /// - Returns: Number of transactions processed.
     @discardableResult
     func processNewTransactionsWithTimestampManagement(
         from authors: [String],
@@ -150,27 +150,27 @@ public actor TransactionProcessorActor {
         currentAuthor: String,
         batchAuthors: [String] = []) async throws -> Int
     {
-        // 1. Fetch（排除当前 author）
+        // 1. Fetch (exclude the current author).
         let transactions = try fetchTransactions(
             from: authors,
             after: lastTimestamp,
             excludeAuthor: currentAuthor)
         guard !transactions.isEmpty else { return 0 }
 
-        // 2. Trigger Observer Hooks（不影响数据）
+        // 2. Trigger Observer Hooks (read-only).
         await triggerObserverHooks(for: transactions)
 
-        // 3. Trigger Merge Hooks（管道模式，可能影响数据）
+        // 3. Trigger Merge Hooks (pipeline that may mutate data).
         try await triggerMergeHooks(transactions: transactions, contexts: contexts)
 
-        // 4. 更新当前 author 的时间戳
+        // 4. Update the timestamp for the current author.
         if let newTimestamp = transactions.last?.timestamp {
             timestampManager.updateLastHistoryTransactionTimestamp(
                 for: currentAuthor,
                 to: newTimestamp)
         }
 
-        // 5. 计算并执行清理
+        // 5. Compute and execute cleanup.
         if let cleanTimestamp = timestampManager.getLastCommonTransactionTimestamp(
             in: authors,
             exclude: batchAuthors)
@@ -183,13 +183,13 @@ public actor TransactionProcessorActor {
 
     // MARK: - Fetch
 
-    /// 获取指定作者和时间戳之后的事务（排除当前 author）
+    /// Fetch transactions for the specified authors after the timestamp (excluding the current author).
     /// - Parameters:
-    ///   - authors: 作者列表
-    ///   - date: 起始时间戳
-    ///   - excludeAuthor: 要排除的 author（通常是当前 author）
-    /// - Returns: 事务列表
-    /// - Note: 这个方法只能在 Actor 内部调用，测试应使用测试扩展方法
+    ///   - authors: List of authors.
+    ///   - date: Starting timestamp.
+    ///   - excludeAuthor: Author to exclude (typically the caller/ current author).
+    /// - Returns: A list of transactions.
+    /// - Note: This method must be called inside the actor; tests should use the dedicated extensions.
     func fetchTransactions(
         from authors: [String],
         after date: Date?,
@@ -198,10 +198,10 @@ public actor TransactionProcessorActor {
         let historyChangeRequest = NSPersistentHistoryChangeRequest
             .fetchHistory(after: date ?? .distantPast)
 
-        // 配置 fetchRequest - 排除当前 author
+        // Configure fetchRequest and skip the current author.
         if let fetchRequest = NSPersistentHistoryTransaction.fetchRequest {
             let predicates = authors.compactMap { author -> NSPredicate? in
-                // 如果指定了要排除的 author，跳过它
+                // Skip the author if it matches the exclude target.
                 if let exclude = excludeAuthor, author == exclude {
                     return nil
                 }
@@ -218,24 +218,24 @@ public actor TransactionProcessorActor {
             }
         }
 
-        // 执行查询
+        // Execute the fetch request.
         let result = try modelContext.execute(historyChangeRequest) as? NSPersistentHistoryResult
         return result?.result as? [NSPersistentHistoryTransaction] ?? []
     }
 
     // MARK: - Merge
 
-    /// 合并事务到指定的上下文
+    /// Merge transactions into the provided contexts.
     /// - Parameters:
-    ///   - transactions: 事务列表
-    ///   - contexts: 目标上下文列表
-    /// - Note: 使用 Core Data 标准 API，内部自动处理线程安全和异步调度
+    ///   - transactions: Transactions to merge.
+    ///   - contexts: Target contexts.
+    /// - Note: Leverages Core Data APIs that handle thread-safety and async dispatch.
     private func mergeTransactions(
         _ transactions: [NSPersistentHistoryTransaction],
         into contexts: [NSManagedObjectContext]) async throws
     {
-        // 使用 Core Data 标准 API：一次性合并所有事务到所有上下文
-        // NSManagedObjectContext.mergeChanges 会自动处理：
+        // Use the standard Core Data API to merge all transactions into each context.
+        // NSManagedObjectContext.mergeChanges automatically handles coordination.
         for transaction in transactions {
             let userInfo = transaction.objectIDNotification().userInfo ?? [:]
             NSManagedObjectContext.mergeChanges(fromRemoteContextSave: userInfo, into: contexts)
@@ -244,8 +244,8 @@ public actor TransactionProcessorActor {
 
     // MARK: - Observer Hook
 
-    /// 为事务触发 Observer Hook（只读通知）
-    /// - Parameter transactions: 事务列表
+    /// Trigger Observer Hooks for the given transactions (read-only notifications).
+    /// - Parameter transactions: Transactions to inspect.
     private func triggerObserverHooks(for transactions: [NSPersistentHistoryTransaction]) async {
         for transaction in transactions {
             guard let changes = transaction.changes else { continue }
@@ -253,7 +253,7 @@ public actor TransactionProcessorActor {
             for change in changes {
                 let entityName = change.changedObjectID.entity.name ?? "Unknown"
 
-                // 提取墓碑数据（仅删除操作有墓碑）
+                // Extract tombstone data (only delete operations provide tombstones).
                 let tombstone = extractTombstone(from: change, timestamp: transaction.timestamp)
 
                 let context = HookContext(
@@ -270,32 +270,32 @@ public actor TransactionProcessorActor {
         }
     }
 
-    /// 从 NSPersistentHistoryChange 提取墓碑数据
+    /// Extract tombstone data from an NSPersistentHistoryChange.
     /// - Parameters:
-    ///   - change: 历史变更记录
-    ///   - timestamp: 事务时间戳
-    /// - Returns: 墓碑数据（仅删除操作返回非 nil）
+    ///   - change: History change record.
+    ///   - timestamp: Transaction timestamp.
+    /// - Returns: Tombstone data (non-nil only for delete operations).
     private func extractTombstone(
         from change: NSPersistentHistoryChange,
         timestamp: Date) -> Tombstone?
     {
-        // 只有删除操作才有墓碑
+        // Only delete operations produce tombstones.
         guard change.changeType == .delete else { return nil }
 
-        // 获取 Core Data 的 tombstone 字典
+        // Grab Core Data's tombstone dictionary.
         guard let rawTombstone = change.tombstone else { return nil }
 
-        // 将 [AnyHashable: Any] 转换为 [String: String]
+        // Convert [AnyHashable: Any] to [String: String].
         var attributes: [String: String] = [:]
         for (key, value) in rawTombstone {
-            // key 转换为 String
+            // Convert the key into a String.
             let keyString: String = if let stringKey = key as? String {
                 stringKey
             } else {
                 String(describing: key)
             }
 
-            // 尝试将值转换为字符串表示
+            // Convert values into string representations when possible.
             if let stringValue = value as? String {
                 attributes[keyString] = stringValue
             } else if let urlValue = value as? URL {
@@ -307,7 +307,7 @@ public actor TransactionProcessorActor {
             } else if let numberValue = value as? NSNumber {
                 attributes[keyString] = numberValue.stringValue
             } else {
-                // 其他类型使用 description
+                // Fallback to `description` for any other type.
                 attributes[keyString] = String(describing: value)
             }
         }
@@ -330,41 +330,41 @@ public actor TransactionProcessorActor {
 
     // MARK: - Merge Hook
 
-    /// 触发 Merge Hook 管道
+    /// Run the Merge Hook pipeline.
     /// - Parameters:
-    ///   - transactions: 事务列表
-    ///   - contexts: 目标上下文列表
-    /// - Note: 所有操作在同一 Actor 内执行，无并发安全问题
+    ///   - transactions: Transactions flowing through the pipeline.
+    ///   - contexts: Target contexts.
+    /// - Note: All operations execute inside the same actor, so there are no concurrency concerns.
     private func triggerMergeHooks(
         transactions: [NSPersistentHistoryTransaction],
         contexts: [NSManagedObjectContext]) async throws
     {
         let input = MergeHookInput(transactions: transactions, contexts: contexts)
 
-        // 依次执行 merge hooks
+        // Execute each merge hook sequentially.
         for item in mergeHooks {
             let result = try await item.callback(input)
             if result == .finish {
-                return // 某个 hook 已处理，跳过默认合并
+                return // A hook handled the work; skip the default merge.
             }
         }
 
-        // 所有 hook 都返回 .goOn（或无 hook），执行默认合并
+        // All hooks returned .goOn (or none were registered), so perform the default merge.
         try await mergeTransactions(transactions, into: contexts)
     }
 
     // MARK: - Clean
 
-    /// 清理指定时间戳之前的事务
+    /// Delete transactions before the specified timestamp.
     /// - Parameters:
-    ///   - timestamp: 清理该时间戳之前的所有事务
-    ///   - authors: 只清理这些作者的事务（为 nil 则清理所有）
-    /// - Returns: 删除的事务数量
+    ///   - timestamp: Remove history before this timestamp.
+    ///   - authors: Limit cleanup to these authors (nil removes all authors).
+    /// - Returns: Number of deleted transactions.
     @discardableResult
     public func cleanTransactions(before timestamp: Date, for authors: [String]?) throws -> Int {
         let deleteRequest = NSPersistentHistoryChangeRequest.deleteHistory(before: timestamp)
 
-        // 配置 fetchRequest - 只删除指定 authors 的事务
+        // Configure fetchRequest to delete only the specified authors' transactions.
         if let authors, !authors.isEmpty {
             if let fetchRequest = NSPersistentHistoryTransaction.fetchRequest {
                 let predicates = authors.map { author in
@@ -379,7 +379,7 @@ public actor TransactionProcessorActor {
             }
         }
 
-        // 执行删除
+        // Execute the delete request.
         let result = try modelContext.execute(deleteRequest) as? NSPersistentHistoryResult
         let deletedCount = (result?.result as? Int) ?? 0
 
@@ -388,9 +388,9 @@ public actor TransactionProcessorActor {
 
     // MARK: - Utility
 
-    /// 获取最后的事务时间戳
-    /// - Parameter author: 作者名称
-    /// - Returns: 最后的事务时间戳
+    /// Retrieve the last transaction timestamp for an author.
+    /// - Parameter author: The author's name.
+    /// - Returns: The latest transaction timestamp.
     public func getLastTransactionTimestamp(for author: String) throws -> Date? {
         let transactions = try fetchTransactions(from: [author], after: nil)
         return transactions.last?.timestamp

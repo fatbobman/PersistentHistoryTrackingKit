@@ -12,27 +12,27 @@
 
 import Foundation
 
-/// Transaction 清理策略。
+/// Transaction cleanup strategies.
 ///
-/// 如果仅需合并，无需自动清理，可以选择none。
-/// byNotification可以指定每隔通知清理一次。默认设置为 byNotification(0)
-/// bySeconds设置成美两次清理中间至少间隔多少秒。
+/// Choose `.none` if you only merge transactions and do not want automatic cleanup.
+/// `.byNotification` cleans after a specified number of notifications (default is `.byNotification(0)`).
+/// `.byDuration` enforces a minimum number of seconds between two cleanup runs.
 public enum TransactionCleanStrategy: Sendable {
     case none
     case byDuration(seconds: TimeInterval)
     case byNotification(times: Int)
 }
 
-/// 清理规则协议
+/// Cleanup policy protocol.
 protocol TransactionPurgePolicy: Sendable {
-    /// 在每次接收到 notification 时判断，是否可以进行清理
+    /// Decide whether cleanup is allowed each time a notification arrives.
     mutating func allowedToClean() -> Bool
     init(strategy: TransactionCleanStrategy)
 }
 
-/// 关闭策略。设置成该策略后，Kit中将不会执行清理任务
-/// 用于想手动控制清理任务执行的情况。
-/// 可以使用Kit的 生成可手动执行任务的清理实例
+/// Disabled strategy. When selected, the Kit never performs automatic cleanup.
+/// Use when you want total manual control and rely on manually triggered cleaners.
+/// Combine with the Kit's manual cleaner helper when needed.
 struct TransactionCleanStrategyNone: TransactionPurgePolicy, Sendable {
     func allowedToClean() -> Bool {
         false
@@ -41,8 +41,8 @@ struct TransactionCleanStrategyNone: TransactionPurgePolicy, Sendable {
     init(strategy: TransactionCleanStrategy = .none) {}
 }
 
-/// 按时间间隔实行清理策略。
-/// 设定间隔的秒数。每次执行清理任务时，应与上次清理时间之间至少保持设定的时间距离
+/// Cleanup strategy driven by a time interval.
+/// Enforces a minimum interval (in seconds) between two cleanup runs.
 struct TransactionCleanStrategyByDuration: TransactionPurgePolicy, Sendable {
     private var lastCleanTimestamp: Date?
     private let duration: TimeInterval
@@ -65,9 +65,9 @@ struct TransactionCleanStrategyByDuration: TransactionPurgePolicy, Sendable {
     }
 }
 
-/// 按通知次数间隔实行清理策略
+/// Cleanup strategy driven by notification count.
 ///
-/// 每接收到几次 notification 执行一次清理。 times = 1时，每次都会执行。 times = 3时，每三次执行一次清理
+/// Runs cleanup every N notifications. For example, `times = 1` means run every time, while `times = 3` runs every third notification.
 struct TransactionCleanStrategyByNotification: TransactionPurgePolicy, Sendable {
     private var count: Int
     private var times: Int

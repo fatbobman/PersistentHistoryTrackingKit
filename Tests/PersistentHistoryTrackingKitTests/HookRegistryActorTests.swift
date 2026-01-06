@@ -12,7 +12,7 @@ import Testing
 @Suite("HookRegistryActor Tests", .serialized)
 struct HookRegistryActorTests {
 
-    @Test("注册和触发 Hook")
+    @Test("Register and trigger hook")
     func registerAndTriggerHook() async throws {
         let registry = HookRegistryActor()
 
@@ -30,10 +30,10 @@ struct HookRegistryActorTests {
             #expect(context.operation == .insert)
         }
 
-        // 注册 Hook
+        // Register the hook.
         await registry.registerObserver(entityName: "Person", operation: .insert, callback: callback)
 
-        // 创建测试 Context
+        // Create a test context.
         let context = HookContext(
             entityName: "Person",
             operation: .insert,
@@ -44,13 +44,13 @@ struct HookRegistryActorTests {
             author: "TestAuthor"
         )
 
-        // 触发 Hook
+        // Trigger the hook.
         await registry.triggerObserver(context: context)
 
         #expect(await tracker.isTriggered() == true)
     }
 
-    @Test("移除 Hook")
+    @Test("Remove hook")
     func removeHook() async throws {
         let registry = HookRegistryActor()
 
@@ -66,13 +66,13 @@ struct HookRegistryActorTests {
             await tracker.setTriggered()
         }
 
-        // 注册 Hook
+        // Register the hook.
         await registry.registerObserver(entityName: "Person", operation: .insert, callback: callback)
 
-        // 移除 Hook
+        // Remove the hook.
         await registry.removeObserver(entityName: "Person", operation: .insert)
 
-        // 创建测试 Context
+        // Create a test context.
         let context = HookContext(
             entityName: "Person",
             operation: .insert,
@@ -83,13 +83,13 @@ struct HookRegistryActorTests {
             author: "TestAuthor"
         )
 
-        // 触发 Hook（应该不会触发）
+        // Triggering should now be a no-op.
         await registry.triggerObserver(context: context)
 
         #expect(await tracker.isTriggered() == false)
     }
 
-    @Test("多个 Hook 并发触发")
+    @Test("Multiple hooks firing concurrently")
     func multipleHooksConcurrent() async throws {
         let registry = HookRegistryActor()
 
@@ -101,7 +101,7 @@ struct HookRegistryActorTests {
 
         let counter = Counter()
 
-        // 注册多个 Hook
+        // Register hooks for multiple operations.
         for operation in [HookOperation.insert, .update, .delete] {
             let callback: HookCallback = { _ in
                 await counter.increment()
@@ -109,7 +109,7 @@ struct HookRegistryActorTests {
             await registry.registerObserver(entityName: "Person", operation: operation, callback: callback)
         }
 
-        // 并发触发多个 Hook
+        // Trigger each hook concurrently.
         await withTaskGroup(of: Void.self) { group in
             for operation in [HookOperation.insert, .update, .delete] {
                 group.addTask {
@@ -131,7 +131,7 @@ struct HookRegistryActorTests {
         #expect(finalCount == 3)
     }
 
-    @Test("不同 Entity 的 Hook 互不干扰")
+    @Test("Hooks for different entities do not interfere")
     func differentEntityHooks() async throws {
         let registry = HookRegistryActor()
 
@@ -152,11 +152,11 @@ struct HookRegistryActorTests {
             await tracker.setItemTriggered()
         }
 
-        // 注册不同 Entity 的 Hook
+        // Register hooks for different entities.
         await registry.registerObserver(entityName: "Person", operation: .insert, callback: personCallback)
         await registry.registerObserver(entityName: "Item", operation: .insert, callback: itemCallback)
 
-        // 触发 Person Hook
+        // Trigger the Person hook.
         let personContext = HookContext(
             entityName: "Person",
             operation: .insert,
