@@ -74,8 +74,7 @@ struct ManualCleanerActorTests {
         // Run cleanup (which should use the minimum timestamp).
         await cleaner.clean()
 
-        // Sanity check: this test ensures the code path doesn't crash.
-        #expect(true)
+        // Test passes if cleanup completes without crashing
     }
 
     @Test("Handle empty timestamp state")
@@ -99,7 +98,7 @@ struct ManualCleanerActorTests {
         // Run cleanup (should be skipped gracefully).
         await cleaner.clean()
 
-        #expect(true)
+        // Test passes if cleanup completes without crashing
     }
 
     @Test("Verify transaction count after cleanup")

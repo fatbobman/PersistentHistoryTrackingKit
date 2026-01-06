@@ -91,7 +91,7 @@ struct ConcurrencyTests {
             }
         }
 
-        #expect(true) // Mainly verify no crash
+        // Test passes if no crash or Issue.record was triggered
     }
 
     @Test("Clean and fetch concurrently")
@@ -148,7 +148,7 @@ struct ConcurrencyTests {
             }
         }
 
-        #expect(true) // Mainly verify no crash
+        // Test passes if no crash or Issue.record was triggered
     }
 
     @Test("Concurrent hook triggering")
@@ -228,7 +228,7 @@ struct ConcurrencyTests {
             }
         }
 
-        #expect(true) // Mainly verify no crash
+        // Test passes if no crash or Issue.record was triggered
     }
 
     @Test("Cleaners executing concurrently")
