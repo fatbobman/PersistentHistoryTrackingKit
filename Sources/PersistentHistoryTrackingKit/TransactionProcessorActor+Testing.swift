@@ -9,6 +9,7 @@
 @preconcurrency import CoreData
 import Foundation
 
+#if DEBUG
 /// 测试扩展：在 Actor 内部执行测试逻辑，避免 NSPersistentHistoryTransaction 跨越 Actor 边界
 extension TransactionProcessorActor {
 
@@ -194,3 +195,4 @@ enum TestError: Error, CustomStringConvertible {
         }
     }
 }
+#endif

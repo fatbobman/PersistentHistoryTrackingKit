@@ -112,34 +112,13 @@ public actor TransactionProcessorActor {
     /// - Parameters:
     ///   - transactions: 事务列表
     ///   - contexts: 目标上下文列表
+    /// - Note: 使用 Core Data 标准 API，内部自动处理线程安全和异步调度
     private func mergeTransactions(_ transactions: [NSPersistentHistoryTransaction], into contexts: [NSManagedObjectContext]) async throws {
-        for context in contexts {
-            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-                context.performAndWait {
-                    for transaction in transactions {
-                        // 使用 NSPersistentHistoryTransaction 的正确 API
-                        guard let changes = transaction.changes else { continue }
-
-                        for change in changes {
-                            // 根据变更类型处理
-                            switch change.changeType {
-                            case .insert, .update:
-                                // 对于插入和更新，尝试获取对象并刷新
-                                if let object = try? context.existingObject(with: change.changedObjectID) {
-                                    context.refresh(object, mergeChanges: true)
-                                }
-                            case .delete:
-                                // 对于删除，确保对象被删除
-                                let object = context.object(with: change.changedObjectID)
-                                context.delete(object)
-                            @unknown default:
-                                break
-                            }
-                        }
-                    }
-                    continuation.resume()
-                }
-            }
+        // 使用 Core Data 标准 API：一次性合并所有事务到所有上下文
+        // NSManagedObjectContext.mergeChanges 会自动处理：
+        for transaction in transactions {
+            let userInfo = transaction.objectIDNotification().userInfo ?? [:]
+            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: userInfo, into: contexts)
         }
     }
 
