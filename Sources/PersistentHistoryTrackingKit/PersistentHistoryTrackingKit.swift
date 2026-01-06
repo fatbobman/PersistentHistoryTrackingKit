@@ -20,11 +20,8 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
     // MARK: - Properties
 
     /// 日志显示等级，从 0-2 级。0 关闭 2 最详尽
-    public func setLogLevel(_ level: Int) {
-        // TODO: 实现线程安全的 logLevel 更新
-    }
-
-    public func getLogLevel() -> Int {
+    /// - Note: V2 中 logLevel 在初始化时设置，运行时不可更改
+    public var logLevel: Int {
         _logLevel
     }
 
@@ -108,7 +105,9 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
         self.batchAuthors = batchAuthors
         self.includingCloudKitMirroring = includingCloudKitMirroring
         if includingCloudKitMirroring {
-            self.logger.log(type: .notice, message: "⚠️ 在清理中包含 CloudKit mirroring author，可能会导致云同步数据被破坏，请确保了解相关风险！")
+            self.logger.log(
+                type: .notice,
+                message: "⚠️ 在清理中包含 CloudKit mirroring author，可能会导致云同步数据被破坏，请确保了解相关风险！")
         }
 
         // 创建 actors

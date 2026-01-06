@@ -143,7 +143,7 @@ public actor TransactionProcessorActor {
     ///   - batchAuthors: 批量操作的 authors（从清理计算中排除）
     /// - Returns: 处理的事务数量
     @discardableResult
-    internal func processNewTransactionsWithTimestampManagement(
+    func processNewTransactionsWithTimestampManagement(
         from authors: [String],
         after lastTimestamp: Date?,
         mergeInto contexts: [NSManagedObjectContext],
@@ -167,15 +167,14 @@ public actor TransactionProcessorActor {
         if let newTimestamp = transactions.last?.timestamp {
             timestampManager.updateLastHistoryTransactionTimestamp(
                 for: currentAuthor,
-                to: newTimestamp
-            )
+                to: newTimestamp)
         }
 
         // 5. 计算并执行清理
         if let cleanTimestamp = timestampManager.getLastCommonTransactionTimestamp(
             in: authors,
-            exclude: batchAuthors
-        ) {
+            exclude: batchAuthors)
+        {
             _ = try cleanTransactions(before: cleanTimestamp, for: authors)
         }
 
@@ -385,16 +384,6 @@ public actor TransactionProcessorActor {
         let deletedCount = (result?.result as? Int) ?? 0
 
         return deletedCount
-    }
-
-    /// 清理已被所有作者合并的事务（便捷方法）
-    /// - Parameters:
-    ///   - author: 当前作者
-    ///   - authors: 所有作者列表
-    public func cleanTransactions(for author: String, authors: [String]) throws {
-        // 这个方法保留用于向后兼容
-        // 实际使用时应该使用 cleanTransactions:before:for: 方法
-        // TODO: 从外部获取最后的共同时间戳
     }
 
     // MARK: - Utility
