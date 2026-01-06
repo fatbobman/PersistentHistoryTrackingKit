@@ -53,26 +53,17 @@ struct TombstoneTests {
             await collector.add(context.tombstone)
         }
 
-        // 创建数据
+        // 创建、保存并删除数据（在同一个 actor 隔离的闭包中）
         let bgContext = container.newBackgroundContext()
         bgContext.transactionAuthor = "App1"
-
-        var personObjectID: NSManagedObjectID?
 
         try await bgContext.perform {
             let person = TestModelBuilder.createPerson(name: "TombstoneTest", age: 99, in: bgContext)
             try bgContext.save()
-            personObjectID = person.objectID
-        }
 
-        // 删除数据
-        try await bgContext.perform {
-            if let objectID = personObjectID,
-               let person = try? bgContext.existingObject(with: objectID)
-            {
-                bgContext.delete(person)
-                try bgContext.save()
-            }
+            // 删除刚创建的对象
+            bgContext.delete(person)
+            try bgContext.save()
         }
 
         // 处理事务
@@ -204,26 +195,18 @@ struct TombstoneTests {
             await tracker.setUpdate(context.tombstone)
         }
 
-        // 创建数据（insert）
+        // 创建并更新数据（在同一个 actor 隔离的闭包中）
         let bgContext = container.newBackgroundContext()
         bgContext.transactionAuthor = "App1"
 
-        var personObjectID: NSManagedObjectID?
-
         try await bgContext.perform {
+            // 创建数据（insert）
             let person = TestModelBuilder.createPerson(name: "NoTombstone", age: 20, in: bgContext)
             try bgContext.save()
-            personObjectID = person.objectID
-        }
 
-        // 更新数据（update）
-        try await bgContext.perform {
-            if let objectID = personObjectID,
-               let person = try? bgContext.existingObject(with: objectID)
-            {
-                person.setValue("UpdatedName", forKey: "name")
-                try bgContext.save()
-            }
+            // 更新数据（update）
+            person.setValue("UpdatedName", forKey: "name")
+            try bgContext.save()
         }
 
         // 处理事务
