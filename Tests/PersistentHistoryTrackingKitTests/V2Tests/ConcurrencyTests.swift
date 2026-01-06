@@ -9,7 +9,7 @@ import CoreData
 import Testing
 @testable import PersistentHistoryTrackingKit
 
-@Suite("Concurrency Safety Tests")
+@Suite("Concurrency Safety Tests", .serialized)
 struct ConcurrencyTests {
 
     @Test("多线程并发写入")
@@ -157,7 +157,7 @@ struct ConcurrencyTests {
         let callback: HookCallback = { _ in
             await counter.increment()
         }
-        await hookRegistry.register(entityName: "Person", operation: .insert, callback: callback)
+        await hookRegistry.registerObserver(entityName: "Person", operation: .insert, callback: callback)
 
         // 并发触发 Hook
         await withTaskGroup(of: Void.self) { group in
@@ -172,7 +172,7 @@ struct ConcurrencyTests {
                         timestamp: Date(),
                         author: "TestAuthor"
                     )
-                    await hookRegistry.trigger(context: context)
+                    await hookRegistry.triggerObserver(context: context)
                 }
             }
         }

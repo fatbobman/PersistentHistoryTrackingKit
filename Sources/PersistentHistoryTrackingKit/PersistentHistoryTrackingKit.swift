@@ -121,7 +121,7 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
 
     // MARK: - Public Methods
 
-    /// 注册 Hook
+    /// 注册 Observer Hook（用于通知/监听，不影响数据）
     /// - Parameters:
     ///   - entityName: 实体名称
     ///   - operation: 操作类型
@@ -133,12 +133,12 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
     ) {
         Task { @Sendable [weak self] in
             guard let self = self else { return }
-            await self.hookRegistry.register(entityName: entityName, operation: operation, callback: callback)
-            self.log(.info, level: 2, "Registered hook for \(entityName).\(operation.rawValue)")
+            await self.hookRegistry.registerObserver(entityName: entityName, operation: operation, callback: callback)
+            self.log(.info, level: 2, "Registered observer hook for \(entityName).\(operation.rawValue)")
         }
     }
 
-    /// 移除 Hook
+    /// 移除 Observer Hook
     /// - Parameters:
     ///   - entityName: 实体名称
     ///   - operation: 操作类型
@@ -148,9 +148,42 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
     ) {
         Task { @Sendable [weak self] in
             guard let self = self else { return }
-            await self.hookRegistry.remove(entityName: entityName, operation: operation)
-            self.log(.info, level: 2, "Removed hook for \(entityName).\(operation.rawValue)")
+            await self.hookRegistry.removeObserver(entityName: entityName, operation: operation)
+            self.log(.info, level: 2, "Removed observer hook for \(entityName).\(operation.rawValue)")
         }
+    }
+
+    // MARK: - Merge Hook API
+
+    /// 注册 Merge Hook（管道模式，可自定义合并逻辑）
+    /// - Parameters:
+    ///   - before: 可选，插入到此 hook 之前；如果为 nil，添加到末尾
+    ///   - callback: 回调函数，接收 MergeHookInput 参数
+    /// - Returns: 该 hook 的 UUID，用于后续移除
+    @discardableResult
+    public func registerMergeHook(
+        before hookId: UUID? = nil,
+        callback: @escaping MergeHookCallback
+    ) async -> UUID {
+        let id = await transactionProcessor.registerMergeHook(before: hookId, callback: callback)
+        log(.info, level: 2, "Registered merge hook: \(id)")
+        return id
+    }
+
+    /// 移除指定的 Merge Hook
+    /// - Parameter hookId: hook 的 UUID
+    /// - Returns: 是否成功移除
+    @discardableResult
+    public func removeMergeHook(id hookId: UUID) async -> Bool {
+        let result = await transactionProcessor.removeMergeHook(id: hookId)
+        log(.info, level: 2, "Removed merge hook: \(hookId), success: \(result)")
+        return result
+    }
+
+    /// 移除所有 Merge Hook
+    public func removeAllMergeHooks() async {
+        await transactionProcessor.removeAllMergeHooks()
+        log(.info, level: 2, "Removed all merge hooks")
     }
 
     /// 创建手动清理器

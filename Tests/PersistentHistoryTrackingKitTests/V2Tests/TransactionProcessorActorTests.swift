@@ -9,7 +9,7 @@ import CoreData
 import Testing
 @testable import PersistentHistoryTrackingKit
 
-@Suite("TransactionProcessorActor Tests")
+@Suite("TransactionProcessorActor Tests", .serialized)
 struct TransactionProcessorActorTests {
 
     @Test("Fetch transactions - 排除当前 author")
@@ -88,26 +88,32 @@ struct TransactionProcessorActorTests {
 
     @Test("Process new transactions - 完整流程")
     func processNewTransactionsFullFlow() async throws {
-        // 创建两个容器（模拟两个 App）
-        let container1 = TestModelBuilder.createContainer(author: "App1")
-        let container2 = TestModelBuilder.createContainer(author: "App2")
+        // 使用同一个容器的不同 context（模拟同一数据库的多个访问点）
+        let container = TestModelBuilder.createContainer(author: "App1")
 
-        let context1 = container1.viewContext
-        let context2 = container2.viewContext
+        // context1 用于写入数据（模拟 App1）
+        let context1 = container.newBackgroundContext()
+        context1.transactionAuthor = "App1"
+
+        // context2 用于接收合并（模拟 App2 的 viewContext）
+        let context2 = container.newBackgroundContext()
+        context2.transactionAuthor = "App2"
 
         // App1 创建数据
-        TestModelBuilder.createPerson(name: "Alice", age: 30, in: context1)
-        try context1.save()
+        try await context1.perform {
+            TestModelBuilder.createPerson(name: "Alice", age: 30, in: context1)
+            try context1.save()
+        }
 
-        // 创建 processor（使用 container2 来处理 container1 的事务）
+        // 创建 processor
         let hookRegistry = HookRegistryActor()
         let processor = TransactionProcessorActor(
-            container: container1,
+            container: container,
             hookRegistry: hookRegistry,
             cleanStrategy: .none
         )
 
-        // 处理新事务
+        // 处理新事务（排除 App2 自己的事务，合并 App1 的事务）
         let count = try await processor.processNewTransactions(
             from: ["App1"],
             after: nil,
@@ -119,10 +125,12 @@ struct TransactionProcessorActorTests {
         #expect(count >= 1)
 
         // 验证 context2 中有数据
-        let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Person")
-        let results = try context2.fetch(fetchRequest)
-        #expect(results.count == 1)
-        #expect(results.first?.value(forKey: "name") as? String == "Alice")
+        try await context2.perform {
+            let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Person")
+            let results = try context2.fetch(fetchRequest)
+            #expect(results.count == 1)
+            #expect(results.first?.value(forKey: "name") as? String == "Alice")
+        }
     }
 
     @Test("Trigger hooks during transaction processing")
@@ -151,7 +159,7 @@ struct TransactionProcessorActorTests {
             await tracker.setTriggered()
         }
 
-        await hookRegistry.register(entityName: "Person", operation: .insert, callback: callback)
+        await hookRegistry.registerObserver(entityName: "Person", operation: .insert, callback: callback)
 
         // 创建 processor
         let processor = TransactionProcessorActor(

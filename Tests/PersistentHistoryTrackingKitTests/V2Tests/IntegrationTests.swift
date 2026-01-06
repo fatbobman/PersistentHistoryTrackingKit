@@ -9,7 +9,7 @@ import CoreData
 import Testing
 @testable import PersistentHistoryTrackingKit
 
-@Suite("PersistentHistoryTrackingKit V2 Integration Tests")
+@Suite("PersistentHistoryTrackingKit V2 Integration Tests", .serialized)
 struct IntegrationTests {
 
     @Test("两个 App 简单同步")

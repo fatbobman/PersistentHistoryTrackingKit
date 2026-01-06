@@ -9,7 +9,7 @@ import CoreData
 import Testing
 @testable import PersistentHistoryTrackingKit
 
-@Suite("HookRegistryActor Tests")
+@Suite("HookRegistryActor Tests", .serialized)
 struct HookRegistryActorTests {
 
     @Test("注册和触发 Hook")
@@ -31,7 +31,7 @@ struct HookRegistryActorTests {
         }
 
         // 注册 Hook
-        await registry.register(entityName: "Person", operation: .insert, callback: callback)
+        await registry.registerObserver(entityName: "Person", operation: .insert, callback: callback)
 
         // 创建测试 Context
         let context = HookContext(
@@ -45,7 +45,7 @@ struct HookRegistryActorTests {
         )
 
         // 触发 Hook
-        await registry.trigger(context: context)
+        await registry.triggerObserver(context: context)
 
         #expect(await tracker.isTriggered() == true)
     }
@@ -67,10 +67,10 @@ struct HookRegistryActorTests {
         }
 
         // 注册 Hook
-        await registry.register(entityName: "Person", operation: .insert, callback: callback)
+        await registry.registerObserver(entityName: "Person", operation: .insert, callback: callback)
 
         // 移除 Hook
-        await registry.remove(entityName: "Person", operation: .insert)
+        await registry.removeObserver(entityName: "Person", operation: .insert)
 
         // 创建测试 Context
         let context = HookContext(
@@ -84,7 +84,7 @@ struct HookRegistryActorTests {
         )
 
         // 触发 Hook（应该不会触发）
-        await registry.trigger(context: context)
+        await registry.triggerObserver(context: context)
 
         #expect(await tracker.isTriggered() == false)
     }
@@ -106,7 +106,7 @@ struct HookRegistryActorTests {
             let callback: HookCallback = { _ in
                 await counter.increment()
             }
-            await registry.register(entityName: "Person", operation: operation, callback: callback)
+            await registry.registerObserver(entityName: "Person", operation: operation, callback: callback)
         }
 
         // 并发触发多个 Hook
@@ -122,7 +122,7 @@ struct HookRegistryActorTests {
                         timestamp: Date(),
                         author: "TestAuthor"
                     )
-                    await registry.trigger(context: context)
+                    await registry.triggerObserver(context: context)
                 }
             }
         }
@@ -153,8 +153,8 @@ struct HookRegistryActorTests {
         }
 
         // 注册不同 Entity 的 Hook
-        await registry.register(entityName: "Person", operation: .insert, callback: personCallback)
-        await registry.register(entityName: "Item", operation: .insert, callback: itemCallback)
+        await registry.registerObserver(entityName: "Person", operation: .insert, callback: personCallback)
+        await registry.registerObserver(entityName: "Item", operation: .insert, callback: itemCallback)
 
         // 触发 Person Hook
         let personContext = HookContext(
@@ -166,7 +166,7 @@ struct HookRegistryActorTests {
             timestamp: Date(),
             author: "TestAuthor"
         )
-        await registry.trigger(context: personContext)
+        await registry.triggerObserver(context: personContext)
 
         let state = await tracker.getState()
         #expect(state.person == true)

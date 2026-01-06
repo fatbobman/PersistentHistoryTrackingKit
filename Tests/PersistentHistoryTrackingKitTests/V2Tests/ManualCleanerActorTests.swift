@@ -9,7 +9,7 @@ import CoreData
 import Testing
 @testable import PersistentHistoryTrackingKit
 
-@Suite("ManualCleanerActor Tests")
+@Suite("ManualCleanerActor Tests", .serialized)
 struct ManualCleanerActorTests {
 
     @Test("执行清理 - 正常流程")

@@ -11,24 +11,23 @@ import Foundation
 /// 测试用的 Core Data Stack Helper
 /// 纯代码创建 NSManagedObjectModel，包含两个 Entity：Person 和 Item
 enum TestModelBuilder {
-
-    /// 创建测试用的 NSManagedObjectModel
-    /// - Returns: 包含 Person 和 Item 两个 Entity 的 Model
-    static func createModel() -> NSManagedObjectModel {
+    /// 共享的 NSManagedObjectModel 实例（线程安全的懒加载）
+    /// - Note: Core Data 要求同一个 schema 使用同一个 model 实例，否则并发时可能出问题
+    /// NSManagedObjectModel 本身是线程安全的，使用 nonisolated(unsafe) 标记
+    nonisolated(unsafe) private static let sharedModel: NSManagedObjectModel = {
         let model = NSManagedObjectModel()
 
-        // 创建 Person Entity（带墓碑）
+        // 创建 Person Entity（带墓碑属性）
         let personEntity = NSEntityDescription()
         personEntity.name = "Person"
         personEntity.managedObjectClassName = NSStringFromClass(NSManagedObject.self)
 
-        // Person 属性
         let personNameAttribute = NSAttributeDescription()
         personNameAttribute.name = "name"
         personNameAttribute.attributeType = .stringAttributeType
         personNameAttribute.isOptional = false
-        // Note: 墓碑属性需要在 xcdatamodel 中通过 Xcode 设置
-        // 或者使用 NSPersistentHistoryTransaction 的 tombstone API
+        // 启用墓碑保留：删除时保留 name 值
+        personNameAttribute.preservesValueInHistoryOnDeletion = true
 
         let personAgeAttribute = NSAttributeDescription()
         personAgeAttribute.name = "age"
@@ -41,15 +40,16 @@ enum TestModelBuilder {
         personIDAttribute.attributeType = .UUIDAttributeType
         personIDAttribute.isOptional = false
         personIDAttribute.defaultValue = UUID()
+        // 启用墓碑保留：删除时保留 id 值
+        personIDAttribute.preservesValueInHistoryOnDeletion = true
 
         personEntity.properties = [personNameAttribute, personAgeAttribute, personIDAttribute]
 
-        // 创建 Item Entity（不带墓碑）
+        // 创建 Item Entity
         let itemEntity = NSEntityDescription()
         itemEntity.name = "Item"
         itemEntity.managedObjectClassName = NSStringFromClass(NSManagedObject.self)
 
-        // Item 属性
         let itemTitleAttribute = NSAttributeDescription()
         itemTitleAttribute.name = "title"
         itemTitleAttribute.attributeType = .stringAttributeType
@@ -69,10 +69,14 @@ enum TestModelBuilder {
 
         itemEntity.properties = [itemTitleAttribute, itemIDAttribute, itemTimestampAttribute]
 
-        // 添加 Entity 到 Model
         model.entities = [personEntity, itemEntity]
-
         return model
+    }()
+
+    /// 获取共享的 NSManagedObjectModel
+    /// - Returns: 共享的 Model 实例
+    static func createModel() -> NSManagedObjectModel {
+        sharedModel
     }
 
     /// 创建测试用的 NSPersistentContainer（SQLite 文件）
@@ -85,10 +89,12 @@ enum TestModelBuilder {
         let container = NSPersistentContainer(name: "TestModel", managedObjectModel: model)
 
         // 使用 SQLite Store（支持 Persistent History）
+        // 加入 UUID 确保并行测试时文件名唯一
         let tempDir = FileManager.default.temporaryDirectory
-        let storeURL = tempDir.appendingPathComponent("TestModel_\(testName).sqlite")
+        let uniqueId = UUID().uuidString.prefix(8)
+        let storeURL = tempDir.appendingPathComponent("TestModel_\(testName)_\(uniqueId).sqlite")
 
-        // 删除旧文件（如果存在）
+        // 删除旧文件（如果存在）- 由于使用 UUID，通常不需要
         try? FileManager.default.removeItem(at: storeURL)
         try? FileManager.default.removeItem(at: storeURL.appendingPathExtension("sqlite-shm"))
         try? FileManager.default.removeItem(at: storeURL.appendingPathExtension("sqlite-wal"))
