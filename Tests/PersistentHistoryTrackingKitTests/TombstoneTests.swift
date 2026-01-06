@@ -28,7 +28,7 @@ struct TombstoneTests {
             cleanStrategy: .none,
             timestampManager: timestampManager)
 
-        // 用于收集墓碑数据
+        // For collecting tombstone data
         actor TombstoneCollector {
             var tombstones: [Tombstone] = []
             var deletedNames: [String] = []
@@ -48,12 +48,12 @@ struct TombstoneTests {
 
         let collector = TombstoneCollector()
 
-        // 注册删除 Hook
+        // Register delete Hook
         await hookRegistry.registerObserver(entityName: "Person", operation: .delete) { context in
             await collector.add(context.tombstone)
         }
 
-        // 创建、保存并删除数据（在同一个 actor 隔离的闭包中）
+        // Create, save and delete data (in the same actor-isolated closure)
         let bgContext = container.newBackgroundContext()
         bgContext.transactionAuthor = "App1"
 
@@ -61,7 +61,7 @@ struct TombstoneTests {
             let person = TestModelBuilder.createPerson(name: "TombstoneTest", age: 99, in: bgContext)
             try bgContext.save()
 
-            // 删除刚创建的对象
+            // Delete the newly created object
             bgContext.delete(person)
             try bgContext.save()
         }
@@ -153,7 +153,7 @@ struct TombstoneTests {
 
         // name 和 id 设置了 preservesValueInHistoryOnDeletion = true
         #expect(attributes["name"] == "PreservedName")
-        #expect(attributes["id"] != nil) // UUID 应该被保留
+        #expect(attributes["id"] != nil) // UUID should be preserved
 
         // age 没有设置 preservesValueInHistoryOnDeletion，可能不在墓碑中
         // 注意：这取决于 Core Data 的具体行为
@@ -195,16 +195,16 @@ struct TombstoneTests {
             await tracker.setUpdate(context.tombstone)
         }
 
-        // 创建并更新数据（在同一个 actor 隔离的闭包中）
+        // Create and update data (in the same actor-isolated closure)
         let bgContext = container.newBackgroundContext()
         bgContext.transactionAuthor = "App1"
 
         try await bgContext.perform {
-            // 创建数据（insert）
+            // Create data (insert)
             let person = TestModelBuilder.createPerson(name: "NoTombstone", age: 20, in: bgContext)
             try bgContext.save()
 
-            // 更新数据（update）
+            // Update data (update)
             person.setValue("UpdatedName", forKey: "name")
             try bgContext.save()
         }

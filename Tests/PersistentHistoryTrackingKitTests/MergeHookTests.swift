@@ -380,9 +380,9 @@ struct MergeHookTests {
             currentAuthor: "TestAuthor")
 
         let result = await tracker.get()
-        #expect(result.0 >= 1) // 至少有 1 个 transaction
-        #expect(result.1 == 1) // 1 个 context
-        #expect(result.2 == true) // author 正确
+        #expect(result.0 >= 1) // At least 1 transaction
+        #expect(result.1 == 1) // 1 context
+        #expect(result.2 == true) // author is correct
     }
 
     // MARK: - 默认合并兜底测试

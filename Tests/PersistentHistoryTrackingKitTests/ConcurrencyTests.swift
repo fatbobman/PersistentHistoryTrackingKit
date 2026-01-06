@@ -73,7 +73,7 @@ struct ConcurrencyTests {
                     )
 
                     do {
-                        // 使用 Actor 内部的测试方法
+                        // Use internal Actor test methods
                         let result = try await processor.testFetchTransactionsExcludesAuthor(
                             from: ["App1"],
                             after: nil as Date?,
@@ -91,7 +91,7 @@ struct ConcurrencyTests {
             }
         }
 
-        #expect(true) // 主要验证不会崩溃
+        #expect(true) // Mainly verify no crash
     }
 
     @Test("Clean 和 Fetch 并发")
@@ -148,7 +148,7 @@ struct ConcurrencyTests {
             }
         }
 
-        #expect(true) // 主要验证不会崩溃
+        #expect(true) // Mainly verify no crash
     }
 
     @Test("Hook 并发触发")
@@ -214,7 +214,7 @@ struct ConcurrencyTests {
                         autoStart: false
                     )
 
-                    // 执行一些操作（使用 Actor 内部的测试方法）
+                    // Execute some operations (using internal Actor test methods)
                     do {
                         _ = try await kit.transactionProcessor.testFetchTransactionsExcludesAuthor(
                             from: ["App1"],
@@ -228,7 +228,7 @@ struct ConcurrencyTests {
             }
         }
 
-        #expect(true) // 主要验证不会崩溃
+        #expect(true) // Mainly verify no crash
     }
 
     @Test("Cleaner 并发执行")

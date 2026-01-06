@@ -18,7 +18,7 @@ struct TransactionProcessorActorTests {
         let container = TestModelBuilder.createContainer(author: "App1")
         let context = container.viewContext
 
-        // App1 创建数据
+        // App1 creates data
         TestModelBuilder.createPerson(name: "Alice", age: 30, in: context)
         try context.save()
 
@@ -40,7 +40,7 @@ struct TransactionProcessorActorTests {
             timestampManager: timestampManager
         )
 
-        // 使用 Actor 内部的测试方法
+        // Use internal Actor test methods
         let result = try await processor.testFetchTransactionsExcludesAuthor(
             from: ["App1", "App2"],
             after: nil,
@@ -48,8 +48,8 @@ struct TransactionProcessorActorTests {
         )
 
         // 验证排除逻辑正确
-        #expect(result.count >= 1) // 至少有 App1 的事务
-        #expect(result.allExcluded == true) // 所有事务都不包含 App2
+        #expect(result.count >= 1) // At least App1 transactions exist
+        #expect(result.allExcluded == true) // All transactions exclude App2
     }
 
     @Test("Clean transactions - 按时间戳和 authors")
@@ -83,11 +83,11 @@ struct TransactionProcessorActorTests {
             timestampManager: timestampManager
         )
 
-        // 使用 Actor 内部的测试方法
+        // Use internal Actor test methods
         let result = try await processor.testCleanTransactions(
             before: firstTimestamp,
             for: ["App1"],
-            expectedBefore: nil // 不指定预期值
+            expectedBefore: nil // No expected value specified
         )
 
         // 应该删除了一些事务
@@ -109,7 +109,7 @@ struct TransactionProcessorActorTests {
         let context2 = container.newBackgroundContext()
         context2.transactionAuthor = "App2"
 
-        // App1 创建数据
+        // App1 creates data
         try await context1.perform {
             TestModelBuilder.createPerson(name: "Alice", age: 30, in: context1)
             try context1.save()
@@ -225,10 +225,10 @@ struct TransactionProcessorActorTests {
             timestampManager: timestampManager
         )
 
-        // 使用 Actor 内部的测试方法
+        // Use internal Actor test methods
         let result = try await processor.testGetLastTransactionTimestamp(
             for: "App1",
-            maxAge: 10 // 允许 10 秒误差
+            maxAge: 10 // Allow 10 seconds error
         )
 
         #expect(result.hasTimestamp == true)

@@ -24,11 +24,11 @@ struct IntegrationTests {
         context1.transactionAuthor = "App1"
         context2.transactionAuthor = "App2"
 
-        // App1 创建数据
+        // App1 creates data
         TestModelBuilder.createPerson(name: "Alice", age: 30, in: context1)
         try context1.save()
 
-        // 创建 Kit（App2 视角）
+        // Create Kit（App2 视角）
         let userDefaults = UserDefaults.standard
         let uniqueString = "TestKit.SimpleTwoApp.\(UUID().uuidString)."
 
@@ -69,7 +69,7 @@ struct IntegrationTests {
         context1.transactionAuthor = "App1"
         context2.transactionAuthor = "App2"
 
-        // 创建 Kit
+        // Create Kit
         let userDefaults = UserDefaults.standard
         let uniqueString = "TestKit.HookTrigger.\(UUID().uuidString)."
 
@@ -113,7 +113,7 @@ struct IntegrationTests {
             await tracker.recordDelete()
         }
 
-        // App1 创建数据
+        // App1 creates data
         let person = TestModelBuilder.createPerson(name: "Alice", age: 30, in: context1)
         try context1.save()
 
@@ -174,7 +174,7 @@ struct IntegrationTests {
         TestModelBuilder.createPerson(name: "Alice", age: 30, in: context)
         try context.save()
 
-        // 创建 Kit
+        // Create Kit
         let userDefaults = UserDefaults.standard
         let uniqueString = "TestKit.ManualCleaner.\(UUID().uuidString)."
 
@@ -219,7 +219,7 @@ struct IntegrationTests {
         }
         try context1.save()
 
-        // 创建 Kit（App2 视角）
+        // Create Kit（App2 视角）
         let userDefaults = UserDefaults.standard
         let uniqueString = "TestKit.BatchOperation.\(UUID().uuidString)."
 
@@ -260,11 +260,11 @@ struct IntegrationTests {
         context2.transactionAuthor = "App2"
         context3.transactionAuthor = "App2"
 
-        // App1 创建数据
+        // App1 creates data
         TestModelBuilder.createPerson(name: "Alice", age: 30, in: context1)
         try context1.save()
 
-        // 创建 Kit（App2 视角，合并到两个 context）
+        // Create Kit（App2 视角，合并到两个 context）
         let userDefaults = UserDefaults.standard
         let uniqueString = "TestKit.MultiContext.\(UUID().uuidString)."
 

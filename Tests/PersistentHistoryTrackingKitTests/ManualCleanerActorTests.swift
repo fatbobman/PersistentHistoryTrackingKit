@@ -141,6 +141,6 @@ struct ManualCleanerActorTests {
         // 验证数据仍然存在（clean 只清理 transaction history，不清理实际数据）
         let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Person")
         let results = try context.fetch(fetchRequest)
-        #expect(results.count == 2) // 两条数据都应该存在
+        #expect(results.count == 2) // Both data records should exist
     }
 }
