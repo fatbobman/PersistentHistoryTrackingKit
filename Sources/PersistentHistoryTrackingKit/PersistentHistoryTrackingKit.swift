@@ -104,10 +104,19 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
 
         // 创建 actors
         self.hookRegistry = HookRegistryActor()
+
+        // 创建时间戳管理器
+        let timestampManager = TransactionTimestampManager(
+            userDefaults: userDefaults,
+            maximumDuration: maximumDuration,
+            uniqueString: uniqueString
+        )
+
         self.transactionProcessor = TransactionProcessorActor(
             container: container,
             hookRegistry: hookRegistry,
-            cleanStrategy: cleanStrategy
+            cleanStrategy: cleanStrategy,
+            timestampManager: timestampManager
         )
 
         if autoStart {
@@ -245,28 +254,20 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
     private func handleRemoteChangeNotification() async {
         log(.info, level: 2, "Received NSPersistentStoreRemoteChange notification")
 
-        // TODO: 从 UserDefaults 读取上次处理的时间戳
+        // 从 UserDefaults 读取上次处理的时间戳
         let lastTimestamp = getLastTimestampFromUserDefaults(for: currentAuthor)
 
         do {
-            // 处理新事务（排除当前 author）
-            let count = try await transactionProcessor.processNewTransactions(
+            // 处理新事务并自动管理时间戳
+            let count = try await transactionProcessor.processNewTransactionsWithTimestampManagement(
                 from: allAuthors,
                 after: lastTimestamp,
                 mergeInto: contexts,
                 currentAuthor: currentAuthor,
-                cleanBeforeTimestamp: nil // TODO: 计算需要清理的时间戳
+                batchAuthors: batchAuthors
             )
 
             log(.info, level: 2, "Processed \(count) transactions")
-
-            // 如果处理了事务，更新时间戳
-            if count > 0 {
-                if let newTimestamp = try? await transactionProcessor.getLastTransactionTimestamp(for: currentAuthor) {
-                    updateLastTimestampToUserDefaults(for: currentAuthor, to: newTimestamp)
-                    log(.info, level: 2, "Updated timestamp to \(newTimestamp)")
-                }
-            }
         } catch {
             log(.error, level: 1, "Error processing transactions: \(error.localizedDescription)")
         }
@@ -276,12 +277,6 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
     private func getLastTimestampFromUserDefaults(for author: String) -> Date? {
         let key = uniqueString + author
         return userDefaults.object(forKey: key) as? Date
-    }
-
-    /// 更新时间戳到 UserDefaults
-    private func updateLastTimestampToUserDefaults(for author: String, to date: Date) {
-        let key = uniqueString + author
-        userDefaults.set(date, forKey: key)
     }
 
     /// 记录日志

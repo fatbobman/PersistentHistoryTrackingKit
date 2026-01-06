@@ -29,10 +29,15 @@ struct TransactionProcessorActorTests {
 
         // 创建 processor
         let hookRegistry = HookRegistryActor()
+        let timestampManager = TransactionTimestampManager(
+            userDefaults: UserDefaults.standard,
+            maximumDuration: 604800
+        )
         let processor = TransactionProcessorActor(
             container: container,
             hookRegistry: hookRegistry,
-            cleanStrategy: .none
+            cleanStrategy: .none,
+            timestampManager: timestampManager
         )
 
         // 使用 Actor 内部的测试方法
@@ -67,10 +72,15 @@ struct TransactionProcessorActorTests {
 
         // 创建 processor
         let hookRegistry = HookRegistryActor()
+        let timestampManager = TransactionTimestampManager(
+            userDefaults: UserDefaults.standard,
+            maximumDuration: 604800
+        )
         let processor = TransactionProcessorActor(
             container: container,
             hookRegistry: hookRegistry,
-            cleanStrategy: .none
+            cleanStrategy: .none,
+            timestampManager: timestampManager
         )
 
         // 使用 Actor 内部的测试方法
@@ -107,10 +117,15 @@ struct TransactionProcessorActorTests {
 
         // 创建 processor
         let hookRegistry = HookRegistryActor()
+        let timestampManager = TransactionTimestampManager(
+            userDefaults: UserDefaults.standard,
+            maximumDuration: 604800
+        )
         let processor = TransactionProcessorActor(
             container: container,
             hookRegistry: hookRegistry,
-            cleanStrategy: .none
+            cleanStrategy: .none,
+            timestampManager: timestampManager
         )
 
         // 处理新事务（排除 App2 自己的事务，合并 App1 的事务）
@@ -162,20 +177,25 @@ struct TransactionProcessorActorTests {
         await hookRegistry.registerObserver(entityName: "Person", operation: .insert, callback: callback)
 
         // 创建 processor
+        let timestampManager = TransactionTimestampManager(
+            userDefaults: UserDefaults.standard,
+            maximumDuration: 604800
+        )
         let processor = TransactionProcessorActor(
             container: container,
             hookRegistry: hookRegistry,
-            cleanStrategy: .none
+            cleanStrategy: .none,
+            timestampManager: timestampManager
         )
 
         // 处理事务（应该触发 hook）
         let context2 = container.newBackgroundContext()
         _ = try await processor.processNewTransactions(
             from: ["App1"],
-            after: nil,
+            after: nil as Date?,
             mergeInto: [context2],
             currentAuthor: "App2",
-            cleanBeforeTimestamp: nil
+            cleanBeforeTimestamp: nil as Date?
         )
 
         // 验证 hook 被触发
@@ -194,10 +214,15 @@ struct TransactionProcessorActorTests {
 
         // 创建 processor
         let hookRegistry = HookRegistryActor()
+        let timestampManager = TransactionTimestampManager(
+            userDefaults: UserDefaults.standard,
+            maximumDuration: 604800
+        )
         let processor = TransactionProcessorActor(
             container: container,
             hookRegistry: hookRegistry,
-            cleanStrategy: .none
+            cleanStrategy: .none,
+            timestampManager: timestampManager
         )
 
         // 使用 Actor 内部的测试方法

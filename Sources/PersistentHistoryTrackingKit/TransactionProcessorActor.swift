@@ -18,6 +18,9 @@ public actor TransactionProcessorActor {
     /// 清理策略（在 Actor 内部管理，线程安全）
     private var cleanStrategy: TransactionPurgePolicy
 
+    /// 时间戳管理器
+    private let timestampManager: TransactionTimestampManager
+
     // MARK: - Merge Hooks（在同一 Actor 内管理，避免跨 Actor 传递非 Sendable 类型）
 
     private struct MergeHookItem {
@@ -30,9 +33,11 @@ public actor TransactionProcessorActor {
     public init(
         container: NSPersistentContainer,
         hookRegistry: HookRegistryActor,
-        cleanStrategy: TransactionCleanStrategy)
+        cleanStrategy: TransactionCleanStrategy,
+        timestampManager: consuming TransactionTimestampManager)
     {
         self.hookRegistry = hookRegistry
+        self.timestampManager = timestampManager
 
         // 初始化清理策略
         switch cleanStrategy {
@@ -97,7 +102,7 @@ public actor TransactionProcessorActor {
     ///   - lastTimestamp: 上次处理的时间戳
     ///   - contexts: 需要合并到的上下文列表
     ///   - currentAuthor: 当前作者（用于排除自己的事务）
-    ///   - cleanBeforeTimestamp: 清理该时间戳之前的事务
+    ///   - cleanBeforeTimestamp: 清理该时间戳之前的事务（可选）
     /// - Returns: 处理的事务数量
     @discardableResult
     public func processNewTransactions(
@@ -121,8 +126,56 @@ public actor TransactionProcessorActor {
         // 在同一 Actor 内执行，避免跨 Actor 传递非 Sendable 类型
         try await triggerMergeHooks(transactions: transactions, contexts: contexts)
 
-        // 4. Clean
+        // 4. Clean（如果指定了清理时间戳）
         if let cleanTimestamp = cleanBeforeTimestamp {
+            _ = try cleanTransactions(before: cleanTimestamp, for: authors)
+        }
+
+        return transactions.count
+    }
+
+    /// 处理新事务并自动管理时间戳（内部使用）
+    /// - Parameters:
+    ///   - authors: 需要处理的作者列表
+    ///   - lastTimestamp: 上次处理的时间戳
+    ///   - contexts: 需要合并到的上下文列表
+    ///   - currentAuthor: 当前作者（用于排除自己的事务和更新时间戳）
+    ///   - batchAuthors: 批量操作的 authors（从清理计算中排除）
+    /// - Returns: 处理的事务数量
+    @discardableResult
+    internal func processNewTransactionsWithTimestampManagement(
+        from authors: [String],
+        after lastTimestamp: Date?,
+        mergeInto contexts: [NSManagedObjectContext],
+        currentAuthor: String,
+        batchAuthors: [String] = []) async throws -> Int
+    {
+        // 1. Fetch（排除当前 author）
+        let transactions = try fetchTransactions(
+            from: authors,
+            after: lastTimestamp,
+            excludeAuthor: currentAuthor)
+        guard !transactions.isEmpty else { return 0 }
+
+        // 2. Trigger Observer Hooks（不影响数据）
+        await triggerObserverHooks(for: transactions)
+
+        // 3. Trigger Merge Hooks（管道模式，可能影响数据）
+        try await triggerMergeHooks(transactions: transactions, contexts: contexts)
+
+        // 4. 更新当前 author 的时间戳
+        if let newTimestamp = transactions.last?.timestamp {
+            timestampManager.updateLastHistoryTransactionTimestamp(
+                for: currentAuthor,
+                to: newTimestamp
+            )
+        }
+
+        // 5. 计算并执行清理
+        if let cleanTimestamp = timestampManager.getLastCommonTransactionTimestamp(
+            in: authors,
+            exclude: batchAuthors
+        ) {
             _ = try cleanTransactions(before: cleanTimestamp, for: authors)
         }
 

@@ -61,18 +61,23 @@ struct ConcurrencyTests {
         await withTaskGroup(of: Void.self) { group in
             for _ in 0..<3 {
                 group.addTask {
+                    let timestampManager = TransactionTimestampManager(
+                        userDefaults: UserDefaults.standard,
+                        maximumDuration: 604800
+                    )
                     let processor = TransactionProcessorActor(
                         container: container,
                         hookRegistry: hookRegistry,
-                        cleanStrategy: .none
+                        cleanStrategy: .none,
+                        timestampManager: timestampManager
                     )
 
                     do {
                         // 使用 Actor 内部的测试方法
                         let result = try await processor.testFetchTransactionsExcludesAuthor(
                             from: ["App1"],
-                            after: nil,
-                            excludeAuthor: nil
+                            after: nil as Date?,
+                            excludeAuthor: nil as String?
                         )
                         // 验证至少获取到了数据
                         guard result.count >= 1 else {
@@ -99,10 +104,15 @@ struct ConcurrencyTests {
         try context.save()
 
         let hookRegistry = HookRegistryActor()
+        let timestampManager = TransactionTimestampManager(
+            userDefaults: UserDefaults.standard,
+            maximumDuration: 604800
+        )
         let processor = TransactionProcessorActor(
             container: container,
             hookRegistry: hookRegistry,
-            cleanStrategy: .none
+            cleanStrategy: .none,
+            timestampManager: timestampManager
         )
 
         // 并发执行 fetch 和 clean

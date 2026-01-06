@@ -65,34 +65,3 @@ public actor HookRegistryActor {
     }
 }
 
-// MARK: - Backward Compatibility
-
-extension HookRegistryActor {
-    /// 注册 Hook 回调（向后兼容，使用 registerObserver）
-    @available(*, deprecated, renamed: "registerObserver(entityName:operation:callback:)")
-    public func register(
-        entityName: String,
-        operation: HookOperation,
-        callback: @escaping HookCallback)
-    {
-        registerObserver(entityName: entityName, operation: operation, callback: callback)
-    }
-
-    /// 移除 Hook 回调（向后兼容，使用 removeObserver）
-    @available(*, deprecated, renamed: "removeObserver(entityName:operation:)")
-    public func remove(entityName: String, operation: HookOperation) {
-        removeObserver(entityName: entityName, operation: operation)
-    }
-
-    /// 触发 Hook（向后兼容，使用 triggerObserver）
-    @available(*, deprecated, renamed: "triggerObserver(context:)")
-    public func trigger(context: HookContext) async {
-        await triggerObserver(context: context)
-    }
-
-    /// 清除所有 Hook（向后兼容）
-    @available(*, deprecated, renamed: "removeAllObservers()")
-    public func removeAll() {
-        removeAllObservers()
-    }
-}

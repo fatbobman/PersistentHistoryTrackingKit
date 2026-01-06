@@ -18,10 +18,15 @@ struct TombstoneTests {
             author: "App1",
             testName: "tombstoneInObserverHook")
         let hookRegistry = HookRegistryActor()
+        let timestampManager = TransactionTimestampManager(
+            userDefaults: UserDefaults.standard,
+            maximumDuration: 604800
+        )
         let processor = TransactionProcessorActor(
             container: container,
             hookRegistry: hookRegistry,
-            cleanStrategy: .none)
+            cleanStrategy: .none,
+            timestampManager: timestampManager)
 
         // 用于收集墓碑数据
         actor TombstoneCollector {
@@ -98,10 +103,15 @@ struct TombstoneTests {
             author: "App1",
             testName: "tombstoneContainsPreservedAttributes")
         let hookRegistry = HookRegistryActor()
+        let timestampManager = TransactionTimestampManager(
+            userDefaults: UserDefaults.standard,
+            maximumDuration: 604800
+        )
         let processor = TransactionProcessorActor(
             container: container,
             hookRegistry: hookRegistry,
-            cleanStrategy: .none)
+            cleanStrategy: .none,
+            timestampManager: timestampManager)
 
         actor AttributeCollector {
             var attributes: [String: String] = [:]
@@ -164,10 +174,15 @@ struct TombstoneTests {
             author: "App1",
             testName: "noTombstoneForInsertAndUpdate")
         let hookRegistry = HookRegistryActor()
+        let timestampManager = TransactionTimestampManager(
+            userDefaults: UserDefaults.standard,
+            maximumDuration: 604800
+        )
         let processor = TransactionProcessorActor(
             container: container,
             hookRegistry: hookRegistry,
-            cleanStrategy: .none)
+            cleanStrategy: .none,
+            timestampManager: timestampManager)
 
         actor TombstoneTracker {
             var insertTombstone: Tombstone?

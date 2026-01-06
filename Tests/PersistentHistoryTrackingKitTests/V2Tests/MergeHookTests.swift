@@ -20,10 +20,15 @@ struct MergeHookTests {
             author: "TestAuthor",
             testName: "registerAndRemoveMergeHook")
         let hookRegistry = HookRegistryActor()
+        let timestampManager = TransactionTimestampManager(
+            userDefaults: UserDefaults.standard,
+            maximumDuration: 604800
+        )
         let processor = TransactionProcessorActor(
             container: container,
             hookRegistry: hookRegistry,
-            cleanStrategy: .none)
+            cleanStrategy: .none,
+            timestampManager: timestampManager)
 
         // 注册 Merge Hook
         let hookId = await processor.registerMergeHook { _ in
@@ -47,10 +52,15 @@ struct MergeHookTests {
             author: "TestAuthor",
             testName: "removeAllMergeHooks")
         let hookRegistry = HookRegistryActor()
+        let timestampManager = TransactionTimestampManager(
+            userDefaults: UserDefaults.standard,
+            maximumDuration: 604800
+        )
         let processor = TransactionProcessorActor(
             container: container,
             hookRegistry: hookRegistry,
-            cleanStrategy: .none)
+            cleanStrategy: .none,
+            timestampManager: timestampManager)
 
         // 注册多个 Merge Hook
         let hookId1 = await processor.registerMergeHook { _ in .goOn }
@@ -74,10 +84,15 @@ struct MergeHookTests {
             author: "TestAuthor",
             testName: "mergeHookPipelineGoOn")
         let hookRegistry = HookRegistryActor()
+        let timestampManager = TransactionTimestampManager(
+            userDefaults: UserDefaults.standard,
+            maximumDuration: 604800
+        )
         let processor = TransactionProcessorActor(
             container: container,
             hookRegistry: hookRegistry,
-            cleanStrategy: .none)
+            cleanStrategy: .none,
+            timestampManager: timestampManager)
 
         actor Counter {
             var count = 0
@@ -126,10 +141,15 @@ struct MergeHookTests {
             author: "TestAuthor",
             testName: "mergeHookPipelineFinish")
         let hookRegistry = HookRegistryActor()
+        let timestampManager = TransactionTimestampManager(
+            userDefaults: UserDefaults.standard,
+            maximumDuration: 604800
+        )
         let processor = TransactionProcessorActor(
             container: container,
             hookRegistry: hookRegistry,
-            cleanStrategy: .none)
+            cleanStrategy: .none,
+            timestampManager: timestampManager)
 
         actor Tracker {
             var hook1Called = false
@@ -184,10 +204,15 @@ struct MergeHookTests {
             author: "TestAuthor",
             testName: "mergeHookExecutionOrder")
         let hookRegistry = HookRegistryActor()
+        let timestampManager = TransactionTimestampManager(
+            userDefaults: UserDefaults.standard,
+            maximumDuration: 604800
+        )
         let processor = TransactionProcessorActor(
             container: container,
             hookRegistry: hookRegistry,
-            cleanStrategy: .none)
+            cleanStrategy: .none,
+            timestampManager: timestampManager)
 
         actor OrderTracker {
             var order: [Int] = []
@@ -241,10 +266,15 @@ struct MergeHookTests {
             author: "TestAuthor",
             testName: "mergeHookInsertBefore")
         let hookRegistry = HookRegistryActor()
+        let timestampManager = TransactionTimestampManager(
+            userDefaults: UserDefaults.standard,
+            maximumDuration: 604800
+        )
         let processor = TransactionProcessorActor(
             container: container,
             hookRegistry: hookRegistry,
-            cleanStrategy: .none)
+            cleanStrategy: .none,
+            timestampManager: timestampManager)
 
         actor OrderTracker {
             var order: [String] = []
@@ -296,10 +326,15 @@ struct MergeHookTests {
             author: "TestAuthor",
             testName: "mergeHookAccessInput")
         let hookRegistry = HookRegistryActor()
+        let timestampManager = TransactionTimestampManager(
+            userDefaults: UserDefaults.standard,
+            maximumDuration: 604800
+        )
         let processor = TransactionProcessorActor(
             container: container,
             hookRegistry: hookRegistry,
-            cleanStrategy: .none)
+            cleanStrategy: .none,
+            timestampManager: timestampManager)
 
         actor InputTracker {
             var transactionCount = 0
@@ -358,10 +393,15 @@ struct MergeHookTests {
             author: "TestAuthor",
             testName: "defaultMergeWithoutHooks")
         let hookRegistry = HookRegistryActor()
+        let timestampManager = TransactionTimestampManager(
+            userDefaults: UserDefaults.standard,
+            maximumDuration: 604800
+        )
         let processor = TransactionProcessorActor(
             container: container,
             hookRegistry: hookRegistry,
-            cleanStrategy: .none)
+            cleanStrategy: .none,
+            timestampManager: timestampManager)
 
         // 不注册任何 merge hook
 
