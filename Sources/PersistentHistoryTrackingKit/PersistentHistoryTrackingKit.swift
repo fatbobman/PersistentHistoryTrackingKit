@@ -1,6 +1,6 @@
 //
 //  PersistentHistoryTrackingKit.swift
-//
+//  PersistentHistoryTrackingKit
 //
 //  Created by Yang Xu on 2022/2/11
 //  Copyright © 2022 Yang Xu. All rights reserved.
@@ -12,244 +12,90 @@
 
 import CoreData
 import Foundation
-import AsyncAlgorithms
 
 // swiftlint:disable line_length
 
-public final class PersistentHistoryTrackingKit {
-    /// 日志显示等级，从0-2级。0 关闭 2 最详尽
-    public var logLevel: Int
+/// V2: 基于 Actor 的持久化历史跟踪 Kit
+public final class PersistentHistoryTrackingKit: @unchecked Sendable {
 
-    /// 清除策略
-    var strategy: TransactionPurgePolicy
+    // MARK: - Properties
 
-    /// 当前 transaction 的 author
-    let currentAuthor: String
+    /// 日志显示等级，从 0-2 级。0 关闭 2 最详尽
+    public func setLogLevel(_ level: Int) {
+        // TODO: 实现线程安全的 logLevel 更新
+    }
 
-    /// 全部的 authors （包括app group当中所有使用同一数据库的成员以及用于批量操作的author）
-    let allAuthors: [String]
+    public func getLogLevel() -> Int {
+        return _logLevel
+    }
 
-    /// 是否合并由 NSPersistentCloudContainer 导入的网络数据
-    /// 如果你直接在 NSPersistentCloudContainer 上使用 Persistent History Tracking ，可以直接使用默认值 false，此时，NSPersistentCloudContainer 将自动处理合并事宜
-    /// 此选项通常用于 NSPersistentContainer 之上，将另一个 CloudContainer 导入的数据合并到当前的 container 的 viewContext 中。
-    let includingCloudKitMirroring: Bool
+    /// 当前 author
+    private let currentAuthor: String
 
-    /// 用于批量操作的 authors
-    ///
-    /// 由于批量操作的 author 只会生成 transaction，并不会对其他 author 产生的 transaction 进行合并和清除。
-    /// 仅此此类 auhtors 最好可以单独标注出来，这样其他的 authors 在清除时将不会为其保留不必要的 transaction。
-    /// 即使不单独设置，当遗留的 transaction 满足 maximumDuration 后，仍会被自动清除。
-    let batchAuthors: [String]
+    /// 全部 authors
+    private let allAuthors: [String]
 
-    /// 需要被合并的上下文，通常是视图上下文。可以有多个
-    let contexts: [NSManagedObjectContext]
+    /// Hook 注册表
+    private let hookRegistry: HookRegistryActor
 
-    /// transaction 最长可以保存的时间（秒）。如果在该时间内仍无法获取到全部的 author 更新时间戳，
-    /// 将返回从当前时间减去该秒数的日期 Date().addingTimeInterval(-1 * abs(maximumDuration))
-    let maximumDuration: TimeInterval
+    /// 事务处理器
+    private let transactionProcessor: TransactionProcessorActor
 
-    /// 在 UserDefaults 中保存时间戳 Key 的前缀。
-    let uniqueString: String
+    /// 日志显示等级，从 0-2 级。0 关闭 2 最详尽
+    private let _logLevel: Int
+
+    /// 需要合并的上下文列表
+    private let contexts: [NSManagedObjectContext]
+
+    /// 清理策略
+    private var cleanStrategy: TransactionPurgePolicy
+
+    /// 处理任务
+    private var processingTask: Task<Void, Never>?
+
+    /// 持久化存储协调器
+    private let coordinator: NSPersistentStoreCoordinator
 
     /// 日志管理器
-    let logger: PersistentHistoryTrackingKitLoggerProtocol
+    private let logger: PersistentHistoryTrackingKitLoggerProtocol
 
-    /// 获取需要处理的 transaction
-    let fetcher: Fetcher
+    // MARK: - Initialization
 
-    /// 合并transaction到指定的托管对象上下文中（contexts）
-    let merger: TransactionMergerProtocol
-    
-    /// 删除transaction中重复数据
-    let deduplicator: TransactionDeduplicatorProtocol?
-
-    /// transaction清除器，清除可确认的已被所有authors合并的transaction
-    let cleaner: Cleaner
-
-    /// 时间戳管理器，过去并更新合并事件戳
-    let timestampManager: TransactionTimestampManager
-
-    /// 处理持久化历史跟踪事件的任务。可以通过start开启，stop停止。
-    var transactionProcessingTasks = [Task<Void, Never>]()
-
-    /// 持久化存储协调器，用于缩小通知返回
-    private let coordinator: NSPersistentStoreCoordinator
-    /// 专职处理transaction的托管对象上下文
-    private let backgroundContext: NSManagedObjectContext
-
-    /// 创建处理 Transaction 的任务。
-    ///
-    /// 通过将持久化历史跟踪记录的通知转换成异步序列，实现了逐个处理的机制。
-    func createTransactionProcessingTask() -> Task<Void, Never> {
-        Task {
-            sendMessage(type: .info, level: 1, message: "Persistent History Track Kit Start")
-            // 响应 notification
-            let publisher = NotificationCenter.default.publisher(
-                for: .NSPersistentStoreRemoteChange,
-                object: coordinator
-            )
-            for await _ in publisher.values.buffer(policy: .unbounded) where !Task.isCancelled {
-                sendMessage(type: .info,
-                            level: 2,
-                            message: "Get a `NSPersistentStoreRemoteChange` notification")
-
-                // fetch
-                let transactions = fetchTransactions(
-                    for: currentAuthor,
-                    since: timestampManager,
-                    by: fetcher,
-                    logger: sendMessage
-                )
-                
-                if transactions.isEmpty { continue }
-                
-                // merge
-                mergeTransactionsInContexts(
-                    transactions: transactions,
-                    by: merger,
-                    timestampManager: timestampManager,
-                    logger: sendMessage
-                )
-                
-                deduplicator?(deduplicate: transactions, in: contexts)
-
-                // clean
-                cleanTransactions(
-                    beforeDate: timestampManager,
-                    allAuthors: allAuthors,
-                    batchAuthors: batchAuthors,
-                    by: cleaner,
-                    logger: sendMessage
-                )
-            }
-            sendMessage(type: .info, level: 1, message: "Persistent History Track Kit Stop")
-        }
-    }
-
-    /// get all new transactions since the last merge date
-    func fetchTransactions(
-        for currentAuthor: String,
-        since lastTimestampManager: TransactionTimestampManagerProtocol,
-        by fetcher: TransactionFetcherProtocol,
-        logger: Logger?
-    ) -> [NSPersistentHistoryTransaction] {
-        let lastTimestamp = lastTimestampManager
-            .getLastHistoryTransactionTimestamp(for: currentAuthor) ?? Date.distantPast
-        logger?(.info, 2,
-                "The last history transaction timestamp for \(allAuthors) is \(Self.dateFormatter.string(from: lastTimestamp))")
-        var transactions = [NSPersistentHistoryTransaction]()
-        do {
-            transactions = try fetcher.fetchTransactions(from: lastTimestamp)
-            let changesCount = transactions
-                .map { $0.changes?.count ?? 0 }
-                .reduce(0, +)
-            let message = "There are \(transactions.count) transactions with \(changesCount) changes related to `\(currentAuthor)` in the query"
-            logger?(.info, 2, message)
-        } catch {
-            logger?(.error, 1, "Fetch transaction error: \(error.localizedDescription)")
-        }
-        return transactions
-    }
-
-    /// merge transactions in contexts
-    func mergeTransactionsInContexts(
-        transactions: [NSPersistentHistoryTransaction],
-        by merger: TransactionMergerProtocol,
-        timestampManager: TransactionTimestampManagerProtocol,
-        logger: Logger?
-    ) {
-        guard let lastTimestamp = transactions.last?.timestamp else { return }
-        merger(merge: transactions, into: contexts)
-        timestampManager.updateLastHistoryTransactionTimestamp(for: currentAuthor, to: lastTimestamp)
-        let message = "merge \(transactions.count) transactions, update `\(currentAuthor)`'s timestamp to \(Self.dateFormatter.string(from: lastTimestamp))"
-        logger?(.info, 2, message)
-    }
-
-    /// clean up all transactions that has been merged by all contexts
-    func cleanTransactions(
-        beforeDate timestampManager: TransactionTimestampManagerProtocol,
+    public init(
+        container: NSPersistentContainer,
+        contexts: [NSManagedObjectContext]? = nil,
+        currentAuthor: String,
         allAuthors: [String],
-        batchAuthors: [String],
-        by cleaner: TransactionCleanerProtocol,
-        logger: Logger?
+        includingCloudKitMirroring: Bool = false,
+        batchAuthors: [String] = [],
+        userDefaults: UserDefaults,
+        cleanStrategy: TransactionCleanStrategy = .byNotification(times: 1),
+        maximumDuration: TimeInterval = 60 * 60 * 24 * 7,
+        uniqueString: String = "PersistentHistoryTrackingKit.lastToken.",
+        logger: PersistentHistoryTrackingKitLoggerProtocol? = nil,
+        logLevel: Int = 1,
+        autoStart: Bool = true
     ) {
-        guard strategy.allowedToClean() else { return }
-        let cleanTimestamp = timestampManager.getLastCommonTransactionTimestamp(in: allAuthors, exclude: batchAuthors)
-        do {
-            try cleaner.cleanTransaction(before: cleanTimestamp)
-            logger?(.info, 2, "Delete transaction success")
-        } catch {
-            logger?(.error, 1, "Delete transaction error: \(error.localizedDescription)")
-        }
-    }
-
-    typealias Logger = (PersistentHistoryTrackingKitLogType, Int, String) -> Void
-
-    /// 发送日志
-    func sendMessage(type: PersistentHistoryTrackingKitLogType, level: Int, message: String) {
-        guard level <= logLevel else { return }
-        logger.log(type: type, message: message)
-    }
-
-    init(logLevel: Int,
-         strategy: TransactionCleanStrategy,
-         merger: TransactionMergerProtocol,
-         deduplicator: TransactionDeduplicatorProtocol?,
-         currentAuthor: String,
-         allAuthors: [String],
-         includingCloudKitMirroring: Bool,
-         batchAuthors: [String],
-         viewContext: NSManagedObjectContext,
-         contexts: [NSManagedObjectContext],
-         userDefaults: UserDefaults,
-         maximumDuration: TimeInterval,
-         uniqueString: String,
-         logger: PersistentHistoryTrackingKitLoggerProtocol,
-         autoStart: Bool) {
-        self.logLevel = logLevel
         self.currentAuthor = currentAuthor
         self.allAuthors = allAuthors
-        self.includingCloudKitMirroring = includingCloudKitMirroring
-        self.batchAuthors = batchAuthors
-        self.contexts = contexts
-        self.maximumDuration = maximumDuration
-        self.uniqueString = uniqueString
-        self.logger = logger
+        self.coordinator = container.persistentStoreCoordinator
+        self.logger = logger ?? DefaultLogger()
+        self._logLevel = logLevel
+        self.contexts = contexts ?? [container.viewContext]
 
-        // 检查 viewContext 是否为视图上下文
-        guard viewContext.concurrencyType == .mainQueueConcurrencyType else {
-            fatalError("`viewContext` must be a view context ( concurrencyType == .mainQueueConcurrencyType)")
-        }
+        // 创建 actors
+        self.hookRegistry = HookRegistryActor()
+        self.transactionProcessor = TransactionProcessorActor(container: container, hookRegistry: hookRegistry)
 
-        guard let coordinator = viewContext.persistentStoreCoordinator else {
-            fatalError("`viewContext` must have a persistentStoreCoordinator available")
-        }
-
-        let backgroundContext = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
-        backgroundContext.persistentStoreCoordinator = coordinator
-
-        switch strategy {
+        // 初始化清理策略
+        switch cleanStrategy {
         case .none:
-            self.strategy = TransactionCleanStrategyNone()
+            self.cleanStrategy = TransactionCleanStrategyNone()
         case .byDuration:
-            self.strategy = TransactionCleanStrategyByDuration(strategy: strategy)
+            self.cleanStrategy = TransactionCleanStrategyByDuration(strategy: cleanStrategy)
         case .byNotification:
-            self.strategy = TransactionCleanStrategyByNotification(strategy: strategy)
+            self.cleanStrategy = TransactionCleanStrategyByNotification(strategy: cleanStrategy)
         }
-
-        self.fetcher = Fetcher(
-            backgroundContext: backgroundContext,
-            currentAuthor: currentAuthor,
-            allAuthors: allAuthors,
-            includingCloudKitMirroring: includingCloudKitMirroring
-        )
-
-        self.merger = merger
-        self.deduplicator = deduplicator
-        self.cleaner = Cleaner(backgroundContext: backgroundContext, authors: allAuthors)
-        self.timestampManager = TransactionTimestampManager(userDefaults: userDefaults, maximumDuration: maximumDuration, uniqueString: uniqueString)
-        self.coordinator = coordinator
-        self.backgroundContext = backgroundContext
 
         if autoStart {
             start()
@@ -259,129 +105,101 @@ public final class PersistentHistoryTrackingKit {
     deinit {
         stop()
     }
-}
 
-public extension PersistentHistoryTrackingKit {
-    /// 启动处理任务
-    func start() {
-        guard transactionProcessingTasks.isEmpty else {
-            return
+    // MARK: - Public Methods
+
+    /// 注册 Hook
+    /// - Parameters:
+    ///   - entityName: 实体名称
+    ///   - operation: 操作类型
+    ///   - callback: 回调函数
+    public func registerHook(
+        entityName: String,
+        operation: HookOperation,
+        callback: @escaping HookCallback
+    ) {
+        Task { @Sendable [weak self] in
+            guard let self = self else { return }
+            await self.hookRegistry.register(entityName: entityName, operation: operation, callback: callback)
+            self.log(.info, level: 2, "Registered hook for \(entityName).\(operation.rawValue)")
         }
-        transactionProcessingTasks.append(createTransactionProcessingTask())
+    }
+
+    /// 移除 Hook
+    /// - Parameters:
+    ///   - entityName: 实体名称
+    ///   - operation: 操作类型
+    public func removeHook(
+        entityName: String,
+        operation: HookOperation
+    ) {
+        Task { @Sendable [weak self] in
+            guard let self = self else { return }
+            await self.hookRegistry.remove(entityName: entityName, operation: operation)
+            self.log(.info, level: 2, "Removed hook for \(entityName).\(operation.rawValue)")
+        }
+    }
+
+    /// 启动处理任务
+    public func start() {
+        guard processingTask == nil else { return }
+
+        processingTask = Task { @Sendable [weak self, coordinator] in
+            guard let self = self else { return }
+
+            self.log(.info, level: 1, "Persistent History Tracking Kit V2 Started")
+
+            // 监听 NSPersistentStoreRemoteChange 通知
+            let center = NotificationCenter.default
+            let name = NSNotification.Name.NSPersistentStoreRemoteChange
+
+            for await _ in center.notifications(named: name, object: coordinator) where !Task.isCancelled {
+                await self.handleRemoteChangeNotification()
+            }
+
+            self.log(.info, level: 1, "Persistent History Tracking Kit V2 Stopped")
+        }
+
+        log(.info, level: 2, "Started transaction processing task")
     }
 
     /// 停止处理任务
-    func stop() {
-        transactionProcessingTasks.forEach {
-            $0.cancel()
+    public func stop() {
+        processingTask?.cancel()
+        processingTask = nil
+        log(.info, level: 2, "Stopped transaction processing task")
+    }
+
+    // MARK: - Private Methods
+
+    /// 处理远程变更通知
+    private func handleRemoteChangeNotification() async {
+        log(.info, level: 2, "Received NSPersistentStoreRemoteChange notification")
+
+        // TODO: 实现时间戳管理和事务处理
+        // 这部分需要与 userDefaults 和时间戳管理逻辑集成
+
+        do {
+            // 处理新事务
+            let count = try await transactionProcessor.processNewTransactions(
+                from: allAuthors,
+                after: nil, // TODO: 从 UserDefaults 读取上次时间戳
+                mergeInto: contexts,
+                cleanFor: currentAuthor
+            )
+
+            log(.info, level: 2, "Processed \(count) transactions")
+
+            // TODO: 更新时间戳到 UserDefaults
+        } catch {
+            log(.error, level: 1, "Error processing transactions: \(error.localizedDescription)")
         }
-        transactionProcessingTasks.removeAll()
+    }
+
+    /// 记录日志
+    private func log(_ type: PersistentHistoryTrackingKitLogType, level: Int, _ message: String) {
+        guard level <= _logLevel else { return }
+        logger.log(type: type, message: message)
     }
 }
 
-extension PersistentHistoryTrackingKit {
-    static let dateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .short
-        formatter.timeStyle = .medium
-        return formatter
-    }()
-}
-
-public extension PersistentHistoryTrackingKit {
-    /// 创建一个可独立运行的 transaction 清除器
-    ///
-    /// 通常使用该清除器时，cleanStrategy 应设置为 .none
-    /// 在 PersistentHistoryTrackKit 中使用 cleanerBuilder() 来生成该实例。该清理器的配置继承于 Kit 实例
-    ///
-    ///     let kit = PersistentHistoryTrackKit(.....)
-    ///     let cleaner = kit().cleanerBuilder
-    ///
-    ///     cleaner() //在需要执行清理的地方运行
-    ///
-    /// 比如每次app进入后台时，执行清理任务。
-    func cleanerBuilder() -> PersistentHistoryTrackingKitManualCleaner {
-        PersistentHistoryTrackingKitManualCleaner(
-            clear: cleaner,
-            timestampManager: timestampManager,
-            logger: logger,
-            logLevel: logLevel,
-            authors: allAuthors
-        )
-    }
-}
-
-public extension PersistentHistoryTrackingKit {
-    /// 使用viewContext的初始化器
-    convenience init(viewContext: NSManagedObjectContext,
-                     contexts: [NSManagedObjectContext]? = nil,
-                     currentAuthor: String,
-                     allAuthors: [String],
-                     includingCloudKitMirroring: Bool = false,
-                     batchAuthors: [String] = [],
-                     userDefaults: UserDefaults,
-                     cleanStrategy: TransactionCleanStrategy = .byNotification(times: 1),
-                     merger: TransactionMergerProtocol? = nil,
-                     deduplicator: TransactionDeduplicatorProtocol? = nil,
-                     maximumDuration: TimeInterval = 60 * 60 * 24 * 7,
-                     uniqueString: String = "PersistentHistoryTrackingKit.lastToken.",
-                     logger: PersistentHistoryTrackingKitLoggerProtocol? = nil,
-                     logLevel: Int = 1,
-                     autoStart: Bool = true) {
-        let contexts = contexts ?? [viewContext]
-        let logger = logger ?? DefaultLogger()
-        self.init(logLevel: logLevel,
-                  strategy: cleanStrategy,
-                  merger: merger ?? Merger(),
-                  deduplicator: deduplicator,
-                  currentAuthor: currentAuthor,
-                  allAuthors: allAuthors,
-                  includingCloudKitMirroring: includingCloudKitMirroring,
-                  batchAuthors: batchAuthors,
-                  viewContext: viewContext,
-                  contexts: contexts,
-                  userDefaults: userDefaults,
-                  maximumDuration: maximumDuration,
-                  uniqueString: uniqueString,
-                  logger: logger,
-                  autoStart: autoStart)
-    }
-
-    /// 使用NSPersistentContainer的初始化器
-    convenience init(container: NSPersistentContainer,
-                     contexts: [NSManagedObjectContext]? = nil,
-                     currentAuthor: String,
-                     allAuthors: [String],
-                     includingCloudKitMirroring: Bool = false,
-                     batchAuthors: [String] = [],
-                     userDefaults: UserDefaults,
-                     cleanStrategy: TransactionCleanStrategy = .byNotification(times: 1),
-                     merger: TransactionMergerProtocol? = nil,
-                     deduplicator: TransactionDeduplicatorProtocol? = nil,
-                     maximumDuration: TimeInterval = 60 * 60 * 24 * 7,
-                     uniqueString: String = "PersistentHistoryTrackingKit.lastToken.",
-                     logger: PersistentHistoryTrackingKitLoggerProtocol? = nil,
-                     logLevel: Int = 1,
-                     autoStart: Bool = true) {
-        let viewContext = container.viewContext
-        let contexts = contexts ?? [viewContext]
-        let logger = logger ?? DefaultLogger()
-        self.init(logLevel: logLevel,
-                  strategy: cleanStrategy,
-                  merger: merger ?? Merger(),
-                  deduplicator: deduplicator,
-                  currentAuthor: currentAuthor,
-                  allAuthors: allAuthors,
-                  includingCloudKitMirroring: includingCloudKitMirroring,
-                  batchAuthors: batchAuthors,
-                  viewContext: viewContext,
-                  contexts: contexts,
-                  userDefaults: userDefaults,
-                  maximumDuration: maximumDuration,
-                  uniqueString: uniqueString,
-                  logger: logger,
-                  autoStart: autoStart)
-    }
-}
-
-extension Notification:@unchecked Sendable {}
