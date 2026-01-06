@@ -11,7 +11,7 @@ import Foundation
 
 // MARK: - Transaction Info
 
-/// 事务信息，包含时间戳、作者和变更详情
+/// Transaction information containing timestamp, author, and change details
 public struct TransactionInfo: Sendable, Codable {
     public let timestamp: Date
     public let author: String
@@ -44,7 +44,7 @@ public struct TransactionInfo: Sendable, Codable {
 
 // MARK: - Hook Context
 
-/// Hook 上下文，传递给注册的回调函数
+/// Hook context passed to registered callback functions
 public struct HookContext: Sendable {
     public let entityName: String
     public let operation: HookOperation
@@ -75,7 +75,7 @@ public struct HookContext: Sendable {
 
 // MARK: - Tombstone
 
-/// 墓碑信息，记录已删除对象的唯一数据
+/// Tombstone information recording unique data of deleted objects
 public struct Tombstone: Sendable, Codable {
     public let attributes: [String: String]
     public let deletedDate: Date?
@@ -88,7 +88,7 @@ public struct Tombstone: Sendable, Codable {
 
 // MARK: - Hook Operation
 
-/// Hook 监听的操作类型
+/// Operation types for Hook monitoring
 public enum HookOperation: String, Sendable {
     case insert
     case update
@@ -97,22 +97,22 @@ public enum HookOperation: String, Sendable {
 
 // MARK: - Hook Callback
 
-/// Observer Hook 回调函数类型（用于通知/监听，不影响数据）
+/// Observer Hook callback function type (for notification/monitoring, does not modify data)
 public typealias HookCallback = @Sendable (HookContext) async -> Void
 
 // MARK: - Merge Hook
 
-/// Merge Hook 的执行结果
+/// Execution result of Merge Hook
 public enum MergeHookResult: Sendable {
-    /// 继续执行管道中的下一个 hook
+    /// Continue to the next hook in the pipeline
     case goOn
-    /// 完成，跳过后续所有 hook（包括默认合并）
+    /// Finish, skipping all remaining hooks (including default merge)
     case finish
 }
 
-/// Merge Hook 输入参数容器
-/// - Note: 使用 @unchecked Sendable 包装非 Sendable 的 Core Data 类型，
-///         确保在 TransactionProcessorActor 内部安全使用
+/// Merge Hook input parameter container
+/// - Note: Uses @unchecked Sendable to wrap non-Sendable Core Data types,
+///         ensuring safe usage within TransactionProcessorActor
 public struct MergeHookInput: @unchecked Sendable {
     public let transactions: [NSPersistentHistoryTransaction]
     public let contexts: [NSManagedObjectContext]
@@ -123,35 +123,36 @@ public struct MergeHookInput: @unchecked Sendable {
     }
 }
 
-/// Merge Hook 回调函数类型（用于自定义合并逻辑，可能影响数据）
+/// Merge Hook callback function type (for custom merge logic, may modify data)
 ///
-/// - Note: 此回调在 TransactionProcessorActor 内执行，管道按注册顺序串行执行。
+/// - Note: This callback executes within TransactionProcessorActor, and the pipeline runs serially in registration order.
 ///
-/// - Warning: 如果在 hook 中执行异步操作，**必须使用 `await` 等待完成**，否则无法保证管道顺序。
+/// - Warning: If performing async operations in the hook, **you must use `await` to wait for completion**,
+///            otherwise pipeline order cannot be guaranteed.
 ///
-/// ## ✅ 正确用法
+/// ## ✅ Correct Usage
 /// ```swift
 /// await processor.registerMergeHook { input in
 ///     for context in input.contexts {
-///         await context.perform {  // ✅ 有 await
-///             // 操作...
+///         await context.perform {  // ✅ Has await
+///             // Operations...
 ///         }
 ///     }
 ///     return .goOn
 /// }
 /// ```
 ///
-/// ## ❌ 错误用法（会破坏管道串行性）
+/// ## ❌ Incorrect Usage (breaks pipeline seriality)
 /// ```swift
 /// await processor.registerMergeHook { input in
-///     context.perform {  // ❌ 没有 await，异步执行不等待
-///         // 操作...
+///     context.perform {  // ❌ No await, async execution without waiting
+///         // Operations...
 ///     }
-///     return .goOn  // 立即返回，perform 可能还在执行
+///     return .goOn  // Returns immediately, perform may still be executing
 /// }
 ///
 /// await processor.registerMergeHook { input in
-///     Task {  // ❌ 启动独立 Task，不等待
+///     Task {  // ❌ Launches independent Task, no waiting
 ///         await someOperation()
 ///     }
 ///     return .goOn

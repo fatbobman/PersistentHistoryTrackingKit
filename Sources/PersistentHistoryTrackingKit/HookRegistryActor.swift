@@ -9,18 +9,18 @@
 import CoreData
 import Foundation
 
-/// Hook 注册表，管理 Observer Hook（只读通知）
-/// - Note: Merge Hook 已移至 TransactionProcessorActor，因为需要直接操作非 Sendable 的 Core Data 类型
+/// Hook registry for managing Observer Hooks (read-only notifications)
+/// - Note: Merge Hooks have been moved to TransactionProcessorActor because they need direct access to non-Sendable Core Data types
 public actor HookRegistryActor {
-    // MARK: - Observer Hooks（用于通知/监听，不影响数据）
+    // MARK: - Observer Hooks (for notification/monitoring, do not modify data)
 
     private var observerHooks: [String: [HookCallback]] = [:]
 
-    /// 注册 Observer Hook（用于通知/监听，不影响数据）
+    /// Register an Observer Hook (for notification/monitoring, does not modify data)
     /// - Parameters:
-    ///   - entityName: 实体名称
-    ///   - operation: 操作类型
-    ///   - callback: 回调函数
+    ///   - entityName: The name of the entity
+    ///   - operation: The type of operation
+    ///   - callback: The callback function to execute
     public func registerObserver(
         entityName: String,
         operation: HookOperation,
@@ -33,17 +33,17 @@ public actor HookRegistryActor {
         observerHooks[key]?.append(callback)
     }
 
-    /// 移除 Observer Hook
+    /// Remove Observer Hooks for a specific entity and operation
     /// - Parameters:
-    ///   - entityName: 实体名称
-    ///   - operation: 操作类型
+    ///   - entityName: The name of the entity
+    ///   - operation: The type of operation
     public func removeObserver(entityName: String, operation: HookOperation) {
         let key = makeKey(entityName: entityName, operation: operation)
         observerHooks.removeValue(forKey: key)
     }
 
-    /// 触发 Observer Hook
-    /// - Parameter context: Hook 上下文
+    /// Trigger Observer Hooks with the given context
+    /// - Parameter context: The hook context containing transaction information
     public func triggerObserver(context: HookContext) async {
         let key = makeKey(entityName: context.entityName, operation: context.operation)
         if let callbacks = observerHooks[key] {
@@ -55,7 +55,7 @@ public actor HookRegistryActor {
 
     // MARK: - Utility
 
-    /// 清除所有 Observer Hook
+    /// Remove all registered Observer Hooks
     public func removeAllObservers() {
         observerHooks.removeAll()
     }
