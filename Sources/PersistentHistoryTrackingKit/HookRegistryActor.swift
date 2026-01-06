@@ -42,11 +42,11 @@ public actor HookRegistryActor {
 
     /// 触发 Hook
     /// - Parameter context: Hook 上下文
-    public func trigger(context: HookContext) {
+    public func trigger(context: HookContext) async {
         let key = makeKey(entityName: context.entityName, operation: context.operation)
         if let callbacks = hooks[key] {
             for callback in callbacks {
-                callback(context)
+                await callback(context)
             }
         }
     }

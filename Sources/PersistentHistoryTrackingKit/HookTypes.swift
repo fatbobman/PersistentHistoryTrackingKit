@@ -98,4 +98,4 @@ public enum HookOperation: String, Sendable {
 // MARK: - Hook Callback
 
 /// Hook 回调函数类型
-public typealias HookCallback = @Sendable (HookContext) -> Void
+public typealias HookCallback = @Sendable (HookContext) async -> Void
