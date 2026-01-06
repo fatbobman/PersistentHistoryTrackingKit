@@ -158,4 +158,12 @@ enum TestModelBuilder {
         item.setValue(Date(), forKey: "timestamp")
         return item
     }
+
+    /// Create an isolated UserDefaults instance for testing.
+    ///
+    /// Each call returns a new suite to prevent cross-test contamination.
+    /// - Returns: Fresh UserDefaults instance.
+    static func createTestUserDefaults() -> UserDefaults {
+        UserDefaults(suiteName: "test-\(UUID().uuidString)")!
+    }
 }

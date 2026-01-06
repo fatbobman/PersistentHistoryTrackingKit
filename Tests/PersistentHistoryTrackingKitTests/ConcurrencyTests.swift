@@ -61,8 +61,9 @@ struct ConcurrencyTests {
         await withTaskGroup(of: Void.self) { group in
             for _ in 0..<3 {
                 group.addTask {
+                    let testDefaults = TestModelBuilder.createTestUserDefaults()
                     let timestampManager = TransactionTimestampManager(
-                        userDefaults: UserDefaults.standard,
+                        userDefaults: testDefaults,
                         maximumDuration: 604800
                     )
                     let processor = TransactionProcessorActor(
@@ -104,8 +105,9 @@ struct ConcurrencyTests {
         try context.save()
 
         let hookRegistry = HookRegistryActor()
+        let testDefaults = TestModelBuilder.createTestUserDefaults()
         let timestampManager = TransactionTimestampManager(
-            userDefaults: UserDefaults.standard,
+            userDefaults: testDefaults,
             maximumDuration: 604800
         )
         let processor = TransactionProcessorActor(
@@ -200,7 +202,7 @@ struct ConcurrencyTests {
         await withTaskGroup(of: Void.self) { group in
             for i in 0..<3 {
                 group.addTask {
-                    let userDefaults = UserDefaults.standard
+                    let testDefaults = TestModelBuilder.createTestUserDefaults()
                     let uniqueString = "TestKit.MultiInstance.\(i).\(UUID().uuidString)."
 
                     let kit = PersistentHistoryTrackingKit(
@@ -208,7 +210,7 @@ struct ConcurrencyTests {
                         contexts: [container.newBackgroundContext()],
                         currentAuthor: "App\(i)",
                         allAuthors: ["App1", "App2", "App3"],
-                        userDefaults: userDefaults,
+                        userDefaults: testDefaults,
                         uniqueString: uniqueString,
                         logLevel: 0,
                         autoStart: false
@@ -244,14 +246,14 @@ struct ConcurrencyTests {
         await withTaskGroup(of: Void.self) { group in
             for i in 0..<3 {
                 group.addTask {
-                    let userDefaults = UserDefaults.standard
+                    let testDefaults = TestModelBuilder.createTestUserDefaults()
                     let uniqueString = "TestKit.ConcurrentCleaners.\(i).\(UUID().uuidString)."
-                    userDefaults.set(Date(), forKey: uniqueString + "App1")
+                    testDefaults.set(Date(), forKey: uniqueString + "App1")
 
                     let cleaner = ManualCleanerActor(
                         container: container,
                         authors: ["App1"],
-                        userDefaults: userDefaults,
+                        userDefaults: testDefaults,
                         uniqueString: uniqueString,
                         logger: DefaultLogger(),
                         logLevel: 0

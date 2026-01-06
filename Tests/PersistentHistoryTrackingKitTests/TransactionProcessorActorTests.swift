@@ -30,7 +30,7 @@ struct TransactionProcessorActorTests {
         // Build the processor.
         let hookRegistry = HookRegistryActor()
         let timestampManager = TransactionTimestampManager(
-            userDefaults: UserDefaults.standard,
+            userDefaults: TestModelBuilder.createTestUserDefaults(),
             maximumDuration: 604800
         )
         let processor = TransactionProcessorActor(
@@ -73,7 +73,7 @@ struct TransactionProcessorActorTests {
         // Build the processor.
         let hookRegistry = HookRegistryActor()
         let timestampManager = TransactionTimestampManager(
-            userDefaults: UserDefaults.standard,
+            userDefaults: TestModelBuilder.createTestUserDefaults(),
             maximumDuration: 604800
         )
         let processor = TransactionProcessorActor(
@@ -118,7 +118,7 @@ struct TransactionProcessorActorTests {
         // Build the processor.
         let hookRegistry = HookRegistryActor()
         let timestampManager = TransactionTimestampManager(
-            userDefaults: UserDefaults.standard,
+            userDefaults: TestModelBuilder.createTestUserDefaults(),
             maximumDuration: 604800
         )
         let processor = TransactionProcessorActor(
@@ -178,7 +178,7 @@ struct TransactionProcessorActorTests {
 
         // Build the processor.
         let timestampManager = TransactionTimestampManager(
-            userDefaults: UserDefaults.standard,
+            userDefaults: TestModelBuilder.createTestUserDefaults(),
             maximumDuration: 604800
         )
         let processor = TransactionProcessorActor(
@@ -206,16 +206,20 @@ struct TransactionProcessorActorTests {
     @Test("Get last transaction timestamp")
     func getLastTransactionTimestamp() async throws {
         let container = TestModelBuilder.createContainer(author: "App1")
-        let context = container.viewContext
 
-        // Create seed data.
-        TestModelBuilder.createPerson(name: "Alice", age: 30, in: context)
-        try context.save()
+        // Create seed data with a different author (App1).
+        let bgContext = container.newBackgroundContext()
+        bgContext.transactionAuthor = "App1"
+
+        try await bgContext.perform {
+            TestModelBuilder.createPerson(name: "Alice", age: 30, in: bgContext)
+            try bgContext.save()
+        }
 
         // Build the processor.
         let hookRegistry = HookRegistryActor()
         let timestampManager = TransactionTimestampManager(
-            userDefaults: UserDefaults.standard,
+            userDefaults: TestModelBuilder.createTestUserDefaults(),
             maximumDuration: 604800
         )
         let processor = TransactionProcessorActor(
@@ -225,9 +229,19 @@ struct TransactionProcessorActorTests {
             timestampManager: timestampManager
         )
 
-        // Use internal Actor test methods
-        let result = try await processor.testGetLastTransactionTimestamp(
-            for: "App1",
+        // App2 processes App1's transactions (timestamp for App2 gets persisted).
+        let context2 = container.newBackgroundContext()
+        _ = try await processor.processNewTransactionsWithTimestampManagement(
+            from: ["App1"],
+            after: nil,
+            mergeInto: [context2],
+            currentAuthor: "App2",
+            batchAuthors: []
+        )
+
+        // Use internal Actor test method (now reads from persisted timestamp).
+        let result = await processor.testGetLastTransactionTimestamp(
+            for: "App2",
             maxAge: 10 // Allow 10 seconds error
         )
 

@@ -75,6 +75,9 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
     /// Authors participating in a batch job (excluded from cleanup thresholds).
     private let batchAuthors: [String]
 
+    /// Timestamp manager for reading/updating author timestamps.
+    private let timestampManager: TransactionTimestampManager
+
     // MARK: - Initialization
 
     public init(
@@ -114,7 +117,7 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
         hookRegistry = HookRegistryActor()
 
         // Build the timestamp manager.
-        let timestampManager = TransactionTimestampManager(
+        timestampManager = TransactionTimestampManager(
             userDefaults: userDefaults,
             maximumDuration: maximumDuration,
             uniqueString: uniqueString)
@@ -264,8 +267,8 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
     private func handleRemoteChangeNotification() async {
         log(.info, level: 2, "Received NSPersistentStoreRemoteChange notification")
 
-        // Read the last processed timestamp from UserDefaults.
-        let lastTimestamp = getLastTimestampFromUserDefaults(for: currentAuthor)
+        // Read the last processed timestamp.
+        let lastTimestamp = timestampManager.getLastHistoryTransactionTimestamp(for: currentAuthor)
 
         // Determine which authors to process (add CloudKit authors when needed).
         let authorsToProcess = includingCloudKitMirroring
@@ -286,12 +289,6 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
         } catch {
             log(.error, level: 1, "Error processing transactions: \(error.localizedDescription)")
         }
-    }
-
-    /// Read the last processed timestamp stored in UserDefaults.
-    private func getLastTimestampFromUserDefaults(for author: String) -> Date? {
-        let key = uniqueString + author
-        return userDefaults.object(forKey: key) as? Date
     }
 
     /// Log helper respecting the configured verbosity.

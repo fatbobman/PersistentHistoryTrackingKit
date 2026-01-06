@@ -29,7 +29,7 @@ struct IntegrationTests {
         try context1.save()
 
         // Create the kit from App2's perspective.
-        let userDefaults = UserDefaults.standard
+        let userDefaults = TestModelBuilder.createTestUserDefaults()
         let uniqueString = "TestKit.SimpleTwoApp.\(UUID().uuidString)."
 
         let kit = PersistentHistoryTrackingKit(
@@ -70,7 +70,7 @@ struct IntegrationTests {
         context2.transactionAuthor = "App2"
 
         // Create Kit
-        let userDefaults = UserDefaults.standard
+        let userDefaults = TestModelBuilder.createTestUserDefaults()
         let uniqueString = "TestKit.HookTrigger.\(UUID().uuidString)."
 
         let kit = PersistentHistoryTrackingKit(
@@ -175,7 +175,7 @@ struct IntegrationTests {
         try context.save()
 
         // Create Kit
-        let userDefaults = UserDefaults.standard
+        let userDefaults = TestModelBuilder.createTestUserDefaults()
         let uniqueString = "TestKit.ManualCleaner.\(UUID().uuidString)."
 
         // Persist the timestamp.
@@ -220,7 +220,7 @@ struct IntegrationTests {
         try context1.save()
 
         // Create the kit (App2 view).
-        let userDefaults = UserDefaults.standard
+        let userDefaults = TestModelBuilder.createTestUserDefaults()
         let uniqueString = "TestKit.BatchOperation.\(UUID().uuidString)."
 
         let kit = PersistentHistoryTrackingKit(
@@ -265,7 +265,7 @@ struct IntegrationTests {
         try context1.save()
 
         // Create the kit (App2 view) and merge into both contexts.
-        let userDefaults = UserDefaults.standard
+        let userDefaults = TestModelBuilder.createTestUserDefaults()
         let uniqueString = "TestKit.MultiContext.\(UUID().uuidString)."
 
         let kit = PersistentHistoryTrackingKit(

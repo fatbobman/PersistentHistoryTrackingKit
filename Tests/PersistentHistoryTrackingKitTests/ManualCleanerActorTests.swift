@@ -22,7 +22,7 @@ struct ManualCleanerActorTests {
         try context.save()
 
         // Simulate persisting a timestamp to UserDefaults.
-        let userDefaults = UserDefaults.standard
+        let userDefaults = TestModelBuilder.createTestUserDefaults()
         let uniqueString = "TestKit.lastToken."
         userDefaults.set(Date(), forKey: uniqueString + "App1")
 
@@ -50,7 +50,7 @@ struct ManualCleanerActorTests {
         let container = TestModelBuilder.createContainer(author: "App1")
 
         // Simulate timestamps for multiple authors.
-        let userDefaults = UserDefaults.standard
+        let userDefaults = TestModelBuilder.createTestUserDefaults()
         let uniqueString = "TestKit.lastToken."
 
         let date1 = Date(timeIntervalSinceNow: -100) // 100 seconds ago
@@ -82,7 +82,7 @@ struct ManualCleanerActorTests {
         let container = TestModelBuilder.createContainer(author: "App1")
 
         // Use a new uniqueString to guarantee no timestamps exist.
-        let userDefaults = UserDefaults.standard
+        let userDefaults = TestModelBuilder.createTestUserDefaults()
         let uniqueString = "TestKit.EmptyTimestamp.\(UUID().uuidString)."
 
         // Build the cleaner.
@@ -120,7 +120,7 @@ struct ManualCleanerActorTests {
         try context.save()
 
         // Simulate persisting the timestamp of the first batch.
-        let userDefaults = UserDefaults.standard
+        let userDefaults = TestModelBuilder.createTestUserDefaults()
         let uniqueString = "TestKit.lastToken.\(UUID().uuidString)."
         userDefaults.set(firstTimestamp, forKey: uniqueString + "App1")
 

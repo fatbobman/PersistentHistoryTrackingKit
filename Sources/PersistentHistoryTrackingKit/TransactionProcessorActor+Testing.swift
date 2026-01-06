@@ -117,8 +117,8 @@ extension TransactionProcessorActor {
     public func testGetLastTransactionTimestamp(
         for author: String,
         maxAge: TimeInterval = 10 // Default tolerance: 10 seconds.
-    ) throws -> (hasTimestamp: Bool, timestamp: Date?, isRecent: Bool) {
-        let timestamp = try getLastTransactionTimestamp(for: author)
+    ) -> (hasTimestamp: Bool, timestamp: Date?, isRecent: Bool) {
+        let timestamp = getLastTransactionTimestamp(for: author)
         let hasTimestamp = timestamp != nil
 
         // Ensure the timestamp is within the acceptable range (not older than `maxAge` seconds and not later than now).

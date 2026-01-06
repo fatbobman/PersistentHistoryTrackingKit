@@ -19,7 +19,7 @@ struct TombstoneTests {
             testName: "tombstoneInObserverHook")
         let hookRegistry = HookRegistryActor()
         let timestampManager = TransactionTimestampManager(
-            userDefaults: UserDefaults.standard,
+            userDefaults: TestModelBuilder.createTestUserDefaults(),
             maximumDuration: 604800
         )
         let processor = TransactionProcessorActor(
@@ -95,7 +95,7 @@ struct TombstoneTests {
             testName: "tombstoneContainsPreservedAttributes")
         let hookRegistry = HookRegistryActor()
         let timestampManager = TransactionTimestampManager(
-            userDefaults: UserDefaults.standard,
+            userDefaults: TestModelBuilder.createTestUserDefaults(),
             maximumDuration: 604800
         )
         let processor = TransactionProcessorActor(
@@ -165,7 +165,7 @@ struct TombstoneTests {
             testName: "noTombstoneForInsertAndUpdate")
         let hookRegistry = HookRegistryActor()
         let timestampManager = TransactionTimestampManager(
-            userDefaults: UserDefaults.standard,
+            userDefaults: TestModelBuilder.createTestUserDefaults(),
             maximumDuration: 604800
         )
         let processor = TransactionProcessorActor(

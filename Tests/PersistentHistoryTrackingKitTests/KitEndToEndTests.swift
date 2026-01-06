@@ -24,7 +24,7 @@ struct KitEndToEndTests {
         context2.transactionAuthor = "App2"
 
         // Create the kit from App2's perspective (manual start).
-        let userDefaults = UserDefaults.standard
+        let userDefaults = TestModelBuilder.createTestUserDefaults()
         let uniqueString = "TestKit.AutoSync.\(UUID().uuidString)."
 
         let kit = PersistentHistoryTrackingKit(
@@ -64,7 +64,7 @@ struct KitEndToEndTests {
         context1.transactionAuthor = "App1"
         context2.transactionAuthor = "App2"
 
-        let userDefaults = UserDefaults.standard
+        let userDefaults = TestModelBuilder.createTestUserDefaults()
         let uniqueString = "TestKit.ManualClean.\(UUID().uuidString)."
 
         // Create the kit (without automatic cleanup).
@@ -119,7 +119,7 @@ struct KitEndToEndTests {
         context2.transactionAuthor = "App2"
         context3.transactionAuthor = "App3"
 
-        let userDefaults = UserDefaults.standard
+        let userDefaults = TestModelBuilder.createTestUserDefaults()
         let uniqueString = "TestKit.MultiContext.\(UUID().uuidString)."
 
         // Kit merges into both context2 and context3.
@@ -177,7 +177,7 @@ struct KitEndToEndTests {
         context1.transactionAuthor = "App1"
         context2.transactionAuthor = "App2"
 
-        let userDefaults = UserDefaults.standard
+        let userDefaults = TestModelBuilder.createTestUserDefaults()
         let uniqueString = "TestKit.ObserverHook.\(UUID().uuidString)."
 
         let kit = PersistentHistoryTrackingKit(
@@ -250,7 +250,7 @@ struct KitEndToEndTests {
         context1.transactionAuthor = "App1"
         context2.transactionAuthor = "App2"
 
-        let userDefaults = UserDefaults.standard
+        let userDefaults = TestModelBuilder.createTestUserDefaults()
         let uniqueString = "TestKit.MergeHook.\(UUID().uuidString)."
 
         let kit = PersistentHistoryTrackingKit(
@@ -319,7 +319,7 @@ struct KitEndToEndTests {
         context2.transactionAuthor = "App2"
 
         // App1 creates a kit.
-        let userDefaults = UserDefaults.standard
+        let userDefaults = TestModelBuilder.createTestUserDefaults()
         let uniqueString1 = "TestKit.TwoApp1.\(UUID().uuidString)."
 
         let kit1 = PersistentHistoryTrackingKit(

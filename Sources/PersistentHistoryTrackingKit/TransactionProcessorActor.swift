@@ -183,13 +183,15 @@ public actor TransactionProcessorActor {
 
     // MARK: - Fetch
 
-    /// Fetch transactions for the specified authors after the timestamp (excluding the current author).
+    /// Fetch transactions for the specified authors after the timestamp (excluding the current
+    /// author).
     /// - Parameters:
     ///   - authors: List of authors.
     ///   - date: Starting timestamp.
     ///   - excludeAuthor: Author to exclude (typically the caller/ current author).
     /// - Returns: A list of transactions.
-    /// - Note: This method must be called inside the actor; tests should use the dedicated extensions.
+    /// - Note: This method must be called inside the actor; tests should use the dedicated
+    /// extensions.
     func fetchTransactions(
         from authors: [String],
         after date: Date?,
@@ -388,11 +390,13 @@ public actor TransactionProcessorActor {
 
     // MARK: - Utility
 
-    /// Retrieve the last transaction timestamp for an author.
+    /// Retrieve the last processed transaction timestamp for an author.
+    ///
+    /// This reads from the persisted timestamp in UserDefaults (O(1)),
+    /// rather than fetching all transactions from the database (O(n)).
     /// - Parameter author: The author's name.
-    /// - Returns: The latest transaction timestamp.
-    public func getLastTransactionTimestamp(for author: String) throws -> Date? {
-        let transactions = try fetchTransactions(from: [author], after: nil)
-        return transactions.last?.timestamp
+    /// - Returns: The latest processed transaction timestamp.
+    public func getLastTransactionTimestamp(for author: String) -> Date? {
+        timestampManager.getLastHistoryTransactionTimestamp(for: author)
     }
 }

@@ -21,7 +21,7 @@ struct MergeHookTests {
             testName: "registerAndRemoveMergeHook")
         let hookRegistry = HookRegistryActor()
         let timestampManager = TransactionTimestampManager(
-            userDefaults: UserDefaults.standard,
+            userDefaults: TestModelBuilder.createTestUserDefaults(),
             maximumDuration: 604800
         )
         let processor = TransactionProcessorActor(
@@ -53,7 +53,7 @@ struct MergeHookTests {
             testName: "removeAllMergeHooks")
         let hookRegistry = HookRegistryActor()
         let timestampManager = TransactionTimestampManager(
-            userDefaults: UserDefaults.standard,
+            userDefaults: TestModelBuilder.createTestUserDefaults(),
             maximumDuration: 604800
         )
         let processor = TransactionProcessorActor(
@@ -85,7 +85,7 @@ struct MergeHookTests {
             testName: "mergeHookPipelineGoOn")
         let hookRegistry = HookRegistryActor()
         let timestampManager = TransactionTimestampManager(
-            userDefaults: UserDefaults.standard,
+            userDefaults: TestModelBuilder.createTestUserDefaults(),
             maximumDuration: 604800
         )
         let processor = TransactionProcessorActor(
@@ -142,7 +142,7 @@ struct MergeHookTests {
             testName: "mergeHookPipelineFinish")
         let hookRegistry = HookRegistryActor()
         let timestampManager = TransactionTimestampManager(
-            userDefaults: UserDefaults.standard,
+            userDefaults: TestModelBuilder.createTestUserDefaults(),
             maximumDuration: 604800
         )
         let processor = TransactionProcessorActor(
@@ -205,7 +205,7 @@ struct MergeHookTests {
             testName: "mergeHookExecutionOrder")
         let hookRegistry = HookRegistryActor()
         let timestampManager = TransactionTimestampManager(
-            userDefaults: UserDefaults.standard,
+            userDefaults: TestModelBuilder.createTestUserDefaults(),
             maximumDuration: 604800
         )
         let processor = TransactionProcessorActor(
@@ -267,7 +267,7 @@ struct MergeHookTests {
             testName: "mergeHookInsertBefore")
         let hookRegistry = HookRegistryActor()
         let timestampManager = TransactionTimestampManager(
-            userDefaults: UserDefaults.standard,
+            userDefaults: TestModelBuilder.createTestUserDefaults(),
             maximumDuration: 604800
         )
         let processor = TransactionProcessorActor(
@@ -327,7 +327,7 @@ struct MergeHookTests {
             testName: "mergeHookAccessInput")
         let hookRegistry = HookRegistryActor()
         let timestampManager = TransactionTimestampManager(
-            userDefaults: UserDefaults.standard,
+            userDefaults: TestModelBuilder.createTestUserDefaults(),
             maximumDuration: 604800
         )
         let processor = TransactionProcessorActor(
@@ -394,7 +394,7 @@ struct MergeHookTests {
             testName: "defaultMergeWithoutHooks")
         let hookRegistry = HookRegistryActor()
         let timestampManager = TransactionTimestampManager(
-            userDefaults: UserDefaults.standard,
+            userDefaults: TestModelBuilder.createTestUserDefaults(),
             maximumDuration: 604800
         )
         let processor = TransactionProcessorActor(
