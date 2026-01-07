@@ -11,8 +11,9 @@ import CoreDataEvolution
 import Foundation
 
 /// Transaction processor responsible for fetch, merge, hook, and clean steps.
+/// - Note: Internal actor; external users interact via `PersistentHistoryTrackingKit` API.
 @NSModelActor(disableGenerateInit: true)
-public actor TransactionProcessorActor {
+actor TransactionProcessorActor {
     private let hookRegistry: HookRegistryActor
 
     /// Cleanup policy managed inside the actor (thread-safe).
@@ -30,7 +31,7 @@ public actor TransactionProcessorActor {
 
     private var mergeHooks: [MergeHookItem] = []
 
-    public init(
+    init(
         container: NSPersistentContainer,
         hookRegistry: HookRegistryActor,
         cleanStrategy: TransactionCleanStrategy,
@@ -63,7 +64,7 @@ public actor TransactionProcessorActor {
     ///   - callback: Callback executed within the same actor.
     /// - Returns: The UUID of the hook for later removal.
     @discardableResult
-    public func registerMergeHook(
+    func registerMergeHook(
         before hookId: UUID? = nil,
         callback: @escaping MergeHookCallback) -> UUID
     {
@@ -85,14 +86,14 @@ public actor TransactionProcessorActor {
     /// - Parameter hookId: The hook UUID.
     /// - Returns: Whether the hook was removed.
     @discardableResult
-    public func removeMergeHook(id hookId: UUID) -> Bool {
+    func removeMergeHook(id hookId: UUID) -> Bool {
         let initialCount = mergeHooks.count
         mergeHooks.removeAll { $0.id == hookId }
         return mergeHooks.count < initialCount
     }
 
     /// Remove all registered Merge Hooks.
-    public func removeAllMergeHooks() {
+    func removeAllMergeHooks() {
         mergeHooks.removeAll()
     }
 
@@ -105,7 +106,7 @@ public actor TransactionProcessorActor {
     ///   - cleanBeforeTimestamp: Optional timestamp; history before this will be cleaned.
     /// - Returns: Number of transactions processed.
     @discardableResult
-    public func processNewTransactions(
+    func processNewTransactions(
         from authors: [String],
         after lastTimestamp: Date?,
         mergeInto contexts: [NSManagedObjectContext],
@@ -363,7 +364,7 @@ public actor TransactionProcessorActor {
     ///   - authors: Limit cleanup to these authors (nil removes all authors).
     /// - Returns: Number of deleted transactions.
     @discardableResult
-    public func cleanTransactions(before timestamp: Date, for authors: [String]?) throws -> Int {
+    func cleanTransactions(before timestamp: Date, for authors: [String]?) throws -> Int {
         let deleteRequest = NSPersistentHistoryChangeRequest.deleteHistory(before: timestamp)
 
         // Configure fetchRequest to delete only the specified authors' transactions.
@@ -396,7 +397,7 @@ public actor TransactionProcessorActor {
     /// rather than fetching all transactions from the database (O(n)).
     /// - Parameter author: The author's name.
     /// - Returns: The latest processed transaction timestamp.
-    public func getLastTransactionTimestamp(for author: String) -> Date? {
+    func getLastTransactionTimestamp(for author: String) -> Date? {
         timestampManager.getLastHistoryTransactionTimestamp(for: author)
     }
 }

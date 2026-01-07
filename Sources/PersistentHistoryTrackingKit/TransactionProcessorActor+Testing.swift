@@ -19,7 +19,7 @@ extension TransactionProcessorActor {
     ///   - date: Starting timestamp.
     ///   - excludeAuthor: Author to exclude.
     /// - Returns: (transaction count, whether every transaction excludes the target author)
-    public func testFetchTransactionsExcludesAuthor(
+    func testFetchTransactionsExcludesAuthor(
         from authors: [String],
         after date: Date?,
         excludeAuthor: String?
@@ -43,7 +43,7 @@ extension TransactionProcessorActor {
     ///   - authors: Authors to clean.
     ///   - expectedBefore: Optional expected count before cleanup (validation aid).
     /// - Returns: (deleted count, remaining count)
-    public func testCleanTransactions(
+    func testCleanTransactions(
         before timestamp: Date,
         for authors: [String],
         expectedBefore: Int?
@@ -78,7 +78,7 @@ extension TransactionProcessorActor {
     ///   - cleanBeforeTimestamp: Cleanup cutoff timestamp.
     ///   - expectedEntityName: Expected entity name for validation.
     /// - Returns: (transaction count, first transaction author, first change entity name)
-    public func testProcessNewTransactions(
+    func testProcessNewTransactions(
         from authors: [String],
         after lastTimestamp: Date?,
         mergeInto contexts: [NSManagedObjectContext],
@@ -114,7 +114,7 @@ extension TransactionProcessorActor {
     /// Test helper for `getLastTransactionTimestamp`.
     /// - Parameter author: Author name.
     /// - Returns: (timestamp exists, timestamp value, is timestamp within allowed age)
-    public func testGetLastTransactionTimestamp(
+    func testGetLastTransactionTimestamp(
         for author: String,
         maxAge: TimeInterval = 10 // Default tolerance: 10 seconds.
     ) -> (hasTimestamp: Bool, timestamp: Date?, isRecent: Bool) {
@@ -141,7 +141,7 @@ extension TransactionProcessorActor {
     ///   - expectedEntityName: Expected entity name for the hook.
     ///   - expectedOperation: Expected operation type.
     /// - Returns: (transaction count, first change entity name, first change operation)
-    public func testHookTrigger(
+    func testHookTrigger(
         from authors: [String],
         after date: Date?,
         mergeInto contexts: [NSManagedObjectContext],
