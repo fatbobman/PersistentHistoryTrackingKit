@@ -178,6 +178,80 @@ public struct HookContext: Sendable {
 }
 ```
 
+#### Tombstone Structure:
+
+Tombstone contains preserved attribute values for deleted objects (only available when `operation == .delete`).
+
+```swift
+public struct Tombstone: Sendable, Codable {
+    public let attributes: [String: String]  // Preserved attributes as String dictionary
+    public let deletedDate: Date?            // Deletion timestamp
+}
+```
+
+**How Tombstone Works:**
+
+1. **Only for Delete Operations**: Tombstone is `nil` for `.insert` and `.update` operations
+2. **Requires `preservesValueInHistoryOnDeletion`**: Only attributes with this flag set in the Core Data model will be included
+3. **All Values Converted to String**: All attribute values are automatically converted to String format for `Sendable` compliance
+
+**Type Conversion Rules:**
+
+| Original Type | Conversion Method | Example |
+|---------------|------------------|---------|
+| `String` | Preserved as-is | `"John"` → `"John"` |
+| `UUID` | `.uuidString` | `UUID()` → `"123E4567-E89B-12D3-A456-426614174000"` |
+| `URL` | `.absoluteString` | `URL(string: "https://example.com")` → `"https://example.com"` |
+| `Date` | ISO8601 format | `Date()` → `"2025-01-07T10:30:00Z"` |
+| `NSNumber` / `Int` / `Double` | `.stringValue` | `42` → `"42"`, `3.14` → `"3.14"` |
+| Other types | `String(describing:)` | Fallback conversion |
+
+**Example:**
+
+```swift
+// Core Data model with preservesValueInHistoryOnDeletion = true
+person.id = UUID("123e4567-e89b-12d3-a456-426614174000")
+person.name = "John Doe"
+person.age = 30
+person.createdAt = Date()
+person.website = URL(string: "https://example.com")
+
+// After deletion, tombstone.attributes contains:
+[
+    "id": "123E4567-E89B-12D3-A456-426614174000",  // UUID → uuidString
+    "name": "John Doe",                            // String → preserved
+    "age": "30",                                   // Int → "30"
+    "createdAt": "2025-01-07T10:30:00Z",          // Date → ISO8601
+    "website": "https://example.com"               // URL → absoluteString
+]
+```
+
+**Recovering Original Types:**
+
+```swift
+if let tombstone = context.tombstone {
+    // Recover UUID
+    if let uuidString = tombstone.attributes["id"] {
+        let id = UUID(uuidString: uuidString)
+    }
+
+    // Recover URL
+    if let urlString = tombstone.attributes["website"] {
+        let url = URL(string: urlString)
+    }
+
+    // Recover Date
+    if let dateString = tombstone.attributes["createdAt"] {
+        let date = ISO8601DateFormatter().date(from: dateString)
+    }
+
+    // Recover Int
+    if let ageString = tombstone.attributes["age"] {
+        let age = Int(ageString)
+    }
+}
+```
+
 #### Removal:
 
 ```swift
