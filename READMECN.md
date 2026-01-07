@@ -372,44 +372,6 @@ let hookB = await kit.registerMergeHook(before: hookA) { _ in print("Hook B"); r
 
 ---
 
-## 从 V1 迁移
-
-| | V1 | V2 |
-| --- | --- | --- |
-| iOS | 13+ | 17+ |
-| macOS | 10.15+ | 14+ |
-| Swift | 5.5+ | 6.0+ |
-
-```swift
-// V1：allAuthors 是字符串，Hook 无返回值
-let kit = PersistentHistoryTrackingKit(
-    container: container,
-    currentAuthor: "app1",
-    allAuthors: "app1,app2",
-    cleanStrategy: .byNotification(times: 1)
-)
-
-// V2：allAuthors 使用数组，Hook 异步并返回 UUID
-let kit = PersistentHistoryTrackingKit(
-    container: container,
-    currentAuthor: "app1",
-    allAuthors: ["app1", "app2"],
-    cleanStrategy: .byNotification(times: 1)
-)
-```
-
-```swift
-// V1 Hook
-kit.registerHook(entityName: "Person", operation: .insert) { _ in }
-
-// V2 Hook
-let hookId = await kit.registerObserver(entityName: "Person", operation: .insert) { _ in }
-```
-
-旧 API 仍可使用但已标记为废弃，建议尽快迁移。
-
----
-
 ## 系统需求
 
 - iOS 17.0+
