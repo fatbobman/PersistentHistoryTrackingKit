@@ -1,295 +1,593 @@
 # Persistent History Tracking Kit
 
-Helps you easily handle Core Data's Persistent History Tracking
+**Swift 6 ready** • **Actor-based** • **Fully concurrent** • **Type-safe**
 
-![os](https://img.shields.io/badge/Platform%20Compatibility-iOS%20|%20macOS%20|%20tvOS%20|%20watchOs-red) ![swift](https://img.shields.io/badge/Swift%20Compatibility-5.5-red)
+A modern, production-ready library for handling Core Data's Persistent History Tracking with full Swift 6 concurrency support.
+
+![Platform](https://img.shields.io/badge/Platform-iOS%2017%2B%20|%20macOS%2014%2B%20|%20tvOS%2017%2B%20|%20watchOS%2010%2B-blue)
+![Swift](https://img.shields.io/badge/Swift-6.0-orange)
+![License](https://img.shields.io/badge/License-MIT-green)
 
 [中文版说明](https://github.com/fatbobman/PersistentHistoryTrackingKit/blob/main/READMECN.md)
 
-## 🚀 Swift 6 Branch Available
+---
 
-> **🎯 New Swift 6 Compatible Version Available**
->
-> We've created a comprehensive **Swift 6 adaptation** with full concurrency safety, true Sendable compliance, and memory leak fixes. The new version is available in the `swift6-adaptation` branch.
->
-> **✨ Key Improvements:**
->
-> - 🔒 **True Sendable Compliance** - Not just `@unchecked Sendable`
-> - 🧵 **Data Race Free** - Comprehensive concurrency testing
-> - 🛡️ **Memory Safe** - Zero retain cycles or memory leaks  
-> - 🧪 **Swift Testing Framework** - Modern testing infrastructure
-> - 📚 **Enhanced Documentation** - Comprehensive guides and examples
->
-> **🔄 Try it out:**
->
-> ```swift
-> dependencies: [
->     .package(url: "https://github.com/fatbobman/PersistentHistoryTrackingKit.git", branch: "swift6-adaptation")
-> ]
-> ```
->
-> **📝 Feedback Welcome:**  
-> Please test the Swift 6 version and [**create an issue**](https://github.com/fatbobman/PersistentHistoryTrackingKit/issues) with your feedback. We'll merge it to main once we have sufficient real-world validation.
->
-> **📖 Full Documentation:** [Swift 6 Branch README](https://github.com/fatbobman/PersistentHistoryTrackingKit/blob/swift6-adaptation/README.md)
+## What's New in V2 🎉
 
-## What's This？
+Version 2 is a **complete rewrite** with modern Swift concurrency:
 
-> Use persistent history tracking to determine what changes have occurred in the store since the enabling of persistent history tracking.  —— Apple Documentation
+- ✅ **Full Swift 6 Compliance** - True `Sendable`, no `@unchecked Sendable` workarounds
+- ✅ **Actor-Based Architecture** - Thread-safe by design with `HookRegistryActor` and `TransactionProcessorActor`
+- ✅ **Zero Memory Leaks** - No retain cycles, properly managed lifecycle
+- ✅ **Data Race Free** - Comprehensive concurrency testing with Swift Testing
+- ✅ **Hook System** - Powerful Observer and Merge Hooks for custom behaviors
+- ✅ **Modern API** - Async/await throughout, UUID-based hook management
 
-When Persistent History Tracking is enabled, your application will begin creating transactions for any changes that occur in Core Data Storage. Whether they come from application extensions, background contexts, or the main application.
+**Migration from V1:** V2 requires iOS 17+, macOS 14+, and Swift 6. See [Migration Guide](#migration-from-v1) for details.
 
-Each target of your application can fetch the transactions that have occurred since a given date and merge them into the local storage. This way, you can keep up to date with changes made by other persistent storage coordinators and keep your storage up to date. After merging all transactions, you can update the merge date so that the next time you merge, you will only get the new transactions that have not yet been processed.
+---
 
-The **Persistent History Tracking Kit** will automate the above process for you.
+## What is Persistent History Tracking?
 
-## How does persistent history tracking work?
+> Use persistent history tracking to determine what changes have occurred in the store since the enabling of persistent history tracking. — Apple Documentation
 
-Upon receiving a remote notification of Persistent History Tracking from Core Data, Persistent History Tracking Kit will do the following:
+When you enable Persistent History Tracking, Core Data creates **transactions** for all changes across:
+- Your main app
+- App extensions (widgets, share extensions, etc.)
+- Background contexts
+- CloudKit sync (if enabled)
 
-- Query the current author's (current author) last merge transaction time
-- Get new transactions created by other applications, application extensions, background contexts, etc. (all authors) in addition to this application since the date of the last merged transaction
-- Merge the new transaction into the specified context (usually the current application's view context)
-- Update the current application's merge transaction time
-- Clean up transactions that have been merged by all applications
+**PersistentHistoryTrackingKit** automates the process of:
+1. 📥 Fetching new transactions from other contexts
+2. 🔄 Merging them into your app's context
+3. 🧹 Cleaning up old transactions
+4. 🎣 Triggering custom hooks for monitoring or custom merge logic
 
-For more specific details on how this works, read [在 CoreData 中使用持久化历史跟踪](https://fatbobman.com/zh/posts/persistenthistorytracking/) or [Using Persistent History Tracking in CoreData](https://fatbobman.com/en/posts/persistenthistorytracking/).
+---
 
-## Usage
+## Quick Start
 
-```swift
-// in Core Data Stack
-import PersistentHistoryTrackingKit
+### Installation
 
-init() {
-    container = NSPersistentContainer(name: "PersistentTrackBlog")
-    // Prepare your Container
-    let desc = container.persistentStoreDescriptions.first!
-    // Turn on persistent history tracking in persistentStoreDescriptions
-    desc.setOption(true as NSNumber,
-                   forKey: NSPersistentHistoryTrackingKey)
-    desc.setOption(true as NSNumber,
-                   forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
-    container.loadPersistentStores(completionHandler: { _, _ in })
-
-    container.viewContext.transactionAuthor = "app1"
-    // after loadPersistentStores
-    let kit = PersistentHistoryTrackingKit(
-        container: container,
-        currentAuthor: "app1",
-        allAuthors: ["app1", "app2", "app3"],
-        userDefaults: userDefaults,
-        logLevel: 3,
-    )
-}
-```
-
-## Parameters
-
-### currentAuthor
-
-The name of the author of the current application. The name is usually the same as the transaction name of the view context
-
-```swift
-container.viewContext.transactionAuthor = "app1"
-```
-
-### allAuthors
-
-The author name of all members managed by the Persistent History Tracking Kit.
-
-Persistent History Tracking Kit should only be used to manage transactions generated by developer-created applications, application extensions, and backend contexts; other system-generated transactions (e.g. Core Data with CloudKit) are handled by the system itself.
-
-For example, if your application author name is: "appAuthor" and your application extension author name is: "extensionAuthor", then.
-
-```swift
-allAuthors: ["appAuthor", "extensionAuthor"],
-```
-
-For transactions generated in the backend context, the backend context should also have a separate author name if it is not set to auto-merge.
-
-```swift
-allAuthors: ["appAuthor", "extensionAuthor", "appBatchAuthor"],
-```
-
-### includingCloudKitMirroring
-
-Whether or not to merge network data imported by Core Data with CloudKit, is only used in scenarios where the Core Data cloud sync state needs to be switched in real time. See [Switching Core Data Cloud Sync Status in Real-Time](https://fatbobman.com/en/posts/real-time-switching-of-cloud-syncs-status/) for details on usage
-
-### batchAuthors
-
-Some authors (such as background contexts for batch changes) only create transactions and do not merge and clean up transactions generated by other authors. You can speed up the cleanup of such transactions by setting them in batchAuthors.
-
-```swift
-batchAuthors: ["appBatchAuthor"],
-```
-
-Even if not set, these transactions will be automatically cleared after reaching maximumDuration.
-
-### maximumDuration
-
-Normally, transactions are only cleaned up after they have been merged by all authors. However, in some cases, individual authors may not run for a long time or may not be implemented yet, causing transactions to remain in SQLite. In the long run, this can cause a performance degradation of the database.
-
-By setting maximumDuration, Persistent History Tracking Kit will force the removal of transactions that have reached the set duration. The default setting is 7 days.
-
-```swift
-maximumDuration: 60 * 60 * 24 * 7,
-```
-
-Performing cleanup on transactions does not harm the application's data.
-
-### contexts
-
-The context used for merging transactions, usually the application's view context. By default, it is automatically set to the container's view context.
-
-```swift
-contexts: [viewContext],
-```
-
-### userDefaults
-
-If an App Group is used, use the UserDefaults available for the group.
-
-```swift
-let appGroupUserDefaults = UserDefaults(suiteName: "group.com.yourGroup")!
-
-userDefaults: appGroupUserDefaults,
-```
-
-### cleanStrategy
-
-Persistent History Tracking Kit currently supports three transaction cleanup strategies:
-
-- none
-
-  Merge only, no cleanup
-
-- byDuration
-
-  Set a minimum time interval between cleanups
-
-- byNotification
-
-  Set the minimum number of notifications between cleanups
-
-```swift
-// Each notification is cleaned up
-cleanStrategy: .byNotification(times: 1),
-// At least 60 seconds between cleanings
-cleanStrategy: .byDuration(seconds: 60),
-```
-
-#### Recommended Strategy
-
-According to Apple's documentation, it's recommended to use a 7-day cleanup strategy to achieve a good balance between performance and storage capacity:
-
-```swift
-cleanStrategy: .byDuration(seconds: 60 * 60 * 24 * 7), // 7 days
-```
-
-This strategy allows sufficient time for all authors (including app extensions and CloudKit) to process and merge transactions before cleanup occurs.
-
-#### Important: Using with NSPersistentCloudKitContainer
-
-**Note:** The default cleanup strategy `.byNotification(times: 1)` can be too aggressive when using CloudKit synchronization and may cause `NSPersistentHistoryTokenExpiredError` (error code 134301), potentially leading to local database purges and re-syncing from CloudKit.
-
-When using CloudKit synchronization, CloudKit internally relies on persistent history to track synchronization state. If history is cleaned up too frequently, CloudKit may lose its tracking tokens before completing its internal operations.
-
-**Recommended strategy:**
-
-Use a time-based cleanup strategy with sufficient duration (such as 7 days) to give CloudKit enough time to process the persistent history:
-
-```swift
-let kit = PersistentHistoryTrackingKit(
-    container: container,
-    currentAuthor: "app1",
-    allAuthors: ["app1", "app2"],
-    cleanStrategy: .byDuration(seconds: 60 * 60 * 24 * 7),  // 7 days
-    userDefaults: userDefaults
-)
-```
-
-**Important:** Do NOT set `includingCloudKitMirroring: true` in this scenario, as CloudKit handles its own synchronization internally. Setting it to true would incorrectly merge CloudKit's internal transactions into your app's contexts. Instead, use a longer cleanup interval to ensure CloudKit has sufficient time to use the persistent history before it gets cleaned up.
-
-When the cleanup policy is set to none, cleanup can be performed at the right time by generating separate cleanup instances.
-
-```swift
-let kit = PersistentHistoryTrackingKit(
-    container: container,
-    currentAuthor: "app1",
-    allAuthors: "app1,app2,app3",
-    userDefaults: userDefaults,
-    cleanStrategy: .byNotification(times: 1),
-    logLevel: 3,
-    autoStart: false
-)
-let cleaner = kit.cleanerBuilder()
-
-// Execute cleaner at the right time, for example when the application enters the background
-clear()
-```
-
-### uniqueString
-
-The string prefix for the timestamp in UserDefaults.
-
-### logger
-
-The Persistent History Tracking Kit provides default logging output. To export Persistent History Tracking Kit information through the logging system you are using, simply make your logging code conform to the PersistentHistoryTrackingKitLoggerProtocol.
-
-```swift
-public protocol PersistentHistoryTrackingKitLoggerProtocol {
-    func log(type: PersistentHistoryTrackingKitLogType, message: String)
-}
-
-struct MyLogger: PersistentHistoryTrackingKitLoggerProtocol {
-    func log(type: PersistentHistoryTrackingKitLogType, message: String) {
-        print("[\(type.rawValue.uppercased())] : message")
-    }
-}
-
-logger:MyLogger(),
-```
-
-### logLevel
-
-The output of log messages can be controlled by setting logLevel:
-
-- 0 Turn off log output
-- 1 Important status only
-- 2 Detail information
-
-### autoStart
-
-Whether to start the Persistent History Tracking Kit instance as soon as it is created.
-
-During the execution of the application, the running state can be changed by start() or stop().
-
-```swift
-kit.start()
-kit.stop()
-```
-
-## Requirements
-
-    .iOS(.v13),
-    
-    .macOS(.v10_15),
-    
-    .macCatalyst(.v13),
-    
-    .tvOS(.v13),
-    
-    .watchOS(.v6)
-
-## Install
+Add to your `Package.swift`:
 
 ```swift
 dependencies: [
-  .package(url: "https://github.com/fatbobman/PersistentHistoryTrackingKit.git", from: "1.0.0")
+    .package(url: "https://github.com/fatbobman/PersistentHistoryTrackingKit.git", from: "2.0.0")
 ]
 ```
 
+### Basic Setup
+
+```swift
+import CoreData
+import PersistentHistoryTrackingKit
+
+// 1. Enable persistent history tracking in your Core Data stack
+let container = NSPersistentContainer(name: "MyApp")
+let description = container.persistentStoreDescriptions.first!
+
+description.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
+description.setOption(true as NSNumber, forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
+
+container.loadPersistentStores { _, error in
+    if let error = error {
+        fatalError("Failed to load store: \(error)")
+    }
+}
+
+// 2. Set transaction authors
+container.viewContext.transactionAuthor = "MainApp"
+
+// 3. Initialize PersistentHistoryTrackingKit
+let kit = PersistentHistoryTrackingKit(
+    container: container,
+    contexts: [container.viewContext],
+    currentAuthor: "MainApp",
+    allAuthors: ["MainApp", "WidgetExtension", "ShareExtension"],
+    userDefaults: .standard,
+    cleanStrategy: .byDuration(seconds: 60 * 60 * 24 * 7), // 7 days
+    logLevel: 1
+)
+
+// Kit starts automatically by default
+```
+
+That's it! The kit will now automatically:
+- Detect remote changes
+- Merge transactions from other authors
+- Clean up old history
+- Keep your contexts in sync
+
+---
+
+## Core Concepts
+
+### Authors
+
+Each part of your app should have a unique **author** name:
+
+```swift
+// Main app
+container.viewContext.transactionAuthor = "MainApp"
+
+// Widget extension
+widgetContext.transactionAuthor = "WidgetExtension"
+
+// Background batch operations
+batchContext.transactionAuthor = "BatchProcessor"
+```
+
+Then configure the kit with all authors:
+
+```swift
+allAuthors: ["MainApp", "WidgetExtension", "BatchProcessor"]
+```
+
+### Cleanup Strategies
+
+Choose how aggressively to clean up old transactions:
+
+```swift
+// Option 1: Clean up after every notification (aggressive)
+cleanStrategy: .byNotification(times: 1)
+
+// Option 2: Clean up at most once per time interval (recommended)
+cleanStrategy: .byDuration(seconds: 60 * 60 * 24 * 7) // 7 days
+
+// Option 3: No automatic cleanup (manual control)
+cleanStrategy: .none
+```
+
+**⚠️ CloudKit Users:** Use `.byDuration(seconds: 60 * 60 * 24 * 7)` to avoid `NSPersistentHistoryTokenExpiredError`. CloudKit needs time to process history before cleanup.
+
+### Manual Cleanup
+
+For fine-grained control, use manual cleanup:
+
+```swift
+let kit = PersistentHistoryTrackingKit(
+    // ... other parameters
+    cleanStrategy: .none,
+    autoStart: false
+)
+
+// Build a manual cleaner
+let cleaner = kit.cleanerBuilder()
+
+// Clean up when appropriate (e.g., app enters background)
+Task {
+    await cleaner.clean()
+}
+
+// Start the kit when ready
+kit.start()
+```
+
+---
+
+## Hook System 🎣
+
+V2 introduces a powerful **Hook System** for monitoring changes and customizing merge behavior.
+
+### Observer Hooks (Read-Only Monitoring)
+
+Monitor specific entity operations without modifying data:
+
+```swift
+// Monitor Person insertions
+let hookId = await kit.registerObserver(
+    entityName: "Person",
+    operation: .insert
+) { context in
+    print("New person created: \(context.objectIDURL)")
+
+    // Send analytics
+    await Analytics.track(event: "person_created", properties: [
+        "timestamp": context.timestamp,
+        "author": context.author
+    ])
+}
+
+// Remove specific hook later
+await kit.removeObserver(id: hookId)
+
+// Or remove all hooks for an entity+operation
+await kit.removeObserver(entityName: "Person", operation: .insert)
+```
+
+**Use cases:** Logging, analytics, notifications, cache invalidation
+
+### Merge Hooks (Custom Merge Logic)
+
+Implement custom merge behavior with full access to Core Data:
+
+```swift
+// Custom conflict resolution
+await kit.registerMergeHook { input in
+    for transaction in input.transactions {
+        for context in input.contexts {
+            await context.perform {
+                // Custom merge logic here
+                // You have full access to NSManagedObjectContext
+            }
+        }
+    }
+
+    // Return .goOn to continue to next hook
+    // Return .finish to skip remaining hooks and default merge
+    return .goOn
+}
+```
+
+**Use cases:** Conflict resolution, deduplication, validation, custom merge strategies
+
+### Real-World Examples
+
+**Disable Undo Manager During Merge:**
+
+```swift
+await kit.registerMergeHook { input in
+    for transaction in input.transactions {
+        let notification = transaction.objectIDNotification()
+
+        for context in input.contexts {
+            await context.perform {
+                let undoManager = context.undoManager
+                context.undoManager = nil
+
+                context.mergeChanges(fromContextDidSave: notification)
+
+                context.undoManager = undoManager
+            }
+        }
+    }
+    return .finish
+}
+```
+
+**Deduplication:**
+
+```swift
+await kit.registerMergeHook { input in
+    for context in input.contexts {
+        await context.perform {
+            for transaction in input.transactions {
+                guard let changes = transaction.changes else { continue }
+
+                for change in changes where change.changeType == .insert {
+                    guard let object = try? context.existingObject(with: change.changedObjectID),
+                          let uniqueID = object.value(forKey: "uniqueID") as? String else {
+                        continue
+                    }
+
+                    // Find duplicates and remove
+                    // ... deduplication logic
+                }
+            }
+            try? context.save()
+        }
+    }
+    return .goOn
+}
+```
+
+**📚 Complete Hook Documentation:** [Docs/HookMechanism.md](Docs/HookMechanism.md)
+
+---
+
+## API Reference
+
+### Initialization Parameters
+
+| Parameter | Type | Description | Default |
+|-----------|------|-------------|---------|
+| `container` | `NSPersistentContainer` | Your Core Data container | Required |
+| `contexts` | `[NSManagedObjectContext]?` | Contexts to merge into | `[container.viewContext]` |
+| `currentAuthor` | `String` | Current app's author name | Required |
+| `allAuthors` | `[String]` | All author names to track | Required |
+| `includingCloudKitMirroring` | `Bool` | Include CloudKit transactions | `false` |
+| `batchAuthors` | `[String]` | Authors that only write, never merge | `[]` |
+| `userDefaults` | `UserDefaults` | Storage for timestamps | Required |
+| `cleanStrategy` | `TransactionCleanStrategy` | Cleanup strategy | `.none` |
+| `maximumDuration` | `TimeInterval` | Max transaction age | 7 days |
+| `uniqueString` | `String` | UserDefaults key prefix | Auto-generated |
+| `logger` | `PersistentHistoryTrackingKitLoggerProtocol?` | Custom logger | `DefaultLogger` |
+| `logLevel` | `Int` | Log verbosity (0-2) | `1` |
+| `autoStart` | `Bool` | Start automatically | `true` |
+
+### Observer Hook Methods
+
+```swift
+// Register observer hook (returns UUID for removal)
+func registerObserver(
+    entityName: String,
+    operation: HookOperation,
+    callback: @escaping HookCallback
+) async -> UUID
+
+// Remove specific hook by UUID
+func removeObserver(id: UUID) async -> Bool
+
+// Remove all hooks for entity+operation
+func removeObserver(entityName: String, operation: HookOperation) async
+
+// Remove all observer hooks
+func removeAllObservers() async
+```
+
+### Merge Hook Methods
+
+```swift
+// Register merge hook (returns UUID)
+func registerMergeHook(
+    before hookId: UUID? = nil,
+    callback: @escaping MergeHookCallback
+) async -> UUID
+
+// Remove specific merge hook
+func removeMergeHook(id: UUID) async -> Bool
+
+// Remove all merge hooks
+func removeAllMergeHooks() async
+```
+
+### Control Methods
+
+```swift
+// Start/stop the kit
+func start()
+func stop()
+
+// Build a manual cleaner
+func cleanerBuilder() -> ManualCleanerActor
+```
+
+---
+
+## Advanced Usage
+
+### App Groups
+
+For sharing data across app and extensions:
+
+```swift
+let appGroupDefaults = UserDefaults(suiteName: "group.com.yourapp")!
+
+let kit = PersistentHistoryTrackingKit(
+    container: container,
+    currentAuthor: "MainApp",
+    allAuthors: ["MainApp", "WidgetExtension"],
+    userDefaults: appGroupDefaults, // Use shared UserDefaults
+    cleanStrategy: .byDuration(seconds: 60 * 60 * 24 * 7)
+)
+```
+
+### Custom Logger
+
+Integrate with your logging system:
+
+```swift
+struct MyLogger: PersistentHistoryTrackingKitLoggerProtocol {
+    func log(type: PersistentHistoryTrackingKitLogType, message: String) {
+        switch type {
+        case .debug:
+            Logger.debug(message)
+        case .info:
+            Logger.info(message)
+        case .notice:
+            Logger.notice(message)
+        case .error:
+            Logger.error(message)
+        case .fault:
+            Logger.fault(message)
+        }
+    }
+}
+
+let kit = PersistentHistoryTrackingKit(
+    // ... other parameters
+    logger: MyLogger(),
+    logLevel: 2 // 0: off, 1: important, 2: detailed
+)
+```
+
+### Multiple Hooks with Execution Order
+
+Observer Hooks execute in **registration order**:
+
+```swift
+// These execute sequentially: Hook 1 → Hook 2 → Hook 3
+let hook1 = await kit.registerObserver(entityName: "Person", operation: .insert) { _ in
+    print("Hook 1")
+}
+
+let hook2 = await kit.registerObserver(entityName: "Person", operation: .insert) { _ in
+    print("Hook 2")
+}
+
+let hook3 = await kit.registerObserver(entityName: "Person", operation: .insert) { _ in
+    print("Hook 3")
+}
+
+// Remove only Hook 2
+await kit.removeObserver(id: hook2)
+// Now only Hook 1 and Hook 3 execute
+```
+
+Merge Hooks support **pipeline insertion**:
+
+```swift
+let hookA = await kit.registerMergeHook { _ in
+    print("Hook A")
+    return .goOn
+}
+
+// Insert before hookA
+let hookB = await kit.registerMergeHook(before: hookA) { _ in
+    print("Hook B")
+    return .goOn
+}
+
+// Execution order: Hook B → Hook A
+```
+
+---
+
+## Migration from V1
+
+V2 is a major rewrite with breaking changes. Key differences:
+
+### Requirements
+
+| | V1 | V2 |
+|---|---|---|
+| **iOS** | 13+ | **17+** |
+| **macOS** | 10.15+ | **14+** |
+| **Swift** | 5.5+ | **6.0+** |
+
+### API Changes
+
+```swift
+// V1: Synchronous initialization
+let kit = PersistentHistoryTrackingKit(
+    container: container,
+    currentAuthor: "app1",
+    allAuthors: "app1,app2", // ❌ String
+    cleanStrategy: .byNotification(times: 1)
+)
+
+// V2: Same initialization, but allAuthors is now an array
+let kit = PersistentHistoryTrackingKit(
+    container: container,
+    currentAuthor: "app1",
+    allAuthors: ["app1", "app2"], // ✅ [String]
+    cleanStrategy: .byNotification(times: 1)
+)
+```
+
+```swift
+// V1: registerHook (no return value, not async)
+kit.registerHook(entityName: "Person", operation: .insert) { context in
+    print("Person inserted")
+}
+
+// V2: registerObserver (async, returns UUID)
+let hookId = await kit.registerObserver(
+    entityName: "Person",
+    operation: .insert
+) { context in
+    print("Person inserted")
+}
+```
+
+### New Features in V2
+
+- ✅ **Observer Hooks**: Read-only monitoring with UUID-based management
+- ✅ **Merge Hooks**: Custom merge logic with pipeline support
+- ✅ **Actor-based**: Thread-safe by design
+- ✅ **Async/Await**: Modern concurrency throughout
+- ✅ **Manual Cleaner**: `cleanerBuilder()` for fine-grained control
+
+### Deprecated APIs
+
+V1 hook methods are deprecated but still available for compatibility:
+
+```swift
+// ⚠️ Deprecated (still works, but prefer new API)
+kit.registerHook(entityName: "Person", operation: .insert) { context in
+    // ...
+}
+
+// ✅ Recommended
+let hookId = await kit.registerObserver(
+    entityName: "Person",
+    operation: .insert
+) { context in
+    // ...
+}
+```
+
+---
+
+## Requirements
+
+- iOS 17.0+ / macOS 14.0+ / tvOS 17.0+ / watchOS 10.0+
+- Swift 6.0+
+- Xcode 16.0+
+
+---
+
+## Documentation
+
+- **[Hook Mechanism Guide](Docs/HookMechanism.md)** - Complete guide to Observer and Merge Hooks
+- **[Core Data Persistent History Tracking](https://fatbobman.com/en/posts/persistenthistorytracking/)** - Blog post on the fundamentals
+
+---
+
+## Testing
+
+V2 uses Swift Testing framework with comprehensive test coverage:
+
+```bash
+# Run all tests
+swift test
+
+# Run specific test suite
+swift test --filter HookRegistryActorTests
+swift test --filter IntegrationTests
+```
+
+Test suites include:
+- Unit tests for all actors and components
+- Integration tests with real Core Data stack
+- Concurrency stress tests
+- Memory leak detection
+
+---
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+### Development Setup
+
+```bash
+git clone https://github.com/fatbobman/PersistentHistoryTrackingKit.git
+cd PersistentHistoryTrackingKit
+swift build
+swift test
+```
+
+---
+
 ## License
 
-This library is released under the MIT license. See [LICENSE](https://github.com/fatbobman/persistentHistoryTrackingKit/blob/main/LICENSE) for details.
+This library is released under the MIT license. See [LICENSE](LICENSE) for details.
+
+---
+
+## Author
+
+**Fatbobman (肘子)**
+
+- Blog: [fatbobman.com](https://fatbobman.com)
+- Twitter: [@fatbobman](https://twitter.com/fatbobman)
+- WeChat: 肘子的Swift记事本
+
+---
+
+## Acknowledgments
+
+Thanks to the Swift and Core Data communities for their valuable feedback and contributions.
+
+Special thanks to contributors who helped improve V2:
+- Community members who submitted PRs for undo manager handling and deduplication strategies
+- Early testers of the Swift 6 migration
+
+---
+
+## Star History
+
+If you find this library useful, please consider giving it a star ⭐️
+
