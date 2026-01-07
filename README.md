@@ -527,22 +527,42 @@ let hookId = await kit.registerObserver(
 
 ## Testing
 
-V2 uses Swift Testing framework with comprehensive test coverage:
+**⚠️ Important: Tests Must Run Serially**
+
+Due to Core Data's singleton nature and shared persistent stores, **tests must run serially**, not in parallel. Running tests in parallel will cause race conditions and failures.
+
+### Recommended: Use the test script
 
 ```bash
-# Run all tests
-swift test
+# Run all tests serially (recommended)
+./test.sh
+```
 
-# Run specific test suite
+The test script ensures:
+
+- ✅ All tests run sequentially
+- ✅ Proper cleanup between test suites
+- ✅ Reliable results
+
+### Alternative: Manual testing (caution required)
+
+If you run tests manually, use filters with caution:
+
+```bash
+# ⚠️ Only use this for individual test suites
 swift test --filter HookRegistryActorTests
-swift test --filter IntegrationTests
+
+# ❌ AVOID: Running all tests may cause failures due to Core Data conflicts
+swift test  # May fail - use test.sh instead
 ```
 
 Test suites include:
+
 - Unit tests for all actors and components
 - Integration tests with real Core Data stack
 - Concurrency stress tests
 - Memory leak detection
+- Hook system tests (Observer and Merge Hooks)
 
 ---
 
@@ -572,8 +592,8 @@ This library is released under the MIT license. See [LICENSE](LICENSE) for detai
 **Fatbobman (肘子)**
 
 - Blog: [fatbobman.com](https://fatbobman.com)
+- Newsletter: [Swift Weekly](https://weekly.fatbobman.com)
 - Twitter: [@fatbobman](https://twitter.com/fatbobman)
-- WeChat: 肘子的Swift记事本
 
 ---
 
@@ -584,10 +604,3 @@ Thanks to the Swift and Core Data communities for their valuable feedback and co
 Special thanks to contributors who helped improve V2:
 - Community members who submitted PRs for undo manager handling and deduplication strategies
 - Early testers of the Swift 6 migration
-
----
-
-## Star History
-
-If you find this library useful, please consider giving it a star ⭐️
-
