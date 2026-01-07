@@ -464,7 +464,7 @@ MIT，详见 [LICENSE](LICENSE)。
 **Fatbobman (肘子)**
 
 - Blog: [fatbobman.com](https://fatbobman.com)
-- Newsletter: [Swift Weekly](https://weekly.fatbobman.com)
+- Newsletter: [Fatbobman's Swift Weekly](https://weekly.fatbobman.com)
 - Twitter: [@fatbobman](https://twitter.com/fatbobman)
 
 ---
@@ -472,3 +472,17 @@ MIT，详见 [LICENSE](LICENSE)。
 ## 致谢
 
 感谢 Swift 与 Core Data 社区对 V2 的反馈与贡献，特别感谢修复 undo manager、去重策略及 Swift 6 迁移的贡献者。
+
+---
+
+## 赞助
+
+如果你觉得这个库对你有帮助，欢迎支持我的工作：
+
+<a href="https://buymeacoffee.com/fatbobman" target="_blank">
+<img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" >
+</a>
+
+**[☕ 请我喝杯咖啡](https://buymeacoffee.com/fatbobman)**
+
+你的支持将帮助我继续维护和改进开源 Swift 库。谢谢！🙏

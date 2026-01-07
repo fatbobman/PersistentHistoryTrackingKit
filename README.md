@@ -8,7 +8,7 @@ A modern, production-ready library for handling Core Data's Persistent History T
 ![Swift](https://img.shields.io/badge/Swift-6.0-orange)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
-[中文版说明](https://github.com/fatbobman/PersistentHistoryTrackingKit/blob/main/READMECN.md)
+[English](https://github.com/fatbobman/PersistentHistoryTrackingKit/blob/main/README.md) | [中文版说明](https://github.com/fatbobman/PersistentHistoryTrackingKit/blob/main/READMECN.md)
 
 ---
 
@@ -654,7 +654,7 @@ This library is released under the MIT license. See [LICENSE](LICENSE) for detai
 **Fatbobman (肘子)**
 
 - Blog: [fatbobman.com](https://fatbobman.com)
-- Newsletter: [Swift Weekly](https://weekly.fatbobman.com)
+- Newsletter: [Fatbobman's Swift Weekly](https://weekly.fatbobman.com)
 - Twitter: [@fatbobman](https://twitter.com/fatbobman)
 
 ---
@@ -666,3 +666,17 @@ Thanks to the Swift and Core Data communities for their valuable feedback and co
 Special thanks to contributors who helped improve V2:
 - Community members who submitted PRs for undo manager handling and deduplication strategies
 - Early testers of the Swift 6 migration
+
+---
+
+## Sponsor
+
+If you find this library helpful, consider supporting my work:
+
+<a href="https://buymeacoffee.com/fatbobman" target="_blank">
+<img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" >
+</a>
+
+**[☕ Buy Me a Coffee](https://buymeacoffee.com/fatbobman)**
+
+Your support helps me continue maintaining and improving open-source Swift libraries. Thank you! 🙏
