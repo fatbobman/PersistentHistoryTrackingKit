@@ -137,13 +137,66 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
         stop()
     }
 
-    // MARK: - Public Methods
+    // MARK: - Public Methods - Observer Hooks
 
     /// Register an Observer Hook (notification/monitoring only, no data changes).
     /// - Parameters:
     ///   - entityName: Entity name.
     ///   - operation: Operation type.
     ///   - callback: Callback.
+    /// - Returns: UUID that can be used to remove this specific hook.
+    @discardableResult
+    public func registerObserver(
+        entityName: String,
+        operation: HookOperation,
+        callback: @escaping HookCallback) async -> UUID
+    {
+        let id = await hookRegistry.registerObserver(
+            entityName: entityName,
+            operation: operation,
+            callback: callback)
+        log(.info, level: 2, "Registered observer hook for \(entityName).\(operation.rawValue) (ID: \(id))")
+        return id
+    }
+
+    /// Remove a specific Observer Hook by its UUID.
+    /// - Parameter id: The UUID of the hook to remove.
+    /// - Returns: Whether the hook was successfully removed.
+    @discardableResult
+    public func removeObserver(id: UUID) async -> Bool {
+        let removed = await hookRegistry.removeObserver(id: id)
+        if removed {
+            log(.info, level: 2, "Removed observer hook (ID: \(id))")
+        } else {
+            log(.notice, level: 2, "Failed to remove observer hook (ID: \(id)) - not found")
+        }
+        return removed
+    }
+
+    /// Remove all Observer Hooks for a specific entity and operation.
+    /// - Parameters:
+    ///   - entityName: Entity name.
+    ///   - operation: Operation type.
+    public func removeObserver(entityName: String, operation: HookOperation) async {
+        await hookRegistry.removeObserver(entityName: entityName, operation: operation)
+        log(.info, level: 2, "Removed all observer hooks for \(entityName).\(operation.rawValue)")
+    }
+
+    /// Remove all registered Observer Hooks.
+    public func removeAllObservers() async {
+        await hookRegistry.removeAllObservers()
+        log(.info, level: 2, "Removed all observer hooks")
+    }
+
+    // MARK: - Deprecated Observer Hook API
+
+    /// Register an Observer Hook (notification/monitoring only, no data changes).
+    /// - Parameters:
+    ///   - entityName: Entity name.
+    ///   - operation: Operation type.
+    ///   - callback: Callback.
+    /// - Note: Deprecated. Use `registerObserver(entityName:operation:callback:) async -> UUID` instead.
+    @available(*, deprecated, message: "Use registerObserver(entityName:operation:callback:) async -> UUID instead")
     public func registerHook(
         entityName: String,
         operation: HookOperation,
@@ -151,11 +204,10 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
     {
         Task { @Sendable [weak self] in
             guard let self else { return }
-            await hookRegistry.registerObserver(
+            _ = await registerObserver(
                 entityName: entityName,
                 operation: operation,
                 callback: callback)
-            log(.info, level: 2, "Registered observer hook for \(entityName).\(operation.rawValue)")
         }
     }
 
@@ -163,14 +215,15 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
     /// - Parameters:
     ///   - entityName: Entity name.
     ///   - operation: Operation type.
+    /// - Note: Deprecated. Use `removeObserver(entityName:operation:) async` instead.
+    @available(*, deprecated, message: "Use removeObserver(entityName:operation:) async instead")
     public func removeHook(
         entityName: String,
         operation: HookOperation)
     {
         Task { @Sendable [weak self] in
             guard let self else { return }
-            await hookRegistry.removeObserver(entityName: entityName, operation: operation)
-            log(.info, level: 2, "Removed observer hook for \(entityName).\(operation.rawValue)")
+            await removeObserver(entityName: entityName, operation: operation)
         }
     }
 
