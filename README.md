@@ -16,7 +16,7 @@ A modern, production-ready library for handling Core Data's Persistent History T
 
 Version 2 is a **complete rewrite** with modern Swift concurrency:
 
-- ✅ **Full Swift 6 Compliance** - True `Sendable`, no `@unchecked Sendable` workarounds
+- ✅ **Full Swift 6 Compliance** - Concurrency-safe design tuned for Swift 6
 - ✅ **Actor-Based Architecture** - Thread-safe by design with `HookRegistryActor` and `TransactionProcessorActor`
 - ✅ **Zero Memory Leaks** - No retain cycles, properly managed lifecycle
 - ✅ **Data Race Free** - Comprehensive concurrency testing with Swift Testing
@@ -42,6 +42,42 @@ When you enable Persistent History Tracking, Core Data creates **transactions** 
 2. 🔄 Merging them into your app's context
 3. 🧹 Cleaning up old transactions
 4. 🎣 Triggering custom hooks for monitoring or custom merge logic
+
+**Want to learn more?**
+
+- 📖 **[Using Persistent History Tracking in CoreData](https://fatbobman.com/en/posts/persistenthistorytracking/)** - Comprehensive guide covering the fundamentals, concepts, and implementation patterns
+
+---
+
+## Version Availability
+
+### V2 (Current Branch)
+
+- **Minimum Requirements**: iOS 17+, macOS 14+, Swift 6.0+
+- **Features**: Actor-based architecture, Hook system, full Swift 6 concurrency
+- **Recommended for**: New projects targeting modern platforms
+
+### V1 (Stable)
+
+- **Minimum Requirements**: iOS 13+, macOS 10.15+, Swift 5.5+
+- **Features**: Proven stability, lower system requirements
+- **Recommended for**: Projects that need to support older platforms
+
+**Use V1 if:**
+
+- You need to support iOS 13-16 or macOS 10.15-13
+- You're not ready to migrate to Swift 6
+- You prefer the battle-tested V1 API
+
+📦 **Install V1**:
+
+```swift
+dependencies: [
+    .package(url: "https://github.com/fatbobman/PersistentHistoryTrackingKit.git", from: "1.0.0")
+]
+```
+
+Or use the `version-1` branch: [V1 Documentation](https://github.com/fatbobman/PersistentHistoryTrackingKit/tree/version-1)
 
 ---
 
@@ -576,7 +612,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 git clone https://github.com/fatbobman/PersistentHistoryTrackingKit.git
 cd PersistentHistoryTrackingKit
 swift build
-swift test
+./test.sh
 ```
 
 ---

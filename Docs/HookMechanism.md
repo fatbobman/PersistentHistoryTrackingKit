@@ -51,7 +51,7 @@ PersistentHistoryTrackingKit V2 provides a powerful Hook system for monitoring a
              ▼
   ┌──────────────────────┐
   │  2. Trigger          │  Notify all registered Observer Hooks
-  │     Observer Hooks   │  (read-only, parallel execution)
+  │     Observer Hooks   │  (read-only, sequential execution)
   └──────────┬───────────┘
              │
              ▼
@@ -471,14 +471,13 @@ await kit.registerMergeHook { input in
     for context in input.contexts {
         await context.perform {
             for transaction in input.transactions {
-                // Custom merge implementation
-                NSPersistentHistoryChange.fetchHistory(
-                    for: transaction,
-                    in: context
-                )
+                // Build a notification describing objectID changes
+                let notification = transaction.objectIDNotification()
 
-                // Apply your custom merge rules
-                // ...
+                // Apply your custom merge rules here
+                context.mergeChanges(fromContextDidSave: notification)
+
+                // ... additional custom logic ...
             }
 
             // Save changes
@@ -560,7 +559,7 @@ Transaction Detected
 │  └─────────┘    │     └─────────────┘
 │                  │
 │  ┌─────────┐    │     ┌─────────────┐
-│  │ Hook 2  │────┼────▶│  Callback 2 │  (May run in parallel)
+│  │ Hook 2  │────┼────▶│  Callback 2 │
 │  └─────────┘    │     └─────────────┘
 │                  │
 │  ┌─────────┐    │     ┌─────────────┐
@@ -803,8 +802,8 @@ let throttleHookId = await kit.registerObserver(entityName: "Message", operation
 
 1. **Observer Hook Overhead**
    - Minimal overhead per hook
-   - Runs in parallel with merge process
-   - Does not block transaction processing
+   - Runs sequentially in registration order
+   - Completes before merge processing begins
 
 2. **Merge Hook Overhead**
    - Executes serially before default merge
