@@ -251,6 +251,7 @@ actor TransactionProcessorActor {
     /// Groups changes by transaction, entity name, and operation type.
     /// - Parameter transactions: Transactions to inspect.
     private func triggerObserverHooks(for transactions: [NSPersistentHistoryTransaction]) async {
+        guard await hookRegistry.hasObservers else { return }
         for transaction in transactions {
             guard let changes = transaction.changes else { continue }
 

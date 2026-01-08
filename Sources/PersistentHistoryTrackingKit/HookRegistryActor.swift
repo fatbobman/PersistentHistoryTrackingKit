@@ -105,6 +105,11 @@ public actor HookRegistryActor: ObserverHookProtocol {
         }
     }
 
+    /// Whether any observer hooks are currently registered.
+    public var hasObservers: Bool {
+        !observerHooks.isEmpty
+    }
+
     // MARK: - Utility
 
     /// Remove all registered Observer Hooks
