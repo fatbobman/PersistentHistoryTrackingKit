@@ -248,27 +248,45 @@ actor TransactionProcessorActor {
     // MARK: - Observer Hook
 
     /// Trigger Observer Hooks for the given transactions (read-only notifications).
+    /// Groups changes by transaction, entity name, and operation type.
     /// - Parameter transactions: Transactions to inspect.
     private func triggerObserverHooks(for transactions: [NSPersistentHistoryTransaction]) async {
         for transaction in transactions {
             guard let changes = transaction.changes else { continue }
 
+            // Group changes by entity name and operation type within this transaction
+            var groupedChanges: [String: [HookContext]] = [:]
+            var orderedKeys: [String] = []
+
             for change in changes {
                 let entityName = change.changedObjectID.entity.name ?? "Unknown"
+                let operation = convertToHookOperation(change.changeType)
+                let key = "\(entityName).\(operation.rawValue)"
 
                 // Extract tombstone data (only delete operations provide tombstones).
                 let tombstone = extractTombstone(from: change, timestamp: transaction.timestamp)
 
                 let context = HookContext(
                     entityName: entityName,
-                    operation: convertToHookOperation(change.changeType),
+                    operation: operation,
                     objectID: change.changedObjectID,
                     objectIDURL: change.changedObjectID.uriRepresentation(),
                     tombstone: tombstone,
                     timestamp: transaction.timestamp,
                     author: transaction.author ?? "Unknown")
 
-                await hookRegistry.triggerObserver(context: context)
+                if groupedChanges[key] == nil {
+                    groupedChanges[key] = []
+                    orderedKeys.append(key)
+                }
+                groupedChanges[key]?.append(context)
+            }
+
+            // Trigger hooks for each group using the discovery order to preserve change ordering.
+            for key in orderedKeys {
+                if let contexts = groupedChanges[key] {
+                    await hookRegistry.triggerObserver(contexts: contexts)
+                }
             }
         }
     }

@@ -12,9 +12,10 @@ import Foundation
 /// Builds an NSManagedObjectModel entirely in code with two entities: Person and Item.
 enum TestModelBuilder {
     /// Shared NSManagedObjectModel instance (thread-safe lazy initialization).
-    /// - Note: Core Data expects a single model instance per schema; mixing instances can create concurrency issues.
+    /// - Note: Core Data expects a single model instance per schema; mixing instances can create
+    /// concurrency issues.
     /// NSManagedObjectModel is thread-safe, so we mark it `nonisolated(unsafe)`.
-    nonisolated(unsafe) private static let sharedModel: NSManagedObjectModel = {
+    private nonisolated(unsafe) static let sharedModel: NSManagedObjectModel = {
         let model = NSManagedObjectModel()
 
         // Build the Person entity (with tombstone-friendly properties).
@@ -84,7 +85,10 @@ enum TestModelBuilder {
     ///   - author: Transaction author
     ///   - testName: Test name used to build a unique store filename.
     /// - Returns: Configured container.
-    static func createContainer(author: String, testName: String = #function) -> NSPersistentContainer {
+    static func createContainer(
+        author: String,
+        testName: String = #function) -> NSPersistentContainer
+    {
         let model = createModel()
         let container = NSPersistentContainer(name: "TestModel", managedObjectModel: model)
 
@@ -105,7 +109,9 @@ enum TestModelBuilder {
 
         // Enable Persistent History Tracking.
         description.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
-        description.setOption(true as NSNumber, forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
+        description.setOption(
+            true as NSNumber,
+            forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
 
         container.persistentStoreDescriptions = [description]
 
@@ -131,12 +137,11 @@ enum TestModelBuilder {
     static func createPerson(
         name: String,
         age: Int32,
-        in context: NSManagedObjectContext
-    ) -> NSManagedObject {
+        in context: NSManagedObjectContext) -> NSManagedObject
+    {
         let person = NSEntityDescription.insertNewObject(
             forEntityName: "Person",
-            into: context
-        )
+            into: context)
         person.setValue(name, forKey: "name")
         person.setValue(age, forKey: "age")
         person.setValue(UUID(), forKey: "id")
@@ -147,12 +152,11 @@ enum TestModelBuilder {
     @discardableResult
     static func createItem(
         title: String,
-        in context: NSManagedObjectContext
-    ) -> NSManagedObject {
+        in context: NSManagedObjectContext) -> NSManagedObject
+    {
         let item = NSEntityDescription.insertNewObject(
             forEntityName: "Item",
-            into: context
-        )
+            into: context)
         item.setValue(title, forKey: "title")
         item.setValue(UUID(), forKey: "id")
         item.setValue(Date(), forKey: "timestamp")

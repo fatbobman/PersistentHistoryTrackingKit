@@ -40,8 +40,9 @@ PersistentHistoryTrackingKit V2 提供两类 Hook：
 - 由 `HookRegistryActor` 管理，线程安全
 - 每个 hook 返回 UUID，便于移除
 - 相同实体+操作的回调按注册顺序串行触发
-- 回调签名：`@Sendable (HookContext) async -> Void`
-- `HookContext` 包含实体名、操作类型、对象 ID、URL、tombstone、时间戳和 author
+- 回调签名：`@Sendable ([HookContext]) async -> Void`
+- `HookContext` 数组按「同一事务 + 实体名 + 操作」分组，每次触发提供该组内的全部上下文
+- 单个 `HookContext` 包含实体名、操作类型、对象 ID、URL、tombstone、时间戳和 author
 
 注册示例：
 
@@ -49,9 +50,14 @@ PersistentHistoryTrackingKit V2 提供两类 Hook：
 let hookId = await kit.registerObserver(
     entityName: "Person",
     operation: .insert
-) { context in
-    print("新建 Person: \(context.objectIDURL)")
+) { contexts in
+    for context in contexts {
+        print("新建 Person: \(context.objectIDURL)")
+    }
 }
+
+// 若在同一事务内新增 3 个 Person，对应 Hook 只触发一次，
+// contexts 数组长度为 3，可在一次回调中完成批处理。
 ```
 
 移除方式：
@@ -103,8 +109,10 @@ await kit.removeAllMergeHooks()
 ### 监控 Person 新增
 
 ```swift
-let observerId = await kit.registerObserver(entityName: "Person", operation: .insert) { context in
-    await NotificationService.send(title: "新增联系人", body: context.objectIDURL.absoluteString)
+let observerId = await kit.registerObserver(entityName: "Person", operation: .insert) { contexts in
+    for context in contexts {
+        await NotificationService.send(title: "新增联系人", body: context.objectIDURL.absoluteString)
+    }
 }
 ```
 
@@ -112,9 +120,11 @@ let observerId = await kit.registerObserver(entityName: "Person", operation: .in
 
 ```swift
 for entity in ["Person", "Item", "Order"] {
-    await kit.registerObserver(entityName: entity, operation: .delete) { context in
-        if let tombstone = context.tombstone {
-            print("删除 \(context.entityName): \(tombstone.attributes)")
+    await kit.registerObserver(entityName: entity, operation: .delete) { contexts in
+        for context in contexts {
+            if let tombstone = context.tombstone {
+                print("删除 \(context.entityName): \(tombstone.attributes)")
+            }
         }
     }
 }

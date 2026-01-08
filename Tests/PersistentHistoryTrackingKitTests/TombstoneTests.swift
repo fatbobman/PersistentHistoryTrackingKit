@@ -20,8 +20,7 @@ struct TombstoneTests {
         let hookRegistry = HookRegistryActor()
         let timestampManager = TransactionTimestampManager(
             userDefaults: TestModelBuilder.createTestUserDefaults(),
-            maximumDuration: 604800
-        )
+            maximumDuration: 604_800)
         let processor = TransactionProcessorActor(
             container: container,
             hookRegistry: hookRegistry,
@@ -49,8 +48,10 @@ struct TombstoneTests {
         let collector = TombstoneCollector()
 
         // Register delete Hook
-        await hookRegistry.registerObserver(entityName: "Person", operation: .delete) { context in
-            await collector.add(context.tombstone)
+        await hookRegistry.registerObserver(entityName: "Person", operation: .delete) { contexts in
+            for context in contexts {
+                await collector.add(context.tombstone)
+            }
         }
 
         // Create, save and delete data (in the same actor-isolated closure)
@@ -58,7 +59,10 @@ struct TombstoneTests {
         bgContext.transactionAuthor = "App1"
 
         try await bgContext.perform {
-            let person = TestModelBuilder.createPerson(name: "TombstoneTest", age: 99, in: bgContext)
+            let person = TestModelBuilder.createPerson(
+                name: "TombstoneTest",
+                age: 99,
+                in: bgContext)
             try bgContext.save()
 
             // Delete the newly created object
@@ -81,7 +85,8 @@ struct TombstoneTests {
         #expect(tombstones.count >= 1)
         #expect(deletedNames.contains("TombstoneTest"))
 
-        // Ensure the tombstone includes the `name` attribute (because preservesValueInHistoryOnDeletion is enabled).
+        // Ensure the tombstone includes the `name` attribute (because
+        // preservesValueInHistoryOnDeletion is enabled).
         if let tombstone = tombstones.first {
             #expect(tombstone.attributes["name"] == "TombstoneTest")
             #expect(tombstone.deletedDate != nil)
@@ -96,8 +101,7 @@ struct TombstoneTests {
         let hookRegistry = HookRegistryActor()
         let timestampManager = TransactionTimestampManager(
             userDefaults: TestModelBuilder.createTestUserDefaults(),
-            maximumDuration: 604800
-        )
+            maximumDuration: 604_800)
         let processor = TransactionProcessorActor(
             container: container,
             hookRegistry: hookRegistry,
@@ -116,8 +120,8 @@ struct TombstoneTests {
 
         let collector = AttributeCollector()
 
-        await hookRegistry.registerObserver(entityName: "Person", operation: .delete) { context in
-            if let tombstone = context.tombstone {
+        await hookRegistry.registerObserver(entityName: "Person", operation: .delete) { contexts in
+            if let context = contexts.first, let tombstone = context.tombstone {
                 await collector.set(tombstone.attributes)
             }
         }
@@ -129,7 +133,9 @@ struct TombstoneTests {
         let testUUID = UUID()
 
         try await bgContext.perform {
-            let person = NSEntityDescription.insertNewObject(forEntityName: "Person", into: bgContext)
+            let person = NSEntityDescription.insertNewObject(
+                forEntityName: "Person",
+                into: bgContext)
             person.setValue("PreservedName", forKey: "name")
             person.setValue(Int32(42), forKey: "age")
             person.setValue(testUUID, forKey: "id")
@@ -166,8 +172,7 @@ struct TombstoneTests {
         let hookRegistry = HookRegistryActor()
         let timestampManager = TransactionTimestampManager(
             userDefaults: TestModelBuilder.createTestUserDefaults(),
-            maximumDuration: 604800
-        )
+            maximumDuration: 604_800)
         let processor = TransactionProcessorActor(
             container: container,
             hookRegistry: hookRegistry,
@@ -186,12 +191,16 @@ struct TombstoneTests {
 
         let tracker = TombstoneTracker()
 
-        await hookRegistry.registerObserver(entityName: "Person", operation: .insert) { context in
-            await tracker.setInsert(context.tombstone)
+        await hookRegistry.registerObserver(entityName: "Person", operation: .insert) { contexts in
+            if let context = contexts.first {
+                await tracker.setInsert(context.tombstone)
+            }
         }
 
-        await hookRegistry.registerObserver(entityName: "Person", operation: .update) { context in
-            await tracker.setUpdate(context.tombstone)
+        await hookRegistry.registerObserver(entityName: "Person", operation: .update) { contexts in
+            if let context = contexts.first {
+                await tracker.setUpdate(context.tombstone)
+            }
         }
 
         // Create and update data (in the same actor-isolated closure)

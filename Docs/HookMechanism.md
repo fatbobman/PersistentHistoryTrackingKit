@@ -113,7 +113,7 @@ Observer Hooks are designed for **monitoring and notification purposes only**. T
 - **Multiple Callbacks Supported**: You can register multiple Observer Hooks for the same entity + operation combination
 - **Sequential Execution**: Multiple hooks for the same entity/operation execute sequentially in registration order
 - **Read-Only**: Should not modify Core Data objects
-- **Sendable Context**: Receives `HookContext` with Sendable types only
+- **Sendable Context**: Receives `[HookContext]` (grouped by transaction + entity + operation). Each element contains only Sendable types.
 
 #### Registration:
 
@@ -125,18 +125,20 @@ let kit = PersistentHistoryTrackingKit(...)
 let hookId1 = await kit.registerObserver(
     entityName: "Person",
     operation: .insert
-) { context in
-    // context.entityName: "Person"
-    // context.operation: .insert
-    // context.objectIDURL: URL representation of the object
-    // context.timestamp: Transaction timestamp
-    // context.author: Transaction author
-    // context.tombstone: Tombstone data (for .delete only)
+) { contexts in
+    for context in contexts {
+        // context.entityName: "Person"
+        // context.operation: .insert
+        // context.objectIDURL: URL representation of the object
+        // context.timestamp: Transaction timestamp
+        // context.author: Transaction author
+        // context.tombstone: Tombstone data (for .delete only)
 
-    print("Person inserted: \(context.objectIDURL)")
+        print("Person inserted: \(context.objectIDURL)")
 
-    // ✅ DO: Logging, notifications, analytics
-    // ❌ DON'T: Modify Core Data objects
+        // ✅ DO: Logging, notifications, analytics
+        // ❌ DON'T: Modify Core Data objects
+    }
 }
 
 // Register second Observer Hook for the same entity + operation
@@ -144,24 +146,34 @@ let hookId1 = await kit.registerObserver(
 let hookId2 = await kit.registerObserver(
     entityName: "Person",
     operation: .insert
-) { context in
-    // Send analytics
-    await Analytics.track(event: "person_created")
+) { contexts in
+    for context in contexts {
+        // Send analytics
+        await Analytics.track(event: "person_created")
+    }
 }
 
 // Register third Observer Hook for the same entity + operation
 let hookId3 = await kit.registerObserver(
     entityName: "Person",
     operation: .insert
-) { context in
-    // Send push notification
-    await NotificationService.send(title: "New Person")
+) { contexts in
+    for context in contexts {
+        // Send push notification
+        await NotificationService.send(title: "New Person")
+    }
 }
 
-// When a Person is inserted, all three callbacks will execute in registration order:
+// When a Person is inserted, all three callbacks will execute in registration order
+// (once per entity+operation group within that transaction):
 // 1. Print log (hookId1)
 // 2. Track analytics (hookId2)
 // 3. Send notification (hookId3)
+
+> ℹ️ **Context batching**: A single callback receives an array of `HookContext` objects
+> representing every change for the same transaction + entity + operation. If a transaction
+> inserts 5 `Person` objects, your hook runs **once** with an array of 5 contexts (rather than
+> 5 separate invocations).
 ```
 
 #### HookContext Structure:
@@ -456,18 +468,20 @@ await kit.removeAllMergeHooks()
 let observerHookId = await kit.registerObserver(
     entityName: "Person",
     operation: .insert
-) { context in
-    // Send analytics event
-    Analytics.track(event: "person_created", properties: [
-        "timestamp": context.timestamp,
-        "author": context.author
-    ])
+) { contexts in
+    for context in contexts {
+        // Send analytics event
+        Analytics.track(event: "person_created", properties: [
+            "timestamp": context.timestamp,
+            "author": context.author
+        ])
 
-    // Send push notification
-    await NotificationService.send(
-        title: "New Person Created",
-        body: "A new person was added to the database"
-    )
+        // Send push notification
+        await NotificationService.send(
+            title: "New Person Created",
+            body: "A new person was added to the database"
+        )
+    }
 }
 ```
 
@@ -480,23 +494,25 @@ for entityName in ["Person", "Item", "Order"] {
     let hookId = await kit.registerObserver(
         entityName: entityName,
         operation: .delete
-    ) { context in
-        // Access tombstone data for deleted objects
-        if let tombstone = context.tombstone {
-            print("Deleted \(context.entityName): \(tombstone.attributes)")
-            print("Deleted at: \(tombstone.deletedDate ?? Date())")
-        }
+    ) { contexts in
+        for context in contexts {
+            // Access tombstone data for deleted objects
+            if let tombstone = context.tombstone {
+                print("Deleted \(context.entityName): \(tombstone.attributes)")
+                print("Deleted at: \(tombstone.deletedDate ?? Date())")
+            }
 
-        // Log to external service
-        await Logger.log(
-            level: .info,
-            message: "Entity deleted",
-            metadata: [
-                "entity": context.entityName,
-                "objectID": context.objectIDURL.absoluteString,
-                "author": context.author
-            ]
-        )
+            // Log to external service
+            await Logger.log(
+                level: .info,
+                message: "Entity deleted",
+                metadata: [
+                    "entity": context.entityName,
+                    "objectID": context.objectIDURL.absoluteString,
+                    "author": context.author
+                ]
+            )
+        }
     }
     deleteHookIds.append(hookId)
 }
@@ -724,9 +740,11 @@ Transaction Detected
 1. **DON'T Modify Data in Observer Hooks**
    ```swift
    // ❌ Wrong
-   await kit.registerObserver(entityName: "Person", operation: .insert) { context in
-       // This won't work - context only has URL, not the object
-       // Use Merge Hooks instead
+   await kit.registerObserver(entityName: "Person", operation: .insert) { contexts in
+       for context in contexts {
+           // This won't work - context only has URL, not the object
+           // Use Merge Hooks instead
+       }
    }
    ```
 
@@ -773,15 +791,17 @@ for operation in [HookOperation.insert, .update, .delete] {
     let hookId = await kit.registerObserver(
         entityName: "SensitiveData",
         operation: operation
-    ) { context in
-        await AuditLog.record(
-            entityName: context.entityName,
-            operation: context.operation.rawValue,
-            objectID: context.objectIDURL.absoluteString,
-            timestamp: context.timestamp,
-            author: context.author,
-            tombstone: context.tombstone
-        )
+    ) { contexts in
+        for context in contexts {
+            await AuditLog.record(
+                entityName: context.entityName,
+                operation: context.operation.rawValue,
+                objectID: context.objectIDURL.absoluteString,
+                timestamp: context.timestamp,
+                author: context.author,
+                tombstone: context.tombstone
+            )
+        }
     }
     auditHookIds.append(hookId)
 }
@@ -791,8 +811,10 @@ for operation in [HookOperation.insert, .update, .delete] {
 
 ```swift
 // Invalidate cache when data changes
-let cacheHookId = await kit.registerObserver(entityName: "Product", operation: .update) { context in
-    await CacheManager.invalidate(key: "product_\(context.objectIDURL.absoluteString)")
+let cacheHookId = await kit.registerObserver(entityName: "Product", operation: .update) { contexts in
+    for context in contexts {
+        await CacheManager.invalidate(key: "product_\(context.objectIDURL.absoluteString)")
+    }
 }
 ```
 
@@ -852,9 +874,9 @@ actor NotificationThrottle {
 
 let throttle = NotificationThrottle()
 
-let throttleHookId = await kit.registerObserver(entityName: "Message", operation: .insert) { context in
+let throttleHookId = await kit.registerObserver(entityName: "Message", operation: .insert) { contexts in
     if await throttle.shouldNotify() {
-        await NotificationService.send(title: "New Messages", body: "You have new messages")
+        await NotificationService.send(title: "New Messages", body: "You have new messages (\(contexts.count))")
     }
 }
 ```
@@ -1129,25 +1151,26 @@ func testObserverHook() async throws {
     let kit = PersistentHistoryTrackingKit(...)
 
     actor CallbackTracker {
-        var receivedContext: HookContext?
-        func record(_ context: HookContext) {
-            receivedContext = context
+        var receivedContexts: [HookContext] = []
+        func record(_ contexts: [HookContext]) {
+            receivedContexts = contexts
         }
-        func get() -> HookContext? { receivedContext }
+        func get() -> [HookContext] { receivedContexts }
     }
 
     let tracker = CallbackTracker()
 
-    let hookId = await kit.registerObserver(entityName: "Person", operation: .insert) { context in
-        await tracker.record(context)
+    let hookId = await kit.registerObserver(entityName: "Person", operation: .insert) { contexts in
+        await tracker.record(contexts)
     }
 
     // Perform insert operation
     // ...
 
-    let context = await tracker.get()
-    #expect(context?.entityName == "Person")
-    #expect(context?.operation == .insert)
+    let contexts = await tracker.get()
+    #expect(contexts.count > 0)
+    #expect(contexts.first?.entityName == "Person")
+    #expect(contexts.first?.operation == .insert)
 }
 ```
 
@@ -1201,8 +1224,11 @@ kit.registerHook { transaction, contexts in
 // V2: Separate Observer and Merge Hooks
 
 // For monitoring (replaces V1 read-only hooks)
-let observerId = await kit.registerObserver(entityName: "Person", operation: .insert) { context in
-    // Monitor only
+let observerId = await kit.registerObserver(entityName: "Person", operation: .insert) { contexts in
+    // Monitor only (array may contain multiple contexts)
+    for context in contexts {
+        // ...
+    }
 }
 
 // For custom merge (replaces V1 merge hooks)

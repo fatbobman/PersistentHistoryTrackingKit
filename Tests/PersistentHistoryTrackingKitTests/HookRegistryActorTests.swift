@@ -6,12 +6,11 @@
 //
 
 import CoreData
-import Testing
 @testable import PersistentHistoryTrackingKit
+import Testing
 
 @Suite("HookRegistryActor Tests", .serialized)
 struct HookRegistryActorTests {
-
     @Test("Register and trigger hook")
     func registerAndTriggerHook() async throws {
         let registry = HookRegistryActor()
@@ -24,14 +23,18 @@ struct HookRegistryActorTests {
 
         let tracker = Tracker()
 
-        let callback: HookCallback = { context in
+        let callback: HookCallback = { contexts in
+            guard let context = contexts.first else { return }
             await tracker.setTriggered()
             #expect(context.entityName == "Person")
             #expect(context.operation == .insert)
         }
 
         // Register the hook.
-        await registry.registerObserver(entityName: "Person", operation: .insert, callback: callback)
+        await registry.registerObserver(
+            entityName: "Person",
+            operation: .insert,
+            callback: callback)
 
         // Create a test context.
         let context = HookContext(
@@ -41,11 +44,10 @@ struct HookRegistryActorTests {
             objectIDURL: URL(string: "x-coredata://test")!,
             tombstone: nil,
             timestamp: Date(),
-            author: "TestAuthor"
-        )
+            author: "TestAuthor")
 
         // Trigger the hook.
-        await registry.triggerObserver(context: context)
+        await registry.triggerObserver(contexts: [context])
 
         #expect(await tracker.isTriggered() == true)
     }
@@ -67,7 +69,10 @@ struct HookRegistryActorTests {
         }
 
         // Register the hook.
-        await registry.registerObserver(entityName: "Person", operation: .insert, callback: callback)
+        await registry.registerObserver(
+            entityName: "Person",
+            operation: .insert,
+            callback: callback)
 
         // Remove the hook.
         await registry.removeObserver(entityName: "Person", operation: .insert)
@@ -80,11 +85,10 @@ struct HookRegistryActorTests {
             objectIDURL: URL(string: "x-coredata://test")!,
             tombstone: nil,
             timestamp: Date(),
-            author: "TestAuthor"
-        )
+            author: "TestAuthor")
 
         // Triggering should now be a no-op.
-        await registry.triggerObserver(context: context)
+        await registry.triggerObserver(contexts: [context])
 
         #expect(await tracker.isTriggered() == false)
     }
@@ -106,7 +110,10 @@ struct HookRegistryActorTests {
             let callback: HookCallback = { _ in
                 await counter.increment()
             }
-            await registry.registerObserver(entityName: "Person", operation: operation, callback: callback)
+            await registry.registerObserver(
+                entityName: "Person",
+                operation: operation,
+                callback: callback)
         }
 
         // Trigger each hook concurrently.
@@ -120,9 +127,8 @@ struct HookRegistryActorTests {
                         objectIDURL: URL(string: "x-coredata://test")!,
                         tombstone: nil,
                         timestamp: Date(),
-                        author: "TestAuthor"
-                    )
-                    await registry.triggerObserver(context: context)
+                        author: "TestAuthor")
+                    await registry.triggerObserver(contexts: [context])
                 }
             }
         }
@@ -153,8 +159,14 @@ struct HookRegistryActorTests {
         }
 
         // Register hooks for different entities.
-        _ = await registry.registerObserver(entityName: "Person", operation: .insert, callback: personCallback)
-        _ = await registry.registerObserver(entityName: "Item", operation: .insert, callback: itemCallback)
+        _ = await registry.registerObserver(
+            entityName: "Person",
+            operation: .insert,
+            callback: personCallback)
+        _ = await registry.registerObserver(
+            entityName: "Item",
+            operation: .insert,
+            callback: itemCallback)
 
         // Trigger the Person hook.
         let personContext = HookContext(
@@ -164,9 +176,8 @@ struct HookRegistryActorTests {
             objectIDURL: URL(string: "x-coredata://test")!,
             tombstone: nil,
             timestamp: Date(),
-            author: "TestAuthor"
-        )
-        await registry.triggerObserver(context: personContext)
+            author: "TestAuthor")
+        await registry.triggerObserver(contexts: [personContext])
 
         let state = await tracker.getState()
         #expect(state.person == true)
@@ -184,8 +195,7 @@ struct HookRegistryActorTests {
         let hookId = await registry.registerObserver(
             entityName: "Person",
             operation: .insert,
-            callback: callback
-        )
+            callback: callback)
 
         #expect(hookId != UUID()) // Should be a valid UUID
     }
@@ -210,8 +220,7 @@ struct HookRegistryActorTests {
         let hookId = await registry.registerObserver(
             entityName: "Person",
             operation: .insert,
-            callback: callback
-        )
+            callback: callback)
 
         // Remove by UUID
         let removed = await registry.removeObserver(id: hookId)
@@ -225,9 +234,8 @@ struct HookRegistryActorTests {
             objectIDURL: URL(string: "x-coredata://test")!,
             tombstone: nil,
             timestamp: Date(),
-            author: "TestAuthor"
-        )
-        await registry.triggerObserver(context: context)
+            author: "TestAuthor")
+        await registry.triggerObserver(contexts: [context])
 
         #expect(await tracker.isTriggered() == false)
     }
@@ -257,22 +265,22 @@ struct HookRegistryActorTests {
         // Register 3 hooks for the same entity + operation
         let hookId1 = await registry.registerObserver(
             entityName: "Person",
-            operation: .insert
-        ) { _ in
+            operation: .insert)
+        { _ in
             await counter.increment()
         }
 
         let hookId2 = await registry.registerObserver(
             entityName: "Person",
-            operation: .insert
-        ) { _ in
+            operation: .insert)
+        { _ in
             await counter.increment()
         }
 
         let hookId3 = await registry.registerObserver(
             entityName: "Person",
-            operation: .insert
-        ) { _ in
+            operation: .insert)
+        { _ in
             await counter.increment()
         }
 
@@ -288,9 +296,8 @@ struct HookRegistryActorTests {
             objectIDURL: URL(string: "x-coredata://test")!,
             tombstone: nil,
             timestamp: Date(),
-            author: "TestAuthor"
-        )
-        await registry.triggerObserver(context: context)
+            author: "TestAuthor")
+        await registry.triggerObserver(contexts: [context])
 
         let finalCount = await counter.get()
         #expect(finalCount == 2)
@@ -318,24 +325,20 @@ struct HookRegistryActorTests {
         // Register 3 hooks for Person.insert
         _ = await registry.registerObserver(
             entityName: "Person",
-            operation: .insert
-        ) { _ in await counter.increment() }
+            operation: .insert) { _ in await counter.increment() }
 
         _ = await registry.registerObserver(
             entityName: "Person",
-            operation: .insert
-        ) { _ in await counter.increment() }
+            operation: .insert) { _ in await counter.increment() }
 
         _ = await registry.registerObserver(
             entityName: "Person",
-            operation: .insert
-        ) { _ in await counter.increment() }
+            operation: .insert) { _ in await counter.increment() }
 
         // Register 1 hook for Person.update (should not be affected)
         _ = await registry.registerObserver(
             entityName: "Person",
-            operation: .update
-        ) { _ in await counter.increment() }
+            operation: .update) { _ in await counter.increment() }
 
         // Remove all Person.insert hooks
         await registry.removeObserver(entityName: "Person", operation: .insert)
@@ -348,9 +351,8 @@ struct HookRegistryActorTests {
             objectIDURL: URL(string: "x-coredata://test")!,
             tombstone: nil,
             timestamp: Date(),
-            author: "TestAuthor"
-        )
-        await registry.triggerObserver(context: insertContext)
+            author: "TestAuthor")
+        await registry.triggerObserver(contexts: [insertContext])
 
         #expect(await counter.get() == 0)
 
@@ -362,9 +364,8 @@ struct HookRegistryActorTests {
             objectIDURL: URL(string: "x-coredata://test")!,
             tombstone: nil,
             timestamp: Date(),
-            author: "TestAuthor"
-        )
-        await registry.triggerObserver(context: updateContext)
+            author: "TestAuthor")
+        await registry.triggerObserver(contexts: [updateContext])
 
         #expect(await counter.get() == 1)
     }
@@ -384,22 +385,22 @@ struct HookRegistryActorTests {
         // Register 3 hooks in specific order
         _ = await registry.registerObserver(
             entityName: "Person",
-            operation: .insert
-        ) { _ in
+            operation: .insert)
+        { _ in
             await tracker.append(1)
         }
 
         _ = await registry.registerObserver(
             entityName: "Person",
-            operation: .insert
-        ) { _ in
+            operation: .insert)
+        { _ in
             await tracker.append(2)
         }
 
         _ = await registry.registerObserver(
             entityName: "Person",
-            operation: .insert
-        ) { _ in
+            operation: .insert)
+        { _ in
             await tracker.append(3)
         }
 
@@ -411,9 +412,8 @@ struct HookRegistryActorTests {
             objectIDURL: URL(string: "x-coredata://test")!,
             tombstone: nil,
             timestamp: Date(),
-            author: "TestAuthor"
-        )
-        await registry.triggerObserver(context: context)
+            author: "TestAuthor")
+        await registry.triggerObserver(contexts: [context])
 
         let executionOrder = await tracker.get()
         #expect(executionOrder == [1, 2, 3])
@@ -434,24 +434,25 @@ struct HookRegistryActorTests {
         // Register hooks for multiple entities and operations
         let id1 = await registry.registerObserver(
             entityName: "Person",
-            operation: .insert
-        ) { _ in await counter.increment() }
+            operation: .insert) { _ in await counter.increment() }
 
         let id2 = await registry.registerObserver(
             entityName: "Person",
-            operation: .update
-        ) { _ in await counter.increment() }
+            operation: .update) { _ in await counter.increment() }
 
         let id3 = await registry.registerObserver(
             entityName: "Item",
-            operation: .insert
-        ) { _ in await counter.increment() }
+            operation: .insert) { _ in await counter.increment() }
 
         // Remove all
         await registry.removeAllObservers()
 
         // Trigger all - none should execute
-        for (entity, operation) in [("Person", HookOperation.insert), ("Person", .update), ("Item", .insert)] {
+        for (entity, operation) in [
+            ("Person", HookOperation.insert),
+            ("Person", .update),
+            ("Item", .insert),
+        ] {
             let context = HookContext(
                 entityName: entity,
                 operation: operation,
@@ -459,9 +460,8 @@ struct HookRegistryActorTests {
                 objectIDURL: URL(string: "x-coredata://test")!,
                 tombstone: nil,
                 timestamp: Date(),
-                author: "TestAuthor"
-            )
-            await registry.triggerObserver(context: context)
+                author: "TestAuthor")
+            await registry.triggerObserver(contexts: [context])
         }
 
         #expect(await counter.get() == 0)

@@ -6,12 +6,11 @@
 //
 
 import CoreData
-import Testing
 @testable import PersistentHistoryTrackingKit
+import Testing
 
 @Suite("ManualCleanerActor Tests", .serialized)
 struct ManualCleanerActorTests {
-
     @Test("Run cleanup - happy path")
     func cleanNormalFlow() async throws {
         let container = TestModelBuilder.createContainer(author: "App1")
@@ -33,8 +32,7 @@ struct ManualCleanerActorTests {
             userDefaults: userDefaults,
             uniqueString: uniqueString,
             logger: DefaultLogger(),
-            logLevel: 2
-        )
+            logLevel: 2)
 
         // Execute cleanup (should not crash).
         await cleaner.clean()
@@ -54,7 +52,7 @@ struct ManualCleanerActorTests {
         let uniqueString = "TestKit.lastToken."
 
         let date1 = Date(timeIntervalSinceNow: -100) // 100 seconds ago
-        let date2 = Date(timeIntervalSinceNow: -50)  // 50 seconds ago
+        let date2 = Date(timeIntervalSinceNow: -50) // 50 seconds ago
         let date3 = Date(timeIntervalSinceNow: -200) // 200 seconds ago (smallest)
 
         userDefaults.set(date1, forKey: uniqueString + "App1")
@@ -68,8 +66,7 @@ struct ManualCleanerActorTests {
             userDefaults: userDefaults,
             uniqueString: uniqueString,
             logger: DefaultLogger(),
-            logLevel: 0
-        )
+            logLevel: 0)
 
         // Run cleanup (which should use the minimum timestamp).
         await cleaner.clean()
@@ -92,8 +89,7 @@ struct ManualCleanerActorTests {
             userDefaults: userDefaults,
             uniqueString: uniqueString,
             logger: DefaultLogger(),
-            logLevel: 0
-        )
+            logLevel: 0)
 
         // Run cleanup (should be skipped gracefully).
         await cleaner.clean()
@@ -131,8 +127,7 @@ struct ManualCleanerActorTests {
             userDefaults: userDefaults,
             uniqueString: uniqueString,
             logger: DefaultLogger(),
-            logLevel: 0
-        )
+            logLevel: 0)
 
         // Perform cleanup.
         await cleaner.clean()

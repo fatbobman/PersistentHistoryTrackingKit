@@ -91,13 +91,16 @@ public actor HookRegistryActor: ObserverHookProtocol {
         observerHooks.removeValue(forKey: key)
     }
 
-    /// Trigger Observer Hooks with the given context
-    /// - Parameter context: The hook context containing transaction information
-    public func triggerObserver(context: HookContext) async {
-        let key = makeKey(entityName: context.entityName, operation: context.operation)
+    /// Trigger Observer Hooks with the given contexts (grouped by transaction, entity, and
+    /// operation)
+    /// - Parameter contexts: Array of hook contexts sharing the same transaction, entity name, and
+    /// operation
+    public func triggerObserver(contexts: [HookContext]) async {
+        guard let firstContext = contexts.first else { return }
+        let key = makeKey(entityName: firstContext.entityName, operation: firstContext.operation)
         if let items = observerHooks[key] {
             for item in items {
-                await item.callback(context)
+                await item.callback(contexts)
             }
         }
     }

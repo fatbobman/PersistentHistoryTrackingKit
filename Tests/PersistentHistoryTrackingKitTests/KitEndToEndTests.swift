@@ -6,13 +6,12 @@
 //
 
 import CoreData
-import Testing
 @testable import PersistentHistoryTrackingKit
+import Testing
 
 /// V2 kit end-to-end scenarios that simulate real usage.
 @Suite("Kit End-to-End Tests", .serialized)
 struct KitEndToEndTests {
-
     @Test("Kit auto sync - start/stop")
     func kitAutoSyncStartStop() async throws {
         // Create shared container
@@ -35,7 +34,7 @@ struct KitEndToEndTests {
             userDefaults: userDefaults,
             uniqueString: uniqueString,
             logLevel: 0,
-            autoStart: false  // manual control
+            autoStart: false, // manual control
         )
 
         // App1 creates data
@@ -77,8 +76,7 @@ struct KitEndToEndTests {
             cleanStrategy: .none,
             uniqueString: uniqueString,
             logLevel: 0,
-            autoStart: false
-        )
+            autoStart: false)
 
         // Create manual cleaner
         let cleaner = kit.cleanerBuilder()
@@ -92,8 +90,7 @@ struct KitEndToEndTests {
             from: ["App1", "App2"],
             after: nil,
             mergeInto: [context2],
-            currentAuthor: "App2"
-        )
+            currentAuthor: "App2")
 
         // Verify data synced
         try await context2.perform {
@@ -131,8 +128,7 @@ struct KitEndToEndTests {
             userDefaults: userDefaults,
             uniqueString: uniqueString,
             logLevel: 0,
-            autoStart: false
-        )
+            autoStart: false)
 
         // App1 creates data
         TestModelBuilder.createPerson(name: "Eve", age: 28, in: context1)
@@ -143,8 +139,7 @@ struct KitEndToEndTests {
             from: ["App1", "App2", "App3"],
             after: nil,
             mergeInto: [context2, context3],
-            currentAuthor: "App3"
-        )
+            currentAuthor: "App3")
 
         // Ensure context2 and context3 both receive the data.
         try await context2.perform {
@@ -188,8 +183,7 @@ struct KitEndToEndTests {
             userDefaults: userDefaults,
             uniqueString: uniqueString,
             logLevel: 0,
-            autoStart: false
-        )
+            autoStart: false)
 
         // Track if the hook was triggered (using a Sendable actor).
         actor HookTracker {
@@ -198,7 +192,7 @@ struct KitEndToEndTests {
             var operation: HookOperation?
 
             func setTriggered(entityName: String, operation: HookOperation) {
-                self.triggered = true
+                triggered = true
                 self.entityName = entityName
                 self.operation = operation
             }
@@ -207,7 +201,8 @@ struct KitEndToEndTests {
         let tracker = HookTracker()
 
         // Register Observer Hook
-        await kit.registerObserver(entityName: "Person", operation: .insert) { context in
+        await kit.registerObserver(entityName: "Person", operation: .insert) { contexts in
+            guard let context = contexts.first else { return }
             await tracker.setTriggered(entityName: context.entityName, operation: context.operation)
         }
 
@@ -220,8 +215,7 @@ struct KitEndToEndTests {
             from: ["App1", "App2"],
             after: nil,
             mergeInto: [context2],
-            currentAuthor: "App2"
-        )
+            currentAuthor: "App2")
 
         // Wait for the hook to fire.
         try await Task.sleep(nanoseconds: 100_000_000)
@@ -256,8 +250,7 @@ struct KitEndToEndTests {
             userDefaults: userDefaults,
             uniqueString: uniqueString,
             logLevel: 0,
-            autoStart: false
-        )
+            autoStart: false)
 
         // Track if the merge hook was called (Sendable actor).
         actor MergeHookTracker {
@@ -266,7 +259,7 @@ struct KitEndToEndTests {
             var contextCount = 0
 
             func markCalled(transactionCount: Int, contextCount: Int) {
-                self.called = true
+                called = true
                 self.transactionCount = transactionCount
                 self.contextCount = contextCount
             }
@@ -278,8 +271,7 @@ struct KitEndToEndTests {
         await kit.registerMergeHook { input in
             await tracker.markCalled(
                 transactionCount: input.transactions.count,
-                contextCount: input.contexts.count
-            )
+                contextCount: input.contexts.count)
             return .goOn
         }
 
@@ -292,11 +284,13 @@ struct KitEndToEndTests {
             from: ["App1", "App2"],
             after: nil,
             mergeInto: [context2],
-            currentAuthor: "App2"
-        )
+            currentAuthor: "App2")
 
         // Verify that the merge hook ran.
-        let (called, transactionCount, contextCount) = await (tracker.called, tracker.transactionCount, tracker.contextCount)
+        let (called, transactionCount, contextCount) = await (
+            tracker.called,
+            tracker.transactionCount,
+            tracker.contextCount)
         #expect(called == true)
         #expect(transactionCount >= 1)
         #expect(contextCount == 1)
@@ -326,8 +320,7 @@ struct KitEndToEndTests {
             cleanStrategy: .none,
             uniqueString: uniqueString1,
             logLevel: 0,
-            autoStart: false
-        )
+            autoStart: false)
 
         // App2 creates a kit.
         let uniqueString2 = "TestKit.TwoApp2.\(UUID().uuidString)."
@@ -341,8 +334,7 @@ struct KitEndToEndTests {
             cleanStrategy: .none,
             uniqueString: uniqueString2,
             logLevel: 0,
-            autoStart: false
-        )
+            autoStart: false)
 
         // App3 writes data.
         let context3 = container.newBackgroundContext()
@@ -357,16 +349,14 @@ struct KitEndToEndTests {
             after: nil as Date?,
             mergeInto: [context1],
             currentAuthor: "App1",
-            cleanBeforeTimestamp: nil as Date?
-        )
+            cleanBeforeTimestamp: nil as Date?)
 
         try await kit2.transactionProcessor.processNewTransactions(
             from: ["App1", "App2", "App3"],
             after: nil as Date?,
             mergeInto: [context2],
             currentAuthor: "App2",
-            cleanBeforeTimestamp: nil as Date?
-        )
+            cleanBeforeTimestamp: nil as Date?)
 
         // Ensure App1 and App2 each have the data.
         try await context1.perform {

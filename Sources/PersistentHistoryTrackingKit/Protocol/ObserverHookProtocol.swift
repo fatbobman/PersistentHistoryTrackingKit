@@ -17,6 +17,6 @@ public protocol ObserverHookProtocol: Actor {
     @discardableResult
     func removeObserver(id: UUID) -> Bool
     func removeObserver(entityName: String, operation: HookOperation)
-    func triggerObserver(context: HookContext) async
+    func triggerObserver(contexts: [HookContext]) async
     func removeAllObservers()
 }

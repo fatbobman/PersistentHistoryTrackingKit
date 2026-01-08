@@ -61,8 +61,8 @@ public struct HookContext: Sendable {
         objectIDURL: URL,
         tombstone: Tombstone?,
         timestamp: Date,
-        author: String
-    ) {
+        author: String)
+    {
         self.entityName = entityName
         self.operation = operation
         self.objectID = objectID
@@ -98,7 +98,9 @@ public enum HookOperation: String, Sendable {
 // MARK: - Hook Callback
 
 /// Observer Hook callback function type (for notification/monitoring, does not modify data)
-public typealias HookCallback = @Sendable (HookContext) async -> Void
+/// - Note: Receives an array of contexts grouped by transaction, entity, and operation.
+///         All contexts in the array share the same transaction, entity name, and operation type.
+public typealias HookCallback = @Sendable ([HookContext]) async -> Void
 
 // MARK: - Merge Hook
 
@@ -117,7 +119,10 @@ public struct MergeHookInput: @unchecked Sendable {
     public let transactions: [NSPersistentHistoryTransaction]
     public let contexts: [NSManagedObjectContext]
 
-    public init(transactions: [NSPersistentHistoryTransaction], contexts: [NSManagedObjectContext]) {
+    public init(
+        transactions: [NSPersistentHistoryTransaction],
+        contexts: [NSManagedObjectContext])
+    {
         self.transactions = transactions
         self.contexts = contexts
     }
@@ -125,9 +130,11 @@ public struct MergeHookInput: @unchecked Sendable {
 
 /// Merge Hook callback function type (for custom merge logic, may modify data)
 ///
-/// - Note: This callback executes within TransactionProcessorActor, and the pipeline runs serially in registration order.
+/// - Note: This callback executes within TransactionProcessorActor, and the pipeline runs serially
+/// in registration order.
 ///
-/// - Warning: If performing async operations in the hook, **you must use `await` to wait for completion**,
+/// - Warning: If performing async operations in the hook, **you must use `await` to wait for
+/// completion**,
 ///            otherwise pipeline order cannot be guaranteed.
 ///
 /// ## ✅ Correct Usage

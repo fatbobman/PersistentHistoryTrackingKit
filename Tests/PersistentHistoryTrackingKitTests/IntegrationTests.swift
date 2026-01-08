@@ -97,15 +97,15 @@ struct IntegrationTests {
 
         let tracker = HookTracker()
 
-        await kit.registerObserver(entityName: "Person", operation: .insert) { _ in
+        await kit.registerObserver(entityName: "Person", operation: .insert) { contexts in
             await tracker.recordInsert()
         }
 
-        await kit.registerObserver(entityName: "Person", operation: .update) { _ in
+        await kit.registerObserver(entityName: "Person", operation: .update) { contexts in
             await tracker.recordUpdate()
         }
 
-        await kit.registerObserver(entityName: "Person", operation: .delete) { _ in
+        await kit.registerObserver(entityName: "Person", operation: .delete) { contexts in
             await tracker.recordDelete()
         }
 

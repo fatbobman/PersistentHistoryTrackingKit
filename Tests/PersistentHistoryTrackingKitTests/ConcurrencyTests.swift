@@ -6,19 +6,18 @@
 //
 
 import CoreData
-import Testing
 @testable import PersistentHistoryTrackingKit
+import Testing
 
 @Suite("Concurrency Safety Tests", .serialized)
 struct ConcurrencyTests {
-
     @Test("Multithreaded concurrent writes")
     func concurrentWrites() async throws {
         let container = TestModelBuilder.createContainer(author: "App1")
 
         // Spawn multiple contexts and write concurrently.
         await withTaskGroup(of: Void.self) { group in
-            for i in 0..<5 {
+            for i in 0 ..< 5 {
                 group.addTask {
                     let context = container.newBackgroundContext()
                     context.transactionAuthor = "App\(i)"
@@ -27,8 +26,7 @@ struct ConcurrencyTests {
                         TestModelBuilder.createPerson(
                             name: "Person\(i)",
                             age: Int32(20 + i),
-                            in: context
-                        )
+                            in: context)
                         try context.save()
                     } catch {
                         Issue.record("Failed to save in concurrent write: \(error)")
@@ -50,7 +48,7 @@ struct ConcurrencyTests {
         let context = container.viewContext
 
         // Seed initial data.
-        for i in 0..<10 {
+        for i in 0 ..< 10 {
             TestModelBuilder.createPerson(name: "Person\(i)", age: Int32(20 + i), in: context)
         }
         try context.save()
@@ -59,27 +57,24 @@ struct ConcurrencyTests {
         let hookRegistry = HookRegistryActor()
 
         await withTaskGroup(of: Void.self) { group in
-            for _ in 0..<3 {
+            for _ in 0 ..< 3 {
                 group.addTask {
                     let testDefaults = TestModelBuilder.createTestUserDefaults()
                     let timestampManager = TransactionTimestampManager(
                         userDefaults: testDefaults,
-                        maximumDuration: 604800
-                    )
+                        maximumDuration: 604_800)
                     let processor = TransactionProcessorActor(
                         container: container,
                         hookRegistry: hookRegistry,
                         cleanStrategy: .none,
-                        timestampManager: timestampManager
-                    )
+                        timestampManager: timestampManager)
 
                     do {
                         // Use internal Actor test methods
                         let result = try await processor.testFetchTransactionsExcludesAuthor(
                             from: ["App1"],
                             after: nil as Date?,
-                            excludeAuthor: nil as String?
-                        )
+                            excludeAuthor: nil as String?)
                         // Ensure at least one transaction is returned.
                         guard result.count >= 1 else {
                             Issue.record("Expected at least 1 transaction")
@@ -108,26 +103,23 @@ struct ConcurrencyTests {
         let testDefaults = TestModelBuilder.createTestUserDefaults()
         let timestampManager = TransactionTimestampManager(
             userDefaults: testDefaults,
-            maximumDuration: 604800
-        )
+            maximumDuration: 604_800)
         let processor = TransactionProcessorActor(
             container: container,
             hookRegistry: hookRegistry,
             cleanStrategy: .none,
-            timestampManager: timestampManager
-        )
+            timestampManager: timestampManager)
 
         // Run fetch and clean concurrently.
         await withTaskGroup(of: Void.self) { group in
             // Fetch task.
             group.addTask {
                 do {
-                    for _ in 0..<5 {
+                    for _ in 0 ..< 5 {
                         _ = try await processor.testFetchTransactionsExcludesAuthor(
                             from: ["App1"],
                             after: nil,
-                            excludeAuthor: nil
-                        )
+                            excludeAuthor: nil)
                     }
                 } catch {
                     Issue.record("Failed to fetch: \(error)")
@@ -137,12 +129,11 @@ struct ConcurrencyTests {
             // Clean task.
             group.addTask {
                 do {
-                    for _ in 0..<5 {
+                    for _ in 0 ..< 5 {
                         _ = try await processor.testCleanTransactions(
                             before: Date(),
                             for: ["App1"],
-                            expectedBefore: nil
-                        )
+                            expectedBefore: nil)
                     }
                 } catch {
                     Issue.record("Failed to clean: \(error)")
@@ -169,11 +160,14 @@ struct ConcurrencyTests {
         let callback: HookCallback = { _ in
             await counter.increment()
         }
-        await hookRegistry.registerObserver(entityName: "Person", operation: .insert, callback: callback)
+        await hookRegistry.registerObserver(
+            entityName: "Person",
+            operation: .insert,
+            callback: callback)
 
         // Fire hooks concurrently.
         await withTaskGroup(of: Void.self) { group in
-            for i in 0..<100 {
+            for i in 0 ..< 100 {
                 group.addTask {
                     let context = HookContext(
                         entityName: "Person",
@@ -182,9 +176,8 @@ struct ConcurrencyTests {
                         objectIDURL: URL(string: "x-coredata://test/\(i)")!,
                         tombstone: nil,
                         timestamp: Date(),
-                        author: "TestAuthor"
-                    )
-                    await hookRegistry.triggerObserver(context: context)
+                        author: "TestAuthor")
+                    await hookRegistry.triggerObserver(contexts: [context])
                 }
             }
         }
@@ -200,7 +193,7 @@ struct ConcurrencyTests {
 
         // Create several kit instances.
         await withTaskGroup(of: Void.self) { group in
-            for i in 0..<3 {
+            for i in 0 ..< 3 {
                 group.addTask {
                     let testDefaults = TestModelBuilder.createTestUserDefaults()
                     let uniqueString = "TestKit.MultiInstance.\(i).\(UUID().uuidString)."
@@ -213,16 +206,14 @@ struct ConcurrencyTests {
                         userDefaults: testDefaults,
                         uniqueString: uniqueString,
                         logLevel: 0,
-                        autoStart: false
-                    )
+                        autoStart: false)
 
                     // Execute some operations (using internal actor test helpers).
                     do {
                         _ = try await kit.transactionProcessor.testFetchTransactionsExcludesAuthor(
                             from: ["App1"],
                             after: nil,
-                            excludeAuthor: nil
-                        )
+                            excludeAuthor: nil)
                     } catch {
                         Issue.record("Failed in multi-instance test: \(error)")
                     }
@@ -244,7 +235,7 @@ struct ConcurrencyTests {
 
         // Launch several cleaners concurrently.
         await withTaskGroup(of: Void.self) { group in
-            for i in 0..<3 {
+            for i in 0 ..< 3 {
                 group.addTask {
                     let testDefaults = TestModelBuilder.createTestUserDefaults()
                     let uniqueString = "TestKit.ConcurrentCleaners.\(i).\(UUID().uuidString)."
@@ -256,8 +247,7 @@ struct ConcurrencyTests {
                         userDefaults: testDefaults,
                         uniqueString: uniqueString,
                         logger: DefaultLogger(),
-                        logLevel: 0
-                    )
+                        logLevel: 0)
 
                     await cleaner.clean()
                 }

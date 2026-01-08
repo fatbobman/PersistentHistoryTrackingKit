@@ -241,14 +241,16 @@ Monitor specific entity operations without modifying data:
 let hookId = await kit.registerObserver(
     entityName: "Person",
     operation: .insert
-) { context in
-    print("New person created: \(context.objectIDURL)")
+) { contexts in
+    for context in contexts {
+        print("New person created: \(context.objectIDURL)")
 
-    // Send analytics
-    await Analytics.track(event: "person_created", properties: [
-        "timestamp": context.timestamp,
-        "author": context.author
-    ])
+        // Send analytics
+        await Analytics.track(event: "person_created", properties: [
+            "timestamp": context.timestamp,
+            "author": context.author
+        ])
+    }
 }
 
 // Remove specific hook later
@@ -257,6 +259,8 @@ await kit.removeObserver(id: hookId)
 // Or remove all hooks for an entity+operation
 await kit.removeObserver(entityName: "Person", operation: .insert)
 ```
+
+**Context batching:** The callback receives `[HookContext]` that groups changes **per transaction + entity + operation**. Insert multiple `Person` objects in one transaction → one callback with an array of contexts.
 
 **Use cases:** Logging, analytics, notifications, cache invalidation
 

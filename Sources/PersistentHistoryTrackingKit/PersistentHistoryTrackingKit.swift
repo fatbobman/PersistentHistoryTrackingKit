@@ -155,7 +155,10 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
             entityName: entityName,
             operation: operation,
             callback: callback)
-        log(.info, level: 2, "Registered observer hook for \(entityName).\(operation.rawValue) (ID: \(id))")
+        log(
+            .info,
+            level: 2,
+            "Registered observer hook for \(entityName).\(operation.rawValue) (ID: \(id))")
         return id
     }
 
@@ -195,8 +198,12 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
     ///   - entityName: Entity name.
     ///   - operation: Operation type.
     ///   - callback: Callback.
-    /// - Note: Deprecated. Use `registerObserver(entityName:operation:callback:) async -> UUID` instead.
-    @available(*, deprecated, message: "Use registerObserver(entityName:operation:callback:) async -> UUID instead")
+    /// - Note: Deprecated. Use `registerObserver(entityName:operation:callback:) async -> UUID`
+    /// instead.
+    @available(
+        *,
+        deprecated,
+        message: "Use registerObserver(entityName:operation:callback:) async -> UUID instead")
     public func registerHook(
         entityName: String,
         operation: HookOperation,

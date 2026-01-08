@@ -215,16 +215,21 @@ kit.start()
 let hookId = await kit.registerObserver(
     entityName: "Person",
     operation: .insert
-) { context in
-    print("新建 Person: \(context.objectIDURL)")
-    await Analytics.track(event: "person_created", properties: [
-        "timestamp": context.timestamp,
-        "author": context.author
-    ])
+) { contexts in
+    for context in contexts {
+        print("新建 Person: \(context.objectIDURL)")
+        await Analytics.track(event: "person_created", properties: [
+            "timestamp": context.timestamp,
+            "author": context.author
+        ])
+    }
 }
 
 await kit.removeObserver(id: hookId)
 await kit.removeObserver(entityName: "Person", operation: .insert)
+
+> ℹ️ 同一事务中若多次对同一实体执行同一操作，回调只触发一次，
+> 但 `contexts` 数组会包含该事务中所有对应的 `HookContext`，可一次性处理。
 ```
 
 适合日志、统计、推送、缓存失效等场景。
