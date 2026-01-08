@@ -10,8 +10,7 @@ import CoreData
 import Foundation
 
 /// Hook registry for managing Observer Hooks (read-only notifications)
-/// - Note: Merge Hooks have been moved to TransactionProcessorActor because they need direct access to non-Sendable Core Data types
-public actor HookRegistryActor {
+public actor HookRegistryActor: ObserverHookProtocol {
     // MARK: - Observer Hooks (for notification/monitoring, do not modify data)
 
     /// Internal structure to hold observer hook with UUID
@@ -115,4 +114,3 @@ public actor HookRegistryActor {
         "\(entityName).\(operation.rawValue)"
     }
 }
-

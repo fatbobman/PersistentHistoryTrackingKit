@@ -207,14 +207,9 @@ struct KitEndToEndTests {
         let tracker = HookTracker()
 
         // Register Observer Hook
-        kit.registerHook(entityName: "Person", operation: .insert) { context in
-            Task {
-                await tracker.setTriggered(entityName: context.entityName, operation: context.operation)
-            }
+        await kit.registerObserver(entityName: "Person", operation: .insert) { context in
+            await tracker.setTriggered(entityName: context.entityName, operation: context.operation)
         }
-
-        // Wait for hook registration to complete.
-        try await Task.sleep(nanoseconds: 100_000_000)
 
         // App1 creates data
         TestModelBuilder.createPerson(name: "Henry", age: 50, in: context1)

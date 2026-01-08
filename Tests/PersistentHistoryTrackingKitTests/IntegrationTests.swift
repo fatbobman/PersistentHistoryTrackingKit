@@ -6,12 +6,11 @@
 //
 
 import CoreData
-import Testing
 @testable import PersistentHistoryTrackingKit
+import Testing
 
 @Suite("PersistentHistoryTrackingKit V2 Integration Tests", .serialized)
 struct IntegrationTests {
-
     @Test("Two apps perform a simple sync")
     func simpleTwoAppSync() async throws {
         // Create a shared container (simulating a shared database).
@@ -40,8 +39,7 @@ struct IntegrationTests {
             userDefaults: userDefaults,
             uniqueString: uniqueString,
             logLevel: 0,
-            autoStart: false
-        )
+            autoStart: false)
 
         // Manually trigger a sync.
         try await kit.transactionProcessor.processNewTransactions(
@@ -49,8 +47,7 @@ struct IntegrationTests {
             after: nil,
             mergeInto: [context2],
             currentAuthor: "App2",
-            cleanBeforeTimestamp: nil
-        )
+            cleanBeforeTimestamp: nil)
 
         // Ensure context2 contains the data from App1.
         let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Person")
@@ -81,8 +78,7 @@ struct IntegrationTests {
             userDefaults: userDefaults,
             uniqueString: uniqueString,
             logLevel: 0,
-            autoStart: false
-        )
+            autoStart: false)
 
         // Register hooks.
         actor HookTracker {
@@ -101,15 +97,15 @@ struct IntegrationTests {
 
         let tracker = HookTracker()
 
-        kit.registerHook(entityName: "Person", operation: .insert) { _ in
+        await kit.registerObserver(entityName: "Person", operation: .insert) { _ in
             await tracker.recordInsert()
         }
 
-        kit.registerHook(entityName: "Person", operation: .update) { _ in
+        await kit.registerObserver(entityName: "Person", operation: .update) { _ in
             await tracker.recordUpdate()
         }
 
-        kit.registerHook(entityName: "Person", operation: .delete) { _ in
+        await kit.registerObserver(entityName: "Person", operation: .delete) { _ in
             await tracker.recordDelete()
         }
 
@@ -123,8 +119,7 @@ struct IntegrationTests {
             after: nil,
             mergeInto: [context2],
             currentAuthor: "App2",
-            cleanBeforeTimestamp: nil
-        )
+            cleanBeforeTimestamp: nil)
 
         // Verify the insert hook ran.
         let counts1 = await tracker.getCounts()
@@ -140,8 +135,7 @@ struct IntegrationTests {
             after: Date(timeIntervalSinceNow: -10),
             mergeInto: [context2],
             currentAuthor: "App2",
-            cleanBeforeTimestamp: nil
-        )
+            cleanBeforeTimestamp: nil)
 
         // Verify the update hook ran.
         let counts2 = await tracker.getCounts()
@@ -157,8 +151,7 @@ struct IntegrationTests {
             after: Date(timeIntervalSinceNow: -10),
             mergeInto: [context2],
             currentAuthor: "App2",
-            cleanBeforeTimestamp: nil
-        )
+            cleanBeforeTimestamp: nil)
 
         // Verify the delete hook ran.
         let counts3 = await tracker.getCounts()
@@ -189,8 +182,7 @@ struct IntegrationTests {
             userDefaults: userDefaults,
             uniqueString: uniqueString,
             logLevel: 0,
-            autoStart: false
-        )
+            autoStart: false)
 
         // Build the cleaner.
         let cleaner = kit.cleanerBuilder()
@@ -214,7 +206,7 @@ struct IntegrationTests {
         context2.transactionAuthor = "App2"
 
         // App1 creates a batch of data.
-        for i in 0..<10 {
+        for i in 0 ..< 10 {
             TestModelBuilder.createPerson(name: "Person\(i)", age: Int32(20 + i), in: context1)
         }
         try context1.save()
@@ -231,8 +223,7 @@ struct IntegrationTests {
             userDefaults: userDefaults,
             uniqueString: uniqueString,
             logLevel: 0,
-            autoStart: false
-        )
+            autoStart: false)
 
         // Manually trigger sync.
         try await kit.transactionProcessor.processNewTransactions(
@@ -240,8 +231,7 @@ struct IntegrationTests {
             after: nil,
             mergeInto: [context2],
             currentAuthor: "App2",
-            cleanBeforeTimestamp: nil
-        )
+            cleanBeforeTimestamp: nil)
 
         // Ensure all data synchronized.
         let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Person")
@@ -276,8 +266,7 @@ struct IntegrationTests {
             userDefaults: userDefaults,
             uniqueString: uniqueString,
             logLevel: 0,
-            autoStart: false
-        )
+            autoStart: false)
 
         // Manually trigger sync.
         try await kit.transactionProcessor.processNewTransactions(
@@ -285,8 +274,7 @@ struct IntegrationTests {
             after: nil,
             mergeInto: [context2, context3],
             currentAuthor: "App2",
-            cleanBeforeTimestamp: nil
-        )
+            cleanBeforeTimestamp: nil)
 
         // Ensure both contexts contain the data.
         let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Person")
