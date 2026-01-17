@@ -6,93 +6,93 @@
 //  Copyright © 2025 Yang Xu. All rights reserved.
 //
 
-import CoreData
-import Foundation
+public import CoreData
+public import Foundation
 
 // MARK: - Transaction Info
 
 /// Transaction information containing timestamp, author, and change details
 public struct TransactionInfo: Sendable, Codable {
-    public let timestamp: Date
-    public let author: String
-    public let changes: [ChangeInfo]
+  public let timestamp: Date
+  public let author: String
+  public let changes: [ChangeInfo]
 
-    public init(timestamp: Date, author: String, changes: [ChangeInfo]) {
-        self.timestamp = timestamp
-        self.author = author
-        self.changes = changes
+  public init(timestamp: Date, author: String, changes: [ChangeInfo]) {
+    self.timestamp = timestamp
+    self.author = author
+    self.changes = changes
+  }
+
+  public struct ChangeInfo: Sendable, Codable {
+    public let objectID: URL
+    public let entityName: String
+    public let changeType: ChangeType
+
+    public init(objectID: URL, entityName: String, changeType: ChangeType) {
+      self.objectID = objectID
+      self.entityName = entityName
+      self.changeType = changeType
     }
 
-    public struct ChangeInfo: Sendable, Codable {
-        public let objectID: URL
-        public let entityName: String
-        public let changeType: ChangeType
-
-        public init(objectID: URL, entityName: String, changeType: ChangeType) {
-            self.objectID = objectID
-            self.entityName = entityName
-            self.changeType = changeType
-        }
-
-        public enum ChangeType: Int, Codable, Sendable {
-            case insert = 0
-            case update = 1
-            case delete = 2
-        }
+    public enum ChangeType: Int, Codable, Sendable {
+      case insert = 0
+      case update = 1
+      case delete = 2
     }
+  }
 }
 
 // MARK: - Hook Context
 
 /// Hook context passed to registered callback functions
 public struct HookContext: Sendable {
-    public let entityName: String
-    public let operation: HookOperation
-    public let objectID: NSManagedObjectID
-    public let objectIDURL: URL
-    public let tombstone: Tombstone?
-    public let timestamp: Date
-    public let author: String
+  public let entityName: String
+  public let operation: HookOperation
+  public let objectID: NSManagedObjectID
+  public let objectIDURL: URL
+  public let tombstone: Tombstone?
+  public let timestamp: Date
+  public let author: String
 
-    public init(
-        entityName: String,
-        operation: HookOperation,
-        objectID: NSManagedObjectID,
-        objectIDURL: URL,
-        tombstone: Tombstone?,
-        timestamp: Date,
-        author: String)
-    {
-        self.entityName = entityName
-        self.operation = operation
-        self.objectID = objectID
-        self.objectIDURL = objectIDURL
-        self.tombstone = tombstone
-        self.timestamp = timestamp
-        self.author = author
-    }
+  public init(
+    entityName: String,
+    operation: HookOperation,
+    objectID: NSManagedObjectID,
+    objectIDURL: URL,
+    tombstone: Tombstone?,
+    timestamp: Date,
+    author: String
+  ) {
+    self.entityName = entityName
+    self.operation = operation
+    self.objectID = objectID
+    self.objectIDURL = objectIDURL
+    self.tombstone = tombstone
+    self.timestamp = timestamp
+    self.author = author
+  }
 }
 
 // MARK: - Tombstone
 
 /// Tombstone information recording unique data of deleted objects
 public struct Tombstone: Sendable, Codable {
-    public let attributes: [String: String]
-    public let deletedDate: Date?
+  public let attributes: [String: String]
+  public let deletedDate: Date?
 
-    public init(attributes: [String: String], deletedDate: Date? = nil) {
-        self.attributes = attributes
-        self.deletedDate = deletedDate ?? Date()
-    }
+  public init(attributes: [String: String], deletedDate: Date? = nil) {
+    self.attributes = attributes
+    self.deletedDate = deletedDate ?? Date()
+  }
 }
 
 // MARK: - Hook Operation
 
 /// Operation types for Hook monitoring
 public enum HookOperation: String, Sendable {
-    case insert
-    case update
-    case delete
+  case insert
+  case update
+  case delete
 }
 
 // MARK: - Hook Callback
@@ -106,26 +106,26 @@ public typealias HookCallback = @Sendable ([HookContext]) async -> Void
 
 /// Execution result of Merge Hook
 public enum MergeHookResult: Sendable {
-    /// Continue to the next hook in the pipeline
-    case goOn
-    /// Finish, skipping all remaining hooks (including default merge)
-    case finish
+  /// Continue to the next hook in the pipeline
+  case goOn
+  /// Finish, skipping all remaining hooks (including default merge)
+  case finish
 }
 
 /// Merge Hook input parameter container
 /// - Note: Uses @unchecked Sendable to wrap non-Sendable Core Data types,
 ///         ensuring safe usage within TransactionProcessorActor
 public struct MergeHookInput: @unchecked Sendable {
-    public let transactions: [NSPersistentHistoryTransaction]
-    public let contexts: [NSManagedObjectContext]
+  public let transactions: [NSPersistentHistoryTransaction]
+  public let contexts: [NSManagedObjectContext]
 
-    public init(
-        transactions: [NSPersistentHistoryTransaction],
-        contexts: [NSManagedObjectContext])
-    {
-        self.transactions = transactions
-        self.contexts = contexts
-    }
+  public init(
+    transactions: [NSPersistentHistoryTransaction],
+    contexts: [NSManagedObjectContext]
+  ) {
+    self.transactions = transactions
+    self.contexts = contexts
+  }
 }
 
 /// Merge Hook callback function type (for custom merge logic, may modify data)

@@ -15,11 +15,11 @@ import Foundation
 /// Default logger implementation for PersistentHistoryTrackingKit.
 /// Used automatically unless a custom logger is supplied by the developer.
 struct DefaultLogger: PersistentHistoryTrackingKitLoggerProtocol {
-    /// Output a log message.
-    /// - Parameters:
-    ///   - type: Log type: info, debug, notice, error, or fault.
-    ///   - message: Text to log.
-    func log(type: PersistentHistoryTrackingKitLogType, message: String) {
-        print("[\(type.rawValue.uppercased())] : \(message)")
-    }
+  /// Output a log message.
+  /// - Parameters:
+  ///   - type: Log type: info, debug, notice, error, or fault.
+  ///   - message: Text to log.
+  func log(type: PersistentHistoryTrackingKitLogType, message: String) {
+    print("[\(type.rawValue.uppercased())] : \(message)")
+  }
 }

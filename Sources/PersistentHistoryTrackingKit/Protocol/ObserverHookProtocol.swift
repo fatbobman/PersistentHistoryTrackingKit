@@ -6,17 +6,18 @@
 //  Copyright © 2025 Yang Xu. All rights reserved.
 //
 
-import Foundation
+public import Foundation
 
 public protocol ObserverHookProtocol: Actor {
-    @discardableResult
-    func registerObserver(
-        entityName: String,
-        operation: HookOperation,
-        callback: @escaping HookCallback) -> UUID
-    @discardableResult
-    func removeObserver(id: UUID) -> Bool
-    func removeObserver(entityName: String, operation: HookOperation)
-    func triggerObserver(contexts: [HookContext]) async
-    func removeAllObservers()
+  @discardableResult
+  func registerObserver(
+    entityName: String,
+    operation: HookOperation,
+    callback: @escaping HookCallback
+  ) -> UUID
+  @discardableResult
+  func removeObserver(id: UUID) -> Bool
+  func removeObserver(entityName: String, operation: HookOperation)
+  func triggerObserver(contexts: [HookContext]) async
+  func removeAllObservers()
 }

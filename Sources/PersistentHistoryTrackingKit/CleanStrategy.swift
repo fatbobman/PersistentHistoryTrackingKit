@@ -10,7 +10,7 @@
 //  微信公共号: 肘子的Swift记事本
 //
 
-import Foundation
+public import Foundation
 
 /// Transaction cleanup strategies.
 ///
@@ -18,75 +18,75 @@ import Foundation
 /// `.byNotification` cleans after a specified number of notifications (default is `.byNotification(0)`).
 /// `.byDuration` enforces a minimum number of seconds between two cleanup runs.
 public enum TransactionCleanStrategy: Sendable {
-    case none
-    case byDuration(seconds: TimeInterval)
-    case byNotification(times: Int)
+  case none
+  case byDuration(seconds: TimeInterval)
+  case byNotification(times: Int)
 }
 
 /// Cleanup policy protocol.
 protocol TransactionPurgePolicy: Sendable {
-    /// Decide whether cleanup is allowed each time a notification arrives.
-    mutating func allowedToClean() -> Bool
-    init(strategy: TransactionCleanStrategy)
+  /// Decide whether cleanup is allowed each time a notification arrives.
+  mutating func allowedToClean() -> Bool
+  init(strategy: TransactionCleanStrategy)
 }
 
 /// Disabled strategy. When selected, the Kit never performs automatic cleanup.
 /// Use when you want total manual control and rely on manually triggered cleaners.
 /// Combine with the Kit's manual cleaner helper when needed.
 struct TransactionCleanStrategyNone: TransactionPurgePolicy, Sendable {
-    func allowedToClean() -> Bool {
-        false
-    }
+  func allowedToClean() -> Bool {
+    false
+  }
 
-    init(strategy: TransactionCleanStrategy = .none) {}
+  init(strategy: TransactionCleanStrategy = .none) {}
 }
 
 /// Cleanup strategy driven by a time interval.
 /// Enforces a minimum interval (in seconds) between two cleanup runs.
 struct TransactionCleanStrategyByDuration: TransactionPurgePolicy, Sendable {
-    private var lastCleanTimestamp: Date?
-    private let duration: TimeInterval
+  private var lastCleanTimestamp: Date?
+  private let duration: TimeInterval
 
-    mutating func allowedToClean() -> Bool {
-        if (lastCleanTimestamp ?? .distantPast).advanced(by: duration) < Date() {
-            lastCleanTimestamp = Date()
-            return true
-        } else {
-            return false
-        }
+  mutating func allowedToClean() -> Bool {
+    if (lastCleanTimestamp ?? .distantPast).advanced(by: duration) < Date() {
+      lastCleanTimestamp = Date()
+      return true
+    } else {
+      return false
     }
+  }
 
-    init(strategy: TransactionCleanStrategy) {
-        if case .byDuration(let seconds) = strategy {
-            self.duration = seconds
-        } else {
-            fatalError("Transaction clean strategy should be byDuration")
-        }
+  init(strategy: TransactionCleanStrategy) {
+    if case .byDuration(let seconds) = strategy {
+      self.duration = seconds
+    } else {
+      fatalError("Transaction clean strategy should be byDuration")
     }
+  }
 }
 
 /// Cleanup strategy driven by notification count.
 ///
 /// Runs cleanup every N notifications. For example, `times = 1` means run every time, while `times = 3` runs every third notification.
 struct TransactionCleanStrategyByNotification: TransactionPurgePolicy, Sendable {
-    private var count: Int
-    private var times: Int
-    init(strategy: TransactionCleanStrategy) {
-        if case .byNotification(times: let times) = strategy {
-            self.times = times
-            self.count = times
-        } else {
-            fatalError("Transaction clean strategy should be byNotification")
-        }
+  private var count: Int
+  private var times: Int
+  init(strategy: TransactionCleanStrategy) {
+    if case .byNotification(times: let times) = strategy {
+      self.times = times
+      self.count = times
+    } else {
+      fatalError("Transaction clean strategy should be byNotification")
     }
+  }
 
-    mutating func allowedToClean() -> Bool {
-        if count >= times {
-            count = 1
-            return true
-        } else {
-            count += 1
-            return false
-        }
+  mutating func allowedToClean() -> Bool {
+    if count >= times {
+      count = 1
+      return true
+    } else {
+      count += 1
+      return false
     }
+  }
 }

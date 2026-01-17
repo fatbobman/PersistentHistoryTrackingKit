@@ -16,11 +16,11 @@ import Foundation
 /// Developers can create types conforming to this protocol to enable PersistentHistoryTrackKit to work with existing logging modules.
 /// Log output switching and detail control are both on PersistentHistoryTrackKit
 public protocol PersistentHistoryTrackingKitLoggerProtocol: Sendable {
-    /// Output logs. Developers can convert LogType to the Type corresponding to their own logging module
-    func log(type: PersistentHistoryTrackingKitLogType, message: String)
+  /// Output logs. Developers can convert LogType to the Type corresponding to their own logging module
+  func log(type: PersistentHistoryTrackingKitLogType, message: String)
 }
 
 /// Log types. Although 5 types are defined, currently only debug and error are used.
 public enum PersistentHistoryTrackingKitLogType: String, Sendable {
-    case debug, info, notice, error, fault
+  case debug, info, notice, error, fault
 }
