@@ -513,6 +513,14 @@ Tests are validated under parallel execution. The test infrastructure serializes
 Current runtime validation has been performed on iOS 15+.
 Although the package declares support for older OS versions, iOS 13 and iOS 14 have not been runtime-validated in the current Xcode environment.
 
+### iOS 13-14 Users
+
+If you are running this library on iOS 13 or iOS 14:
+
+- These versions are declared as supported by the package, but have not yet been runtime-validated by the maintainer in the current toolchain environment.
+- If you encounter an issue, please include your device model, iOS version, and reproduction steps when opening an issue.
+- If the library runs correctly for you on iOS 13 or iOS 14, feedback is also welcome and helps improve confidence in older OS compatibility.
+
 ### Recommended: Use the test script
 
 ```bash

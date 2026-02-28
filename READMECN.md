@@ -387,6 +387,17 @@ let hookB = await kit.registerMergeHook(before: hookA) { _ in print("Hook B"); r
 
 > 测试现已验证可并行执行。测试基础设施会在内部串行化 `NSPersistentContainer` 的创建，以规避 Core Data 在并发加载存储时的崩溃，同时保留 suite 级并行执行。
 
+当前运行验证已覆盖 iOS 15+。
+虽然 Package 声明支持更低版本系统，但在当前 Xcode 环境中，iOS 13 与 iOS 14 还没有完成运行时验证。
+
+### iOS 13-14 用户
+
+如果你正在 iOS 13 或 iOS 14 上使用此库：
+
+- Package 当前声明支持这些系统版本，但维护者尚未在当前工具链环境中完成运行时验证。
+- 如果你遇到问题，请在提交 issue 时附上设备型号、iOS 版本以及复现步骤。
+- 如果此库在 iOS 13 或 iOS 14 上运行正常，也欢迎反馈，这将有助于提升对旧系统兼容性的信心。
+
 ```bash
 ./test.sh   # 推荐脚本，自动启用并行测试
 ```
