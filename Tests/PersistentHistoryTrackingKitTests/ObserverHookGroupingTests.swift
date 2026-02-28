@@ -48,24 +48,13 @@ struct ObserverHookGroupingTests {
       await tracker.recordTrigger(contexts: contexts)
     }
 
-    // Create multiple Person objects in a single transaction
-    let bgContext = container.newBackgroundContext()
-    bgContext.transactionAuthor = "App1"
-
-    try await bgContext.perform {
-      // Create 5 Person objects in the same transaction
-      for i in 0..<5 {
-        TestModelBuilder.createPerson(name: "Person\(i)", age: Int32(20 + i), in: bgContext)
-      }
-      try bgContext.save()  // Single save = single transaction
-    }
+    let handler = TestAppDataHandler(container: container, viewName: "App1Handler")
+    try await handler.createPeople(count: 5, author: "App1")
 
     // Process the transactions
-    let context2 = container.newBackgroundContext()
     _ = try await processor.processNewTransactions(
       from: ["App1"],
       after: nil,
-      mergeInto: [context2],
       currentAuthor: "App2")
 
     // Verify hook was triggered only once
@@ -122,35 +111,18 @@ struct ObserverHookGroupingTests {
       await tracker.recordTrigger(contexts: contexts)
     }
 
-    // Create and then delete multiple Person objects in a single transaction
-    let bgContext = container.newBackgroundContext()
-    bgContext.transactionAuthor = "App1"
-
-    try await bgContext.perform {
-      // Create 3 Person objects
-      var personsToDelete: [NSManagedObject] = []
-      for i in 0..<3 {
-        let person = TestModelBuilder.createPerson(
-          name: "ToDelete\(i)",
-          age: Int32(30 + i),
-          in: bgContext)
-        personsToDelete.append(person)
-      }
-      try bgContext.save()  // First save: creates the objects
-
-      // Delete all 3 in a single transaction
-      for person in personsToDelete {
-        bgContext.delete(person)
-      }
-      try bgContext.save()  // Second save: deletes all objects in one transaction
-    }
+    let handler = TestAppDataHandler(container: container, viewName: "App1Handler")
+    try await handler.createPeople(
+      [("ToDelete0", 30), ("ToDelete1", 31), ("ToDelete2", 32)],
+      author: "App1")
+    try await handler.deletePeople(
+      named: ["ToDelete0", "ToDelete1", "ToDelete2"],
+      author: "App1")
 
     // Process the transactions
-    let context2 = container.newBackgroundContext()
     _ = try await processor.processNewTransactions(
       from: ["App1"],
       after: nil,
-      mergeInto: [context2],
       currentAuthor: "App2")
 
     // Verify hook was triggered only once for the delete transaction
@@ -221,30 +193,16 @@ struct ObserverHookGroupingTests {
       await tracker.recordItemTrigger(contexts: contexts)
     }
 
-    // Create multiple Person and Item objects in a single transaction
-    let bgContext = container.newBackgroundContext()
-    bgContext.transactionAuthor = "App1"
-
-    try await bgContext.perform {
-      // Create 3 Person objects
-      for i in 0..<3 {
-        TestModelBuilder.createPerson(name: "Person\(i)", age: Int32(20 + i), in: bgContext)
-      }
-
-      // Create 2 Item objects
-      for i in 0..<2 {
-        TestModelBuilder.createItem(title: "Item\(i)", in: bgContext)
-      }
-
-      try bgContext.save()  // Single save = single transaction
-    }
+    let handler = TestAppDataHandler(container: container, viewName: "App1Handler")
+    try await handler.createPeopleAndItems(
+      people: [("Person0", 20), ("Person1", 21), ("Person2", 22)],
+      items: ["Item0", "Item1"],
+      author: "App1")
 
     // Process the transactions
-    let context2 = container.newBackgroundContext()
     _ = try await processor.processNewTransactions(
       from: ["App1"],
       after: nil,
-      mergeInto: [context2],
       currentAuthor: "App2")
 
     // Verify Person hook was triggered once with 3 contexts
@@ -309,39 +267,22 @@ struct ObserverHookGroupingTests {
       await tracker.recordUpdateTrigger(contexts: contexts)
     }
 
-    // Create and update Person objects in a single transaction
-    let bgContext = container.newBackgroundContext()
-
-    // Seed existing data with a different author so it does not affect expectations.
-    bgContext.transactionAuthor = "Seeder"
-    try await bgContext.perform {
-      TestModelBuilder.createPerson(name: "Seed1", age: 20, in: bgContext)
-      TestModelBuilder.createPerson(name: "Seed2", age: 21, in: bgContext)
-      try bgContext.save()
-    }
-
-    // Perform mixed operations in a single transaction for App1.
-    bgContext.transactionAuthor = "App1"
-    try await bgContext.perform {
-      let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Person")
-      let existingPersons = try bgContext.fetch(fetchRequest)
-      precondition(existingPersons.count >= 2, "Need at least two persons to update")
-
-      existingPersons[0].setValue("UpdatedPerson1", forKey: "name")
-      existingPersons[1].setValue("UpdatedPerson2", forKey: "name")
-
-      TestModelBuilder.createPerson(name: "InsertedPerson1", age: 22, in: bgContext)
-      TestModelBuilder.createPerson(name: "InsertedPerson2", age: 23, in: bgContext)
-
-      try bgContext.save()  // Single save combines updates and inserts
-    }
+    let handler = TestAppDataHandler(container: container, viewName: "App1Handler")
+    try await handler.createPeople(
+      [("Seed1", 20), ("Seed2", 21)],
+      author: "Seeder")
+    try await handler.updatePeopleAndCreatePeople(
+      updates: [
+        PersonUpdate(matchName: "Seed1", newName: "UpdatedPerson1"),
+        PersonUpdate(matchName: "Seed2", newName: "UpdatedPerson2"),
+      ],
+      newPeople: [("InsertedPerson1", 22), ("InsertedPerson2", 23)],
+      author: "App1")
 
     // Process the transactions
-    let context2 = container.newBackgroundContext()
     _ = try await processor.processNewTransactions(
       from: ["App1"],
       after: nil,
-      mergeInto: [context2],
       currentAuthor: "App2")
 
     // Verify insert hook was triggered once with 2 contexts
@@ -393,29 +334,16 @@ struct ObserverHookGroupingTests {
       await tracker.recordTrigger(contexts: contexts)
     }
 
-    // Create Person objects in separate transactions
-    let bgContext = container.newBackgroundContext()
-    bgContext.transactionAuthor = "App1"
-
-    try await bgContext.perform {
-      // First transaction: create 2 Person objects
-      TestModelBuilder.createPerson(name: "Person1", age: 20, in: bgContext)
-      TestModelBuilder.createPerson(name: "Person2", age: 21, in: bgContext)
-      try bgContext.save()  // First transaction
-
-      // Second transaction: create 3 Person objects
-      TestModelBuilder.createPerson(name: "Person3", age: 22, in: bgContext)
-      TestModelBuilder.createPerson(name: "Person4", age: 23, in: bgContext)
-      TestModelBuilder.createPerson(name: "Person5", age: 24, in: bgContext)
-      try bgContext.save()  // Second transaction
-    }
+    let handler = TestAppDataHandler(container: container, viewName: "App1Handler")
+    try await handler.createPeople([("Person1", 20), ("Person2", 21)], author: "App1")
+    try await handler.createPeople(
+      [("Person3", 22), ("Person4", 23), ("Person5", 24)],
+      author: "App1")
 
     // Process the transactions
-    let context2 = container.newBackgroundContext()
     _ = try await processor.processNewTransactions(
       from: ["App1"],
       after: nil,
-      mergeInto: [context2],
       currentAuthor: "App2")
 
     // Verify hook was triggered twice (once per transaction)
@@ -471,91 +399,23 @@ struct ObserverHookGroupingTests {
       await tracker.record(entityName: context.entityName, operation: context.operation)
     }
 
-    let bgContext = container.newBackgroundContext()
+    let handler = TestAppDataHandler(container: container, viewName: "App1Handler")
+    let historyReader = TestAppDataHandler(container: container, viewName: "HistoryReader")
 
-    // Seed a person to delete using a different author.
-    bgContext.transactionAuthor = "Seeder"
-    try await bgContext.perform {
-      TestModelBuilder.createPerson(name: "PersonToDelete", age: 40, in: bgContext)
-      try bgContext.save()
-    }
+    try await handler.createPerson(name: "PersonToDelete", age: 40, author: "Seeder")
+    try await handler.deletePeopleAndCreateEntities(
+      deleteNames: ["PersonToDelete"],
+      newPeople: [("InsertedFirst", 25)],
+      newItems: ["InsertedItem"],
+      author: "App1")
 
-    // Create insert/delete/insert operations in a single App1 transaction.
-    bgContext.transactionAuthor = "App1"
-    try await bgContext.perform {
-      let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Person")
-      guard let personToDelete = try bgContext.fetch(fetchRequest).first else {
-        preconditionFailure("Missing person to delete")
-      }
-
-      TestModelBuilder.createPerson(name: "InsertedFirst", age: 25, in: bgContext)
-      bgContext.delete(personToDelete)
-      TestModelBuilder.createItem(title: "InsertedItem", in: bgContext)
-
-      try bgContext.save()
-    }
-
-    let context2 = container.newBackgroundContext()
     _ = try await processor.processNewTransactions(
       from: ["App1"],
       after: nil,
-      mergeInto: [context2],
       currentAuthor: "App2")
 
-    func fetchExpectedOrder() async throws -> [String] {
-      let historyContext = container.newBackgroundContext()
-      return try await historyContext.perform {
-        let request = NSPersistentHistoryChangeRequest.fetchHistory(
-          after: nil as NSPersistentHistoryToken?)
-        let fetchRequest = NSPersistentHistoryTransaction.fetchRequest!
-        fetchRequest.predicate = NSPredicate(format: "author == %@", "App1")
-        request.fetchRequest = fetchRequest
-
-        guard
-          let result = try historyContext.execute(request) as? NSPersistentHistoryResult,
-          var transactions = result.result as? [NSPersistentHistoryTransaction]
-        else {
-          return []
-        }
-
-        transactions.sort { $0.timestamp < $1.timestamp }
-
-        guard
-          let lastTransaction = transactions.last,
-          let changes = lastTransaction.changes
-        else {
-          return []
-        }
-
-        var seenKeys = Set<String>()
-        var orderedKeys: [String] = []
-
-        for change in changes {
-          let entityName = change.changedObjectID.entity.name ?? "Unknown"
-          let operation: HookOperation =
-            switch change.changeType {
-            case .insert:
-              .insert
-            case .update:
-              .update
-            case .delete:
-              .delete
-            @unknown default:
-              .update
-            }
-          let key = "\(entityName).\(operation.rawValue)"
-          if !seenKeys.contains(key) {
-            seenKeys.insert(key)
-            orderedKeys.append(key)
-          }
-        }
-
-        return orderedKeys
-      }
-    }
-
     let order = await tracker.getOrder()
-    let expectedOrder = try await fetchExpectedOrder()
+    let expectedOrder = try await historyReader.historyOrderedKeys(for: "App1")
     #expect(order == expectedOrder, "Hook trigger order should match change discovery order")
   }
 }

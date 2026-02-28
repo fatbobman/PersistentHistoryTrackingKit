@@ -6,7 +6,6 @@
 //  Copyright © 2025 Yang Xu. All rights reserved.
 //
 
-import CoreData
 import CoreDataEvolution
 import Foundation
 
@@ -22,6 +21,9 @@ actor TransactionProcessorActor {
   /// Timestamp manager.
   private let timestampManager: TransactionTimestampManager
 
+  /// Contexts that receive merged transactions.
+  private let mergeContexts: [NSManagedObjectContext]
+
   // MARK: - Merge Hooks (managed inside the same actor to avoid passing non-Sendable types)
 
   private struct MergeHookItem {
@@ -33,12 +35,14 @@ actor TransactionProcessorActor {
 
   init(
     container: NSPersistentContainer,
+    contexts: [NSManagedObjectContext]? = nil,
     hookRegistry: HookRegistryActor,
     cleanStrategy: TransactionCleanStrategy,
     timestampManager: consuming TransactionTimestampManager
   ) {
     self.hookRegistry = hookRegistry
     self.timestampManager = timestampManager
+    mergeContexts = contexts ?? [container.viewContext]
 
     // Initialize the cleanup strategy configuration.
     switch cleanStrategy {
@@ -101,7 +105,6 @@ actor TransactionProcessorActor {
   /// - Parameters:
   ///   - authors: Authors whose transactions need to be merged.
   ///   - lastTimestamp: The last processed timestamp.
-  ///   - contexts: Target contexts for merging.
   ///   - currentAuthor: Current author (used to exclude self-authored transactions).
   ///   - cleanBeforeTimestamp: Optional timestamp; history before this will be cleaned.
   /// - Returns: Number of transactions processed.
@@ -109,7 +112,6 @@ actor TransactionProcessorActor {
   func processNewTransactions(
     from authors: [String],
     after lastTimestamp: Date?,
-    mergeInto contexts: [NSManagedObjectContext],
     currentAuthor: String? = nil,
     cleanBeforeTimestamp: Date? = nil
   ) async throws -> Int {
@@ -125,7 +127,7 @@ actor TransactionProcessorActor {
 
     // 3. Trigger Merge Hooks (pipeline, may mutate data).
     // Runs within the same actor to avoid cross-actor non-Sendable transfers.
-    try await triggerMergeHooks(transactions: transactions, contexts: contexts)
+    try await triggerMergeHooks(transactions: transactions)
 
     // 4. Run cleanup when a timestamp is provided.
     if let cleanTimestamp = cleanBeforeTimestamp {
@@ -139,7 +141,6 @@ actor TransactionProcessorActor {
   /// - Parameters:
   ///   - authors: Authors whose transactions need to be merged.
   ///   - lastTimestamp: The last processed timestamp.
-  ///   - contexts: Target contexts for merging.
   ///   - currentAuthor: Current author (excluded from fetch and used to update timestamp).
   ///   - batchAuthors: Authors participating in batch work (excluded from cleanup calculation).
   /// - Returns: Number of transactions processed.
@@ -147,7 +148,6 @@ actor TransactionProcessorActor {
   func processNewTransactionsWithTimestampManagement(
     from authors: [String],
     after lastTimestamp: Date?,
-    mergeInto contexts: [NSManagedObjectContext],
     currentAuthor: String,
     batchAuthors: [String] = []
   ) async throws -> Int {
@@ -162,7 +162,7 @@ actor TransactionProcessorActor {
     await triggerObserverHooks(for: transactions)
 
     // 3. Trigger Merge Hooks (pipeline that may mutate data).
-    try await triggerMergeHooks(transactions: transactions, contexts: contexts)
+    try await triggerMergeHooks(transactions: transactions)
 
     // 4. Update the timestamp for the current author.
     if let newTimestamp = transactions.last?.timestamp {
@@ -358,13 +358,11 @@ actor TransactionProcessorActor {
   /// Run the Merge Hook pipeline.
   /// - Parameters:
   ///   - transactions: Transactions flowing through the pipeline.
-  ///   - contexts: Target contexts.
   /// - Note: All operations execute inside the same actor, so there are no concurrency concerns.
   private func triggerMergeHooks(
-    transactions: [NSPersistentHistoryTransaction],
-    contexts: [NSManagedObjectContext]
+    transactions: [NSPersistentHistoryTransaction]
   ) async throws {
-    let input = MergeHookInput(transactions: transactions, contexts: contexts)
+    let input = MergeHookInput(transactions: transactions, contexts: mergeContexts)
 
     // Execute each merge hook sequentially.
     for item in mergeHooks {
@@ -375,7 +373,7 @@ actor TransactionProcessorActor {
     }
 
     // All hooks returned .goOn (or none were registered), so perform the default merge.
-    try await mergeTransactions(transactions, into: contexts)
+    try await mergeTransactions(transactions, into: mergeContexts)
   }
 
   // MARK: - Clean

@@ -15,11 +15,9 @@ struct ManualCleanerActorTests {
   @Test("Run cleanup - happy path")
   func cleanNormalFlow() async throws {
     let container = TestModelBuilder.createContainer(author: "App1")
-    let context = container.viewContext
+    let app1Handler = TestAppDataHandler(container: container, viewName: "App1Handler")
 
-    // Create seed data.
-    TestModelBuilder.createPerson(name: "Alice", age: 30, in: context)
-    try context.save()
+    try await app1Handler.createPerson(name: "Alice", age: 30, author: "App1")
 
     // Simulate persisting a timestamp to UserDefaults.
     let userDefaults = TestModelBuilder.createTestUserDefaults()
@@ -38,10 +36,8 @@ struct ManualCleanerActorTests {
     // Execute cleanup (should not crash).
     await cleaner.clean()
 
-    // Ensure the data still exists (timestamp is current, so history should not be deleted).
-    let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Person")
-    let results = try context.fetch(fetchRequest)
-    #expect(results.count == 1)
+    let count = try await app1Handler.personCount()
+    #expect(count == 1)
   }
 
   @Test("Get the last shared timestamp")
@@ -101,20 +97,15 @@ struct ManualCleanerActorTests {
   @Test("Verify transaction count after cleanup")
   func verifyTransactionCountAfterClean() async throws {
     let container = TestModelBuilder.createContainer(author: "App1")
-    let context = container.viewContext
+    let app1Handler = TestAppDataHandler(container: container, viewName: "App1Handler")
 
-    // Create the first batch of data.
-    TestModelBuilder.createPerson(name: "Alice", age: 30, in: context)
-    try context.save()
+    try await app1Handler.createPerson(name: "Alice", age: 30, author: "App1")
 
     let firstTimestamp = Date()
 
-    // Wait briefly.
-    try await Task.sleep(nanoseconds: 100_000_000)  // 0.1 seconds
+    try await Task.sleep(nanoseconds: 100_000_000)
 
-    // Create the second batch of data.
-    TestModelBuilder.createPerson(name: "Bob", age: 25, in: context)
-    try context.save()
+    try await app1Handler.createPerson(name: "Bob", age: 25, author: "App1")
 
     // Simulate persisting the timestamp of the first batch.
     let userDefaults = TestModelBuilder.createTestUserDefaults()
@@ -133,9 +124,7 @@ struct ManualCleanerActorTests {
     // Perform cleanup.
     await cleaner.clean()
 
-    // Data should remain intact (clean only removes transaction history, not managed objects).
-    let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Person")
-    let results = try context.fetch(fetchRequest)
-    #expect(results.count == 2)  // Both data records should exist
+    let count = try await app1Handler.personCount()
+    #expect(count == 2)
   }
 }

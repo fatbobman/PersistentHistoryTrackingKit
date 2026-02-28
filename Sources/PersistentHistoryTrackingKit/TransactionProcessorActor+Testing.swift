@@ -76,7 +76,6 @@ import Foundation
     /// - Parameters:
     ///   - authors: Authors whose transactions should be processed.
     ///   - lastTimestamp: Last processed timestamp.
-    ///   - contexts: Target contexts.
     ///   - currentAuthor: Current author.
     ///   - cleanBeforeTimestamp: Cleanup cutoff timestamp.
     ///   - expectedEntityName: Expected entity name for validation.
@@ -84,7 +83,6 @@ import Foundation
     func testProcessNewTransactions(
       from authors: [String],
       after lastTimestamp: Date?,
-      mergeInto contexts: [NSManagedObjectContext],
       currentAuthor: String?,
       cleanBeforeTimestamp: Date?,
       expectedEntityName: String?
@@ -113,7 +111,6 @@ import Foundation
       let count = try await processNewTransactions(
         from: authors,
         after: lastTimestamp,
-        mergeInto: contexts,
         currentAuthor: currentAuthor,
         cleanBeforeTimestamp: cleanBeforeTimestamp)
 
@@ -165,14 +162,12 @@ import Foundation
     /// Verify that hooks are triggered as expected.
     /// - Parameters:
     ///   - authors: Authors to process.
-    ///   - contexts: Contexts to merge into.
     ///   - expectedEntityName: Expected entity name for the hook.
     ///   - expectedOperation: Expected operation type.
     /// - Returns: (transaction count, first change entity name, first change operation)
     func testHookTrigger(
       from authors: [String],
       after date: Date?,
-      mergeInto contexts: [NSManagedObjectContext],
       currentAuthor: String?,
       expectedEntityName: String,
       expectedOperation: HookOperation
@@ -205,7 +200,6 @@ import Foundation
       let count = try await processNewTransactions(
         from: authors,
         after: date,
-        mergeInto: contexts,
         currentAuthor: currentAuthor,
         cleanBeforeTimestamp: nil)
 

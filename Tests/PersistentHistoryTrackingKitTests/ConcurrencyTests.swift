@@ -16,19 +16,18 @@ struct ConcurrencyTests {
   func concurrentWrites() async throws {
     let container = TestModelBuilder.createContainer(author: "App1")
 
-    // Spawn multiple contexts and write concurrently.
     await withTaskGroup(of: Void.self) { group in
       for i in 0..<5 {
         group.addTask {
-          let context = container.newBackgroundContext()
-          context.transactionAuthor = "App\(i)"
+          let handler = TestAppDataHandler(
+            container: container,
+            viewName: "Writer\(i)")
 
           do {
-            TestModelBuilder.createPerson(
+            _ = try await handler.createPerson(
               name: "Person\(i)",
               age: Int32(20 + i),
-              in: context)
-            try context.save()
+              author: "App\(i)")
           } catch {
             Issue.record("Failed to save in concurrent write: \(error)")
           }
@@ -36,23 +35,16 @@ struct ConcurrencyTests {
       }
     }
 
-    // Ensure every record was persisted.
-    let context = container.viewContext
-    let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Person")
-    let results = try context.fetch(fetchRequest)
-    #expect(results.count == 5)
+    let reader = TestAppDataHandler(container: container, viewName: "Reader")
+    let count = try await reader.personCount()
+    #expect(count == 5)
   }
 
   @Test("Multiple actors accessing concurrently")
   func multipleActorsConcurrentAccess() async throws {
     let container = TestModelBuilder.createContainer(author: "App1")
-    let context = container.viewContext
-
-    // Seed initial data.
-    for i in 0..<10 {
-      TestModelBuilder.createPerson(name: "Person\(i)", age: Int32(20 + i), in: context)
-    }
-    try context.save()
+    let seeder = TestAppDataHandler(container: container, viewName: "Seeder")
+    try await seeder.createPeople(count: 10, author: "App1")
 
     // Spin up several processors that access concurrently.
     let hookRegistry = HookRegistryActor()
@@ -94,11 +86,8 @@ struct ConcurrencyTests {
   @Test("Clean and fetch concurrently")
   func cleanAndFetchConcurrent() async throws {
     let container = TestModelBuilder.createContainer(author: "App1")
-    let context = container.viewContext
-
-    // Seed initial data.
-    TestModelBuilder.createPerson(name: "Alice", age: 30, in: context)
-    try context.save()
+    let seeder = TestAppDataHandler(container: container, viewName: "Seeder")
+    try await seeder.createPerson(name: "Alice", age: 30, author: "App1")
 
     let hookRegistry = HookRegistryActor()
     let testDefaults = TestModelBuilder.createTestUserDefaults()
@@ -228,11 +217,8 @@ struct ConcurrencyTests {
   @Test("Cleaners executing concurrently")
   func concurrentCleaners() async throws {
     let container = TestModelBuilder.createContainer(author: "App1")
-    let context = container.viewContext
-
-    // Seed initial data.
-    TestModelBuilder.createPerson(name: "Alice", age: 30, in: context)
-    try context.save()
+    let seeder = TestAppDataHandler(container: container, viewName: "Seeder")
+    try await seeder.createPerson(name: "Alice", age: 30, author: "App1")
 
     // Launch several cleaners concurrently.
     await withTaskGroup(of: Void.self) { group in
@@ -255,9 +241,8 @@ struct ConcurrencyTests {
       }
     }
 
-    // Ensure the managed data remains.
-    let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Person")
-    let results = try context.fetch(fetchRequest)
-    #expect(results.count == 1)
+    let reader = TestAppDataHandler(container: container, viewName: "Reader")
+    let count = try await reader.personCount()
+    #expect(count == 1)
   }
 }

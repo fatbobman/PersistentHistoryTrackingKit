@@ -18,9 +18,13 @@
 - Command-line full test runs should use serial execution:
   - `swift test --no-parallel`
   - or `./test.sh`
+- `./test.sh` is the preferred full-suite command because it enables Core Data concurrency assertions via `com.apple.CoreData.ConcurrencyDebug=1`.
 - In Xcode, disable parallel testing for this package before running the full suite.
 - When debugging failures, prefer running a single test file or a filtered suite first.
 - This repository's tests are currently treated as serial-only at the full-suite level.
+- For new Core Data tests, do not write directly through `viewContext` or a raw background context from the test body.
+- Prefer `Tests/PersistentHistoryTrackingKitTests/TestAppDataHandler.swift` and actor-isolated helper methods for creating, updating, deleting, and reading test data.
+- If a test needs direct inspection of a handler-owned context, use the handler's `withContext` API rather than `context.perform` from the test body.
 
 ## Known Test Constraints
 

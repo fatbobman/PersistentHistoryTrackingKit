@@ -110,21 +110,13 @@ struct MergeHookTests {
       return .goOn
     }
 
-    // Generate test data to trigger transactions.
-    let bgContext = container.newBackgroundContext()
-    bgContext.transactionAuthor = "OtherAuthor"
-
-    try await bgContext.perform {
-      TestModelBuilder.createPerson(name: "Test", age: 25, in: bgContext)
-      try bgContext.save()
-    }
+    let writer = TestAppDataHandler(container: container, viewName: "Writer")
+    try await writer.createPerson(name: "Test", age: 25, author: "OtherAuthor")
 
     // Process the transactions.
-    let context2 = container.newBackgroundContext()
     _ = try await processor.processNewTransactions(
       from: ["OtherAuthor"],
       after: nil,
-      mergeInto: [context2],
       currentAuthor: "TestAuthor")
 
     // Both hooks should have run.
@@ -169,21 +161,13 @@ struct MergeHookTests {
       return .goOn
     }
 
-    // Generate test data to trigger transactions.
-    let bgContext = container.newBackgroundContext()
-    bgContext.transactionAuthor = "OtherAuthor"
-
-    try await bgContext.perform {
-      TestModelBuilder.createPerson(name: "Test", age: 25, in: bgContext)
-      try bgContext.save()
-    }
+    let writer = TestAppDataHandler(container: container, viewName: "Writer")
+    try await writer.createPerson(name: "Test", age: 25, author: "OtherAuthor")
 
     // Process the transactions.
-    let context2 = container.newBackgroundContext()
     _ = try await processor.processNewTransactions(
       from: ["OtherAuthor"],
       after: nil,
-      mergeInto: [context2],
       currentAuthor: "TestAuthor")
 
     // Only the first hook should have run.
@@ -233,21 +217,13 @@ struct MergeHookTests {
       return .goOn
     }
 
-    // Generate test data.
-    let bgContext = container.newBackgroundContext()
-    bgContext.transactionAuthor = "OtherAuthor"
-
-    try await bgContext.perform {
-      TestModelBuilder.createPerson(name: "Test", age: 25, in: bgContext)
-      try bgContext.save()
-    }
+    let writer = TestAppDataHandler(container: container, viewName: "Writer")
+    try await writer.createPerson(name: "Test", age: 25, author: "OtherAuthor")
 
     // Process the transactions.
-    let context2 = container.newBackgroundContext()
     _ = try await processor.processNewTransactions(
       from: ["OtherAuthor"],
       after: nil,
-      mergeInto: [context2],
       currentAuthor: "TestAuthor")
 
     // Verify execution order.
@@ -290,21 +266,13 @@ struct MergeHookTests {
       return .goOn
     }
 
-    // Generate test data.
-    let bgContext = container.newBackgroundContext()
-    bgContext.transactionAuthor = "OtherAuthor"
-
-    try await bgContext.perform {
-      TestModelBuilder.createPerson(name: "Test", age: 25, in: bgContext)
-      try bgContext.save()
-    }
+    let writer = TestAppDataHandler(container: container, viewName: "Writer")
+    try await writer.createPerson(name: "Test", age: 25, author: "OtherAuthor")
 
     // Process the transactions.
-    let context2 = container.newBackgroundContext()
     _ = try await processor.processNewTransactions(
       from: ["OtherAuthor"],
       after: nil,
-      mergeInto: [context2],
       currentAuthor: "TestAuthor")
 
     // Hook B should execute before hook A.
@@ -355,21 +323,13 @@ struct MergeHookTests {
       return .goOn
     }
 
-    // Generate test data.
-    let bgContext = container.newBackgroundContext()
-    bgContext.transactionAuthor = "OtherAuthor"
-
-    try await bgContext.perform {
-      TestModelBuilder.createPerson(name: "Test", age: 25, in: bgContext)
-      try bgContext.save()
-    }
+    let writer = TestAppDataHandler(container: container, viewName: "Writer")
+    try await writer.createPerson(name: "Test", age: 25, author: "OtherAuthor")
 
     // Process the transactions.
-    let context2 = container.newBackgroundContext()
     _ = try await processor.processNewTransactions(
       from: ["OtherAuthor"],
       after: nil,
-      mergeInto: [context2],
       currentAuthor: "TestAuthor")
 
     let result = await tracker.get()
@@ -389,39 +349,29 @@ struct MergeHookTests {
     let timestampManager = TransactionTimestampManager(
       userDefaults: TestModelBuilder.createTestUserDefaults(),
       maximumDuration: 604_800)
+    let context2 = container.newBackgroundContext()
+    let reader = TestAppDataHandler(container: container, context: context2, viewName: "Reader")
     let processor = TransactionProcessorActor(
       container: container,
+      contexts: [context2],
       hookRegistry: hookRegistry,
       cleanStrategy: .none,
       timestampManager: timestampManager)
 
     // Do not register any merge hooks.
 
-    // Generate test data.
-    let bgContext = container.newBackgroundContext()
-    bgContext.transactionAuthor = "OtherAuthor"
-
-    try await bgContext.perform {
-      TestModelBuilder.createPerson(name: "DefaultMergeTest", age: 30, in: bgContext)
-      try bgContext.save()
-    }
+    let writer = TestAppDataHandler(container: container, viewName: "Writer")
+    try await writer.createPerson(name: "DefaultMergeTest", age: 30, author: "OtherAuthor")
 
     // Process the transactions.
-    let context2 = container.newBackgroundContext()
     let count = try await processor.processNewTransactions(
       from: ["OtherAuthor"],
       after: nil,
-      mergeInto: [context2],
       currentAuthor: "TestAuthor")
 
     #expect(count >= 1)
 
-    // Ensure the data merged correctly.
-    try await context2.perform {
-      let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Person")
-      fetchRequest.predicate = NSPredicate(format: "name == %@", "DefaultMergeTest")
-      let results = try context2.fetch(fetchRequest)
-      #expect(results.count == 1)
-    }
+    let names = try await reader.personNames()
+    #expect(names == ["DefaultMergeTest"])
   }
 }

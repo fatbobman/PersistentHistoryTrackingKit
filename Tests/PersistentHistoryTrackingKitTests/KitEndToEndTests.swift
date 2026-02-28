@@ -15,13 +15,17 @@ import Testing
 struct KitEndToEndTests {
   @Test("Kit auto sync - start/stop")
   func kitAutoSyncStartStop() async throws {
-    // Create shared container
     let container = TestModelBuilder.createContainer(author: "App1")
-    let context1 = container.viewContext
+    let context1 = container.newBackgroundContext()
     let context2 = container.newBackgroundContext()
-
-    context1.transactionAuthor = "App1"
-    context2.transactionAuthor = "App2"
+    let app1Handler = TestAppDataHandler(
+      container: container,
+      context: context1,
+      viewName: "App1Handler")
+    let app2Handler = TestAppDataHandler(
+      container: container,
+      context: context2,
+      viewName: "App2Handler")
 
     // Create the kit from App2's perspective (manual start).
     let userDefaults = TestModelBuilder.createTestUserDefaults()
@@ -38,31 +42,30 @@ struct KitEndToEndTests {
       autoStart: false,  // manual control
     )
 
-    // App1 creates data
-    TestModelBuilder.createPerson(name: "Bob", age: 25, in: context1)
-    try context1.save()
+    try await app1Handler.createPerson(name: "Bob", age: 25, author: "App1")
 
     // Manual sync (exercise start/stop behavior).
     kit.start()
     try await Task.sleep(nanoseconds: 100_000_000)  // Wait for the task to start.
     kit.stop()
 
-    // Verify data synced
-    try await context2.perform {
-      let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Person")
-      let results = try context2.fetch(fetchRequest)
-      #expect(results.count >= 1)
-    }
+    let count = try await app2Handler.personCount()
+    #expect(count >= 1)
   }
 
   @Test("Kit manual cleaner via cleanerBuilder")
   func kitManualCleaner() async throws {
     let container = TestModelBuilder.createContainer(author: "App1")
-    let context1 = container.viewContext
+    let context1 = container.newBackgroundContext()
     let context2 = container.newBackgroundContext()
-
-    context1.transactionAuthor = "App1"
-    context2.transactionAuthor = "App2"
+    let app1Handler = TestAppDataHandler(
+      container: container,
+      context: context1,
+      viewName: "App1Handler")
+    let app2Handler = TestAppDataHandler(
+      container: container,
+      context: context2,
+      viewName: "App2Handler")
 
     let userDefaults = TestModelBuilder.createTestUserDefaults()
     let uniqueString = "TestKit.ManualClean.\(UUID().uuidString)."
@@ -82,23 +85,16 @@ struct KitEndToEndTests {
     // Create manual cleaner
     let cleaner = kit.cleanerBuilder()
 
-    // App1 creates data
-    TestModelBuilder.createPerson(name: "David", age: 40, in: context1)
-    try context1.save()
+    try await app1Handler.createPerson(name: "David", age: 40, author: "App1")
 
     // Manual sync
     try await kit.transactionProcessor.processNewTransactions(
       from: ["App1", "App2"],
       after: nil,
-      mergeInto: [context2],
       currentAuthor: "App2")
 
-    // Verify data synced
-    try await context2.perform {
-      let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Person")
-      let results = try context2.fetch(fetchRequest)
-      #expect(results.count == 1)
-    }
+    let count = try await app2Handler.personCount()
+    #expect(count == 1)
 
     // Manually run cleanup (just verify it succeeds).
     await cleaner.clean()
@@ -107,15 +103,21 @@ struct KitEndToEndTests {
   @Test("Kit multi-context synchronization")
   func kitMultiContextSync() async throws {
     let container = TestModelBuilder.createContainer(author: "App1")
-
-    // Create multiple contexts
-    let context1 = container.viewContext
+    let context1 = container.newBackgroundContext()
     let context2 = container.newBackgroundContext()
     let context3 = container.newBackgroundContext()
-
-    context1.transactionAuthor = "App1"
-    context2.transactionAuthor = "App2"
-    context3.transactionAuthor = "App3"
+    let app1Handler = TestAppDataHandler(
+      container: container,
+      context: context1,
+      viewName: "App1Handler")
+    let app2Handler = TestAppDataHandler(
+      container: container,
+      context: context2,
+      viewName: "App2Handler")
+    let app3Handler = TestAppDataHandler(
+      container: container,
+      context: context3,
+      viewName: "App3Handler")
 
     let userDefaults = TestModelBuilder.createTestUserDefaults()
     let uniqueString = "TestKit.MultiContext.\(UUID().uuidString)."
@@ -131,29 +133,16 @@ struct KitEndToEndTests {
       logLevel: 0,
       autoStart: false)
 
-    // App1 creates data
-    TestModelBuilder.createPerson(name: "Eve", age: 28, in: context1)
-    try context1.save()
+    try await app1Handler.createPerson(name: "Eve", age: 28, author: "App1")
 
     // Manual sync
     try await kit.transactionProcessor.processNewTransactions(
       from: ["App1", "App2", "App3"],
       after: nil,
-      mergeInto: [context2, context3],
       currentAuthor: "App3")
 
-    // Ensure context2 and context3 both receive the data.
-    try await context2.perform {
-      let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Person")
-      let results = try context2.fetch(fetchRequest)
-      #expect(results.count == 1)
-    }
-
-    try await context3.perform {
-      let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Person")
-      let results = try context3.fetch(fetchRequest)
-      #expect(results.count == 1)
-    }
+    #expect(try await app2Handler.personCount() == 1)
+    #expect(try await app3Handler.personCount() == 1)
   }
 
   // TODO: Timestamp persistence tests depend on automated timestamp management.
@@ -167,11 +156,12 @@ struct KitEndToEndTests {
   @Test("Kit registers an observer hook")
   func kitRegisterObserverHook() async throws {
     let container = TestModelBuilder.createContainer(author: "App1")
-    let context1 = container.viewContext
+    let context1 = container.newBackgroundContext()
     let context2 = container.newBackgroundContext()
-
-    context1.transactionAuthor = "App1"
-    context2.transactionAuthor = "App2"
+    let app1Handler = TestAppDataHandler(
+      container: container,
+      context: context1,
+      viewName: "App1Handler")
 
     let userDefaults = TestModelBuilder.createTestUserDefaults()
     let uniqueString = "TestKit.ObserverHook.\(UUID().uuidString)."
@@ -207,15 +197,12 @@ struct KitEndToEndTests {
       await tracker.setTriggered(entityName: context.entityName, operation: context.operation)
     }
 
-    // App1 creates data
-    TestModelBuilder.createPerson(name: "Henry", age: 50, in: context1)
-    try context1.save()
+    try await app1Handler.createPerson(name: "Henry", age: 50, author: "App1")
 
     // Manual sync
     try await kit.transactionProcessor.processNewTransactions(
       from: ["App1", "App2"],
       after: nil,
-      mergeInto: [context2],
       currentAuthor: "App2")
 
     // Wait for the hook to fire.
@@ -234,11 +221,12 @@ struct KitEndToEndTests {
   @Test("Kit registers a merge hook")
   func kitRegisterMergeHook() async throws {
     let container = TestModelBuilder.createContainer(author: "App1")
-    let context1 = container.viewContext
+    let context1 = container.newBackgroundContext()
     let context2 = container.newBackgroundContext()
-
-    context1.transactionAuthor = "App1"
-    context2.transactionAuthor = "App2"
+    let app1Handler = TestAppDataHandler(
+      container: container,
+      context: context1,
+      viewName: "App1Handler")
 
     let userDefaults = TestModelBuilder.createTestUserDefaults()
     let uniqueString = "TestKit.MergeHook.\(UUID().uuidString)."
@@ -276,15 +264,12 @@ struct KitEndToEndTests {
       return .goOn
     }
 
-    // App1 creates data
-    TestModelBuilder.createPerson(name: "Iris", age: 27, in: context1)
-    try context1.save()
+    try await app1Handler.createPerson(name: "Iris", age: 27, author: "App1")
 
     // Manual sync
     try await kit.transactionProcessor.processNewTransactions(
       from: ["App1", "App2"],
       after: nil,
-      mergeInto: [context2],
       currentAuthor: "App2")
 
     // Verify that the merge hook ran.
@@ -300,14 +285,17 @@ struct KitEndToEndTests {
 
   @Test("Two apps use the kit (V2)")
   func twoAppsWithKit() async throws {
-    // Create a shared container (simulating an App Group or shared iCloud store).
     let container = TestModelBuilder.createContainer(author: "App1")
-
-    let context1 = container.viewContext
+    let context1 = container.newBackgroundContext()
     let context2 = container.newBackgroundContext()
-
-    context1.transactionAuthor = "App1"
-    context2.transactionAuthor = "App2"
+    let app1Handler = TestAppDataHandler(
+      container: container,
+      context: context1,
+      viewName: "App1Handler")
+    let app2Handler = TestAppDataHandler(
+      container: container,
+      context: context2,
+      viewName: "App2Handler")
 
     // App1 creates a kit.
     let userDefaults = TestModelBuilder.createTestUserDefaults()
@@ -338,41 +326,30 @@ struct KitEndToEndTests {
       logLevel: 0,
       autoStart: false)
 
-    // App3 writes data.
     let context3 = container.newBackgroundContext()
-    context3.transactionAuthor = "App3"
+    let app3Handler = TestAppDataHandler(
+      container: container,
+      context: context3,
+      viewName: "App3Handler")
 
-    TestModelBuilder.createPerson(name: "Jack", age: 55, in: context3)
-    try context3.save()
+    try await app3Handler.createPerson(name: "Jack", age: 55, author: "App3")
 
     // App1 and App2 both sync the changes.
     try await kit1.transactionProcessor.processNewTransactions(
       from: ["App1", "App2", "App3"],
       after: nil as Date?,
-      mergeInto: [context1],
       currentAuthor: "App1",
       cleanBeforeTimestamp: nil as Date?)
 
     try await kit2.transactionProcessor.processNewTransactions(
       from: ["App1", "App2", "App3"],
       after: nil as Date?,
-      mergeInto: [context2],
       currentAuthor: "App2",
       cleanBeforeTimestamp: nil as Date?)
 
-    // Ensure App1 and App2 each have the data.
-    try await context1.perform {
-      let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Person")
-      let results = try context1.fetch(fetchRequest)
-      #expect(results.count == 1)
-      #expect(results.first?.value(forKey: "name") as? String == "Jack")
-    }
-
-    try await context2.perform {
-      let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Person")
-      let results = try context2.fetch(fetchRequest)
-      #expect(results.count == 1)
-      #expect(results.first?.value(forKey: "name") as? String == "Jack")
-    }
+    let app1Names = try await app1Handler.personNames()
+    let app2Names = try await app2Handler.personNames()
+    #expect(app1Names == ["Jack"])
+    #expect(app2Names == ["Jack"])
   }
 }

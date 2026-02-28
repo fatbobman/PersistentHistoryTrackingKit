@@ -6,11 +6,10 @@
 set -e
 
 echo "🧪 Running tests in serial mode..."
+echo "🔒 Core Data concurrency debugging enabled (-com.apple.CoreData.ConcurrencyDebug 1)"
 echo ""
 
-swift test --no-parallel "$@"
+env "com.apple.CoreData.ConcurrencyDebug=1" swift test --no-parallel "$@"
 
 echo ""
 echo "✅ All tests completed!"
-
-

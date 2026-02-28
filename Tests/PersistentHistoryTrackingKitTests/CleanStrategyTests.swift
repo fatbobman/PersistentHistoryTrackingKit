@@ -17,25 +17,19 @@ struct CleanStrategyTests {
     let container = TestModelBuilder.createContainer(
       author: "App1",
       testName: "noneStrategyDisablesAutomaticCleanup")
-    let context1 = container.viewContext
-    context1.transactionAuthor = "App1"
+    let writer = TestAppDataHandler(container: container, viewName: "Writer")
 
-    TestModelBuilder.createPerson(name: "Alice", age: 30, in: context1)
-    try context1.save()
+    try await writer.createPerson(name: "Alice", age: 30, author: "App1")
 
     try await Task.sleep(nanoseconds: 100_000_000)
 
-    TestModelBuilder.createPerson(name: "Bob", age: 31, in: context1)
-    try context1.save()
+    try await writer.createPerson(name: "Bob", age: 31, author: "App1")
 
     let processor = makeProcessor(container: container, cleanStrategy: .none)
-    let mergeContext = container.newBackgroundContext()
-    mergeContext.transactionAuthor = "App2"
 
     _ = try await processor.processNewTransactionsWithTimestampManagement(
       from: ["App1", "App2"],
       after: nil,
-      mergeInto: [mergeContext],
       currentAuthor: "App2")
 
     let remainingCount = try await processor.testTransactionCount(
@@ -51,30 +45,24 @@ struct CleanStrategyTests {
       author: "App1",
       testName: "durationStrategyThrottlesCleanup")
     let userDefaults = TestModelBuilder.createTestUserDefaults()
-    let context1 = container.viewContext
-    context1.transactionAuthor = "App1"
+    let writer = TestAppDataHandler(container: container, viewName: "Writer")
 
-    TestModelBuilder.createPerson(name: "Alice", age: 30, in: context1)
-    try context1.save()
+    try await writer.createPerson(name: "Alice", age: 30, author: "App1")
 
     try await Task.sleep(nanoseconds: 100_000_000)
 
-    TestModelBuilder.createPerson(name: "Bob", age: 31, in: context1)
-    try context1.save()
+    try await writer.createPerson(name: "Bob", age: 31, author: "App1")
 
     let processor = makeProcessor(
       container: container,
       userDefaults: userDefaults,
       cleanStrategy: .byDuration(seconds: 60 * 60))
-    let mergeContext = container.newBackgroundContext()
-    mergeContext.transactionAuthor = "App2"
 
     userDefaults.set(Date(), forKey: "PersistentHistoryTrackingKit.lastToken.App1")
 
     _ = try await processor.processNewTransactionsWithTimestampManagement(
       from: ["App1", "App2"],
       after: nil,
-      mergeInto: [mergeContext],
       currentAuthor: "App2")
 
     let countAfterFirstProcess = try await processor.testTransactionCount(
@@ -87,13 +75,11 @@ struct CleanStrategyTests {
 
     try await Task.sleep(nanoseconds: 100_000_000)
 
-    TestModelBuilder.createPerson(name: "Charlie", age: 32, in: context1)
-    try context1.save()
+    try await writer.createPerson(name: "Charlie", age: 32, author: "App1")
 
     _ = try await processor.processNewTransactionsWithTimestampManagement(
       from: ["App1", "App2"],
       after: lastTimestamp,
-      mergeInto: [mergeContext],
       currentAuthor: "App2")
 
     let countAfterSecondProcess = try await processor.testTransactionCount(
@@ -108,30 +94,24 @@ struct CleanStrategyTests {
       author: "App1",
       testName: "notificationStrategyCleansOnConfiguredCount")
     let userDefaults = TestModelBuilder.createTestUserDefaults()
-    let context1 = container.viewContext
-    context1.transactionAuthor = "App1"
+    let writer = TestAppDataHandler(container: container, viewName: "Writer")
 
-    TestModelBuilder.createPerson(name: "Alice", age: 30, in: context1)
-    try context1.save()
+    try await writer.createPerson(name: "Alice", age: 30, author: "App1")
 
     try await Task.sleep(nanoseconds: 100_000_000)
 
-    TestModelBuilder.createPerson(name: "Bob", age: 31, in: context1)
-    try context1.save()
+    try await writer.createPerson(name: "Bob", age: 31, author: "App1")
 
     let processor = makeProcessor(
       container: container,
       userDefaults: userDefaults,
       cleanStrategy: .byNotification(times: 2))
-    let mergeContext = container.newBackgroundContext()
-    mergeContext.transactionAuthor = "App2"
 
     userDefaults.set(Date(), forKey: "PersistentHistoryTrackingKit.lastToken.App1")
 
     _ = try await processor.processNewTransactionsWithTimestampManagement(
       from: ["App1", "App2"],
       after: nil,
-      mergeInto: [mergeContext],
       currentAuthor: "App2")
 
     let countAfterFirstProcess = try await processor.testTransactionCount(
@@ -144,13 +124,11 @@ struct CleanStrategyTests {
 
     try await Task.sleep(nanoseconds: 100_000_000)
 
-    TestModelBuilder.createPerson(name: "Charlie", age: 32, in: context1)
-    try context1.save()
+    try await writer.createPerson(name: "Charlie", age: 32, author: "App1")
 
     _ = try await processor.processNewTransactionsWithTimestampManagement(
       from: ["App1", "App2"],
       after: lastTimestamp,
-      mergeInto: [mergeContext],
       currentAuthor: "App2")
 
     let countAfterSecondProcess = try await processor.testTransactionCount(
@@ -164,27 +142,21 @@ struct CleanStrategyTests {
     let container = TestModelBuilder.createContainer(
       author: "App1",
       testName: "automaticCleanupWaitsForMissingAuthorTimestamps")
-    let context1 = container.viewContext
-    context1.transactionAuthor = "App1"
+    let writer = TestAppDataHandler(container: container, viewName: "Writer")
 
-    TestModelBuilder.createPerson(name: "Alice", age: 30, in: context1)
-    try context1.save()
+    try await writer.createPerson(name: "Alice", age: 30, author: "App1")
 
     try await Task.sleep(nanoseconds: 100_000_000)
 
-    TestModelBuilder.createPerson(name: "Bob", age: 31, in: context1)
-    try context1.save()
+    try await writer.createPerson(name: "Bob", age: 31, author: "App1")
 
     let processor = makeProcessor(
       container: container,
       cleanStrategy: .byDuration(seconds: 60 * 60))
-    let mergeContext = container.newBackgroundContext()
-    mergeContext.transactionAuthor = "App2"
 
     _ = try await processor.processNewTransactionsWithTimestampManagement(
       from: ["App1", "App2", "App3"],
       after: nil,
-      mergeInto: [mergeContext],
       currentAuthor: "App2")
 
     let remainingCount = try await processor.testTransactionCount(
@@ -200,30 +172,24 @@ struct CleanStrategyTests {
       author: "App1",
       testName: "batchAuthorsDoNotBlockCleanupReadiness")
     let userDefaults = TestModelBuilder.createTestUserDefaults()
-    let context1 = container.viewContext
-    context1.transactionAuthor = "App1"
+    let writer = TestAppDataHandler(container: container, viewName: "Writer")
 
-    TestModelBuilder.createPerson(name: "Alice", age: 30, in: context1)
-    try context1.save()
+    try await writer.createPerson(name: "Alice", age: 30, author: "App1")
 
     try await Task.sleep(nanoseconds: 100_000_000)
 
-    TestModelBuilder.createPerson(name: "Bob", age: 31, in: context1)
-    try context1.save()
+    try await writer.createPerson(name: "Bob", age: 31, author: "App1")
 
     let processor = makeProcessor(
       container: container,
       userDefaults: userDefaults,
       cleanStrategy: .byDuration(seconds: 60 * 60))
-    let mergeContext = container.newBackgroundContext()
-    mergeContext.transactionAuthor = "App2"
 
     userDefaults.set(Date(), forKey: "PersistentHistoryTrackingKit.lastToken.App1")
 
     _ = try await processor.processNewTransactionsWithTimestampManagement(
       from: ["App1", "App2", "BatchProcessor"],
       after: nil,
-      mergeInto: [mergeContext],
       currentAuthor: "App2",
       batchAuthors: ["BatchProcessor"])
 
@@ -245,6 +211,7 @@ struct CleanStrategyTests {
       maximumDuration: 604_800)
     return TransactionProcessorActor(
       container: container,
+      contexts: [container.newBackgroundContext()],
       hookRegistry: hookRegistry,
       cleanStrategy: cleanStrategy,
       timestampManager: timestampManager)

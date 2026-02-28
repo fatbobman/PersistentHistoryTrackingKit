@@ -14,18 +14,12 @@ import Testing
 struct TransactionProcessorActorTests {
   @Test("Fetch transactions - excludes current author")
   func fetchTransactionsExcludeCurrentAuthor() async throws {
-    // Create a container for App1.
     let container = TestModelBuilder.createContainer(author: "App1")
-    let context = container.viewContext
+    let app1Handler = TestAppDataHandler(container: container, viewName: "App1Handler")
+    let app2Handler = TestAppDataHandler(container: container, viewName: "App2Handler")
 
-    // App1 creates data
-    TestModelBuilder.createPerson(name: "Alice", age: 30, in: context)
-    try context.save()
-
-    // Switch the author to App2.
-    context.transactionAuthor = "App2"
-    TestModelBuilder.createPerson(name: "Bob", age: 25, in: context)
-    try context.save()
+    try await app1Handler.createPerson(name: "Alice", age: 30, author: "App1")
+    try await app2Handler.createPerson(name: "Bob", age: 25, author: "App2")
 
     // Build the processor.
     let hookRegistry = HookRegistryActor()
@@ -52,20 +46,15 @@ struct TransactionProcessorActorTests {
   @Test("Clean transactions - timestamp and author filter")
   func cleanTransactionsByTimestampAndAuthors() async throws {
     let container = TestModelBuilder.createContainer(author: "App1")
-    let context = container.viewContext
+    let app1Handler = TestAppDataHandler(container: container, viewName: "App1Handler")
 
-    // Create the first batch of data.
-    TestModelBuilder.createPerson(name: "Alice", age: 30, in: context)
-    try context.save()
+    try await app1Handler.createPerson(name: "Alice", age: 30, author: "App1")
 
     let firstTimestamp = Date()
 
-    // Wait briefly.
-    try await Task.sleep(nanoseconds: 100_000_000)  // 0.1 seconds
+    try await Task.sleep(nanoseconds: 100_000_000)
 
-    // Create the second batch of data.
-    TestModelBuilder.createPerson(name: "Bob", age: 25, in: context)
-    try context.save()
+    try await app1Handler.createPerson(name: "Bob", age: 25, author: "App1")
 
     // Build the processor.
     let hookRegistry = HookRegistryActor()
@@ -93,22 +82,19 @@ struct TransactionProcessorActorTests {
 
   @Test("Process new transactions - full flow")
   func processNewTransactionsFullFlow() async throws {
-    // Use two contexts from the same container (simulating multiple access points).
     let container = TestModelBuilder.createContainer(author: "App1")
-
-    // context1 writes data (App1).
     let context1 = container.newBackgroundContext()
-    context1.transactionAuthor = "App1"
-
-    // context2 receives merges (App2 viewContext).
     let context2 = container.newBackgroundContext()
-    context2.transactionAuthor = "App2"
+    let app1Handler = TestAppDataHandler(
+      container: container,
+      context: context1,
+      viewName: "App1Handler")
+    let app2Handler = TestAppDataHandler(
+      container: container,
+      context: context2,
+      viewName: "App2Handler")
 
-    // App1 creates data
-    try await context1.perform {
-      TestModelBuilder.createPerson(name: "Alice", age: 30, in: context1)
-      try context1.save()
-    }
+    try await app1Handler.createPerson(name: "Alice", age: 30, author: "App1")
 
     // Build the processor.
     let hookRegistry = HookRegistryActor()
@@ -117,37 +103,30 @@ struct TransactionProcessorActorTests {
       maximumDuration: 604_800)
     let processor = TransactionProcessorActor(
       container: container,
+      contexts: [context2],
       hookRegistry: hookRegistry,
       cleanStrategy: .none,
       timestampManager: timestampManager)
 
-    // Process new transactions (exclude App2's own changes, merge App1's).
     let count = try await processor.processNewTransactions(
       from: ["App1"],
       after: nil,
-      mergeInto: [context2],
       currentAuthor: "App2",
       cleanBeforeTimestamp: nil)
 
     #expect(count >= 1)
 
-    // Ensure context2 received the data.
-    try await context2.perform {
-      let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Person")
-      let results = try context2.fetch(fetchRequest)
-      #expect(results.count == 1)
-      #expect(results.first?.value(forKey: "name") as? String == "Alice")
-    }
+    let summaries = try await app2Handler.personSummaries()
+    #expect(summaries.count == 1)
+    #expect(summaries.first?.0 == "Alice")
   }
 
   @Test("Trigger hooks during transaction processing")
   func triggerHooksDuringProcessing() async throws {
     let container = TestModelBuilder.createContainer(author: "App1")
-    let context = container.viewContext
+    let app1Handler = TestAppDataHandler(container: container, viewName: "App1Handler")
 
-    // Create seed data.
-    TestModelBuilder.createPerson(name: "Alice", age: 30, in: context)
-    try context.save()
+    try await app1Handler.createPerson(name: "Alice", age: 30, author: "App1")
 
     // Create a hook registry and register a hook.
     let hookRegistry = HookRegistryActor()
@@ -183,11 +162,9 @@ struct TransactionProcessorActorTests {
       timestampManager: timestampManager)
 
     // Process transactions (should trigger the hook).
-    let context2 = container.newBackgroundContext()
     _ = try await processor.processNewTransactions(
       from: ["App1"],
       after: nil as Date?,
-      mergeInto: [context2],
       currentAuthor: "App2",
       cleanBeforeTimestamp: nil as Date?)
 
@@ -199,15 +176,9 @@ struct TransactionProcessorActorTests {
   @Test("Get last transaction timestamp")
   func getLastTransactionTimestamp() async throws {
     let container = TestModelBuilder.createContainer(author: "App1")
+    let app1Handler = TestAppDataHandler(container: container, viewName: "App1Handler")
 
-    // Create seed data with a different author (App1).
-    let bgContext = container.newBackgroundContext()
-    bgContext.transactionAuthor = "App1"
-
-    try await bgContext.perform {
-      TestModelBuilder.createPerson(name: "Alice", age: 30, in: bgContext)
-      try bgContext.save()
-    }
+    try await app1Handler.createPerson(name: "Alice", age: 30, author: "App1")
 
     // Build the processor.
     let hookRegistry = HookRegistryActor()
@@ -221,11 +192,9 @@ struct TransactionProcessorActorTests {
       timestampManager: timestampManager)
 
     // App2 processes App1's transactions (timestamp for App2 gets persisted).
-    let context2 = container.newBackgroundContext()
     _ = try await processor.processNewTransactionsWithTimestampManagement(
       from: ["App1"],
       after: nil,
-      mergeInto: [context2],
       currentAuthor: "App2",
       batchAuthors: [])
 

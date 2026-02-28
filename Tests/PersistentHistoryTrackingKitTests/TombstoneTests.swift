@@ -54,28 +54,14 @@ struct TombstoneTests {
       }
     }
 
-    // Create, save and delete data (in the same actor-isolated closure)
-    let bgContext = container.newBackgroundContext()
-    bgContext.transactionAuthor = "App1"
-
-    try await bgContext.perform {
-      let person = TestModelBuilder.createPerson(
-        name: "TombstoneTest",
-        age: 99,
-        in: bgContext)
-      try bgContext.save()
-
-      // Delete the newly created object
-      bgContext.delete(person)
-      try bgContext.save()
-    }
+    let handler = TestAppDataHandler(container: container, viewName: "App1Handler")
+    try await handler.createPerson(name: "TombstoneTest", age: 99, author: "App1")
+    try await handler.deletePeople(named: ["TombstoneTest"], author: "App1")
 
     // Process the transactions.
-    let context2 = container.newBackgroundContext()
     _ = try await processor.processNewTransactions(
       from: ["App1"],
       after: nil,
-      mergeInto: [context2],
       currentAuthor: "App2")
 
     // Validate the tombstone data.
@@ -126,32 +112,19 @@ struct TombstoneTests {
       }
     }
 
-    // Create and immediately delete data.
-    let bgContext = container.newBackgroundContext()
-    bgContext.transactionAuthor = "App1"
-
     let testUUID = UUID()
-
-    try await bgContext.perform {
-      let person = NSEntityDescription.insertNewObject(
-        forEntityName: "Person",
-        into: bgContext)
-      person.setValue("PreservedName", forKey: "name")
-      person.setValue(Int32(42), forKey: "age")
-      person.setValue(testUUID, forKey: "id")
-      try bgContext.save()
-
-      // Delete immediately.
-      bgContext.delete(person)
-      try bgContext.save()
-    }
+    let handler = TestAppDataHandler(container: container, viewName: "App1Handler")
+    try await handler.createPerson(
+      name: "PreservedName",
+      age: 42,
+      author: "App1",
+      id: testUUID)
+    try await handler.deletePeople(named: ["PreservedName"], author: "App1")
 
     // Process the transactions.
-    let context2 = container.newBackgroundContext()
     _ = try await processor.processNewTransactions(
       from: ["App1"],
       after: nil,
-      mergeInto: [context2],
       currentAuthor: "App2")
 
     // Validate the tombstone attributes.
@@ -203,26 +176,16 @@ struct TombstoneTests {
       }
     }
 
-    // Create and update data (in the same actor-isolated closure)
-    let bgContext = container.newBackgroundContext()
-    bgContext.transactionAuthor = "App1"
-
-    try await bgContext.perform {
-      // Create data (insert)
-      let person = TestModelBuilder.createPerson(name: "NoTombstone", age: 20, in: bgContext)
-      try bgContext.save()
-
-      // Update data (update)
-      person.setValue("UpdatedName", forKey: "name")
-      try bgContext.save()
-    }
+    let handler = TestAppDataHandler(container: container, viewName: "App1Handler")
+    try await handler.createPerson(name: "NoTombstone", age: 20, author: "App1")
+    try await handler.updatePeople(
+      [PersonUpdate(matchName: "NoTombstone", newName: "UpdatedName")],
+      author: "App1")
 
     // Process the transactions.
-    let context2 = container.newBackgroundContext()
     _ = try await processor.processNewTransactions(
       from: ["App1"],
       after: nil,
-      mergeInto: [context2],
       currentAuthor: "App2")
 
     // Verify that insert and update operations do not have tombstones.

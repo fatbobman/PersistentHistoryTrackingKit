@@ -126,6 +126,7 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
 
     transactionProcessor = TransactionProcessorActor(
       container: container,
+      contexts: self.contexts,
       hookRegistry: hookRegistry,
       cleanStrategy: cleanStrategy,
       timestampManager: timestampManager)
@@ -345,7 +346,6 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
         .processNewTransactionsWithTimestampManagement(
           from: authorsToProcess,
           after: lastTimestamp,
-          mergeInto: contexts,
           currentAuthor: currentAuthor,
           batchAuthors: batchAuthors)
 
