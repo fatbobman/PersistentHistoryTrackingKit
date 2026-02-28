@@ -10,57 +10,63 @@
 //  微信公共号: 肘子的Swift记事本
 //
 
-import Foundation
+public import Foundation
 
-/// author 的 Transaction 合并更新的时间戳管理器。
-/// 本实现采用 UserDefaults 对每个 author 的最后更新日期进行保存，并从中返回可被安全删除的日期。
-/// 为了防止在 AppGroup 的情况下，部分 app 始终没有被启用或实现，从而导致数据不全的情况。
-/// 本实现设定了阈值日期机制，在满足了设定的情况下，将阈值日期作为可安全删除的日期返回
-struct TransactionTimestampManager: TransactionTimestampManagerProtocol {
-    /// 用于保存的 UserDefaults 实例。对于 AppGroup，应该使用可用于全体成员的实例。如：UserDefaults(suiteName: Settings.AppGroup.groupID)
-    private let userDefaults: UserDefaults
-    /// transaction 最长可以保存的时间（秒）。如果在改时间内仍无法获取到全部的 author 更新时间戳，
-    /// 将返回从当前时间剪去该秒数的日期 Date().addingTimeInterval(-1 * abs(maximumDuration))
-    private let maximumDuration: TimeInterval
-    /// 在 UserDefaults 中保存时间戳 Key 的前缀。
-    private let uniqueString: String
+/// Timestamp manager for Transaction merge updates per author.
+/// This implementation uses UserDefaults to save the last update date for each author and
+/// returns a cleanup checkpoint only when every required author has recorded a timestamp.
+public struct TransactionTimestampManager: @unchecked Sendable, TransactionTimestampManagerProtocol
+{
+  /// UserDefaults instance for saving. For AppGroup, should use an instance available to all members, e.g., UserDefaults(suiteName: Settings.AppGroup.groupID)
+  private let userDefaults: UserDefaults
+  /// Prefix for timestamp keys saved in UserDefaults
+  private let uniqueString: String
 
-    func getLastCommonTransactionTimestamp(in authors: [String], exclude batchAuthors: [String] = []) -> Date? {
-        let shouldCheckAuthors = Set(authors).subtracting(batchAuthors)
-        let lastTimestamps = shouldCheckAuthors
-            .compactMap { author in
-                getLastHistoryTransactionTimestamp(for: author)
-            }
-        // 没有任何author记录时间的情况下，直接返回nil
-        let lastTimestamp = lastTimestamps.min() ?? Date().addingTimeInterval(-1 * abs(maximumDuration))
-        return lastTimestamp
+  public func getLastCommonTransactionTimestamp(
+    in authors: [String], exclude batchAuthors: [String] = []
+  ) -> Date? {
+    let requiredAuthors = Set(authors).subtracting(batchAuthors)
+    guard !requiredAuthors.isEmpty else { return nil }
+
+    var lastTimestamps: [Date] = []
+    lastTimestamps.reserveCapacity(requiredAuthors.count)
+
+    for author in requiredAuthors {
+      guard let timestamp = getLastHistoryTransactionTimestamp(for: author) else {
+        return nil
+      }
+      lastTimestamps.append(timestamp)
     }
 
-    func updateLastHistoryTransactionTimestamp(for author: String, to newDate: Date?) {
-        let key = uniqueString + author
-        userDefaults.set(newDate, forKey: key)
-    }
+    return lastTimestamps.min()
+  }
 
-    /// 获取指定的 author 的最后更新日期
-    /// - Parameter author: author 是每个 app 或 app extension 的字符串名称。该名称应与NSManagedObjectContext的transactionAuthor一致
-    /// - Returns: 该 author 的最后更新日期。如果该 author 尚未更新日期，则返回 nil
-    func getLastHistoryTransactionTimestamp(for author: String) -> Date? {
-        let key = uniqueString + author
-        return userDefaults.value(forKey: key) as? Date
-    }
+  public func updateLastHistoryTransactionTimestamp(for author: String, to newDate: Date?) {
+    let key = uniqueString + author
+    userDefaults.set(newDate, forKey: key)
+  }
 
-    /// 创建 author 的 Transaction 合并更新的时间戳管理器。
-    /// - Parameters:
-    ///   - userDefaults: 用于保存的 UserDefaults 实例。
-    ///   对于 AppGroup，应该使用可用于全体成员的实例。如：UserDefaults(suiteName: Settings.AppGroup.groupID)
-    ///   - maximumDuration: transaction 最长可以保存的时间（秒）。如果在改时间内仍无法获取到全部的 author 更新时间戳，
-    ///   将返回从当前时间剪去该秒数的日期 Date().addingTimeInterval(-1 * abs(maximumDuration))。默认值为 604,800 秒（7日）。
-    ///   - uniqueString: 在 UserDefaults 中保存时间戳 Key 的前缀。默认值为："PersistentHistoryTrackingKit.lastToken."
-    init(userDefaults: UserDefaults,
-         maximumDuration: TimeInterval = 60 * 60 * 24 * 7, // 7 days
-         uniqueString: String = "PersistentHistoryTrackingKit.lastToken.") {
-        self.userDefaults = userDefaults
-        self.maximumDuration = maximumDuration
-        self.uniqueString = uniqueString
-    }
+  /// Get the last update date for the specified author
+  /// - Parameter author: author is the string name for each app or app extension. Should match NSManagedObjectContext's transactionAuthor
+  /// - Returns: The last update date of that author. Returns nil if the author has no update date yet
+  public func getLastHistoryTransactionTimestamp(for author: String) -> Date? {
+    let key = uniqueString + author
+    return userDefaults.value(forKey: key) as? Date
+  }
+
+  /// Create a timestamp manager for Transaction merge updates per author.
+  /// - Parameters:
+  ///   - userDefaults: UserDefaults instance for saving.
+  ///   For AppGroup, should use an instance available to all members, e.g., UserDefaults(suiteName: Settings.AppGroup.groupID)
+  ///   - maximumDuration: Reserved for future cleanup readiness policies. Default is 604,800 seconds (7 days).
+  ///   - uniqueString: Prefix for timestamp keys saved in UserDefaults. Default is "PersistentHistoryTrackingKit.lastToken."
+  init(
+    userDefaults: UserDefaults,
+    maximumDuration: TimeInterval = 60 * 60 * 24 * 7,  // 7 days
+    uniqueString: String = "PersistentHistoryTrackingKit.lastToken."
+  ) {
+    self.userDefaults = userDefaults
+    self.uniqueString = uniqueString
+    _ = maximumDuration
+  }
 }

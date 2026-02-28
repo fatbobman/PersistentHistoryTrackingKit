@@ -1,7 +1,11 @@
 .DS_Store
 /.build
 /Packages
+/.swiftpm
+Package.resolved
 /*.xcodeproj
 xcuserdata/
 DerivedData/
 .swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
+/.vscode
+/.claude
