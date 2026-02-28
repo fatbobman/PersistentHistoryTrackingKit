@@ -12,16 +12,21 @@ jobs:
   build-and-test:
     name: Build and Test
     runs-on: macos-15
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.0.app/Contents/Developer
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Show Xcode Version
+        run: xcodebuild -version
+
       - name: Show Swift Version
         run: swift --version
 
       - name: Build
-        run: swift build
+        run: swift build --enable-experimental-prebuilts
 
       - name: Test
-        run: swift test --no-parallel
+        run: bash test.sh --enable-experimental-prebuilts
