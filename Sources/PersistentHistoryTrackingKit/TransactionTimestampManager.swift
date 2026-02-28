@@ -13,31 +13,32 @@
 public import Foundation
 
 /// Timestamp manager for Transaction merge updates per author.
-/// This implementation uses UserDefaults to save the last update date for each author and returns the date safe for deletion.
-/// To prevent incomplete data in AppGroup scenarios where some apps are never enabled or implemented,
-/// a threshold date mechanism is set up that returns the threshold as the safe deletion date when conditions are met
+/// This implementation uses UserDefaults to save the last update date for each author and
+/// returns a cleanup checkpoint only when every required author has recorded a timestamp.
 public struct TransactionTimestampManager: @unchecked Sendable, TransactionTimestampManagerProtocol
 {
   /// UserDefaults instance for saving. For AppGroup, should use an instance available to all members, e.g., UserDefaults(suiteName: Settings.AppGroup.groupID)
   private let userDefaults: UserDefaults
-  /// Maximum duration transactions can be kept (seconds). If all author timestamps cannot be retrieved within this time,
-  /// returns the date calculated by subtracting this duration from current time: Date().addingTimeInterval(-1 * abs(maximumDuration))
-  private let maximumDuration: TimeInterval
   /// Prefix for timestamp keys saved in UserDefaults
   private let uniqueString: String
 
   public func getLastCommonTransactionTimestamp(
     in authors: [String], exclude batchAuthors: [String] = []
   ) -> Date? {
-    let shouldCheckAuthors = Set(authors).subtracting(batchAuthors)
-    let lastTimestamps =
-      shouldCheckAuthors
-      .compactMap { author in
-        getLastHistoryTransactionTimestamp(for: author)
+    let requiredAuthors = Set(authors).subtracting(batchAuthors)
+    guard !requiredAuthors.isEmpty else { return nil }
+
+    var lastTimestamps: [Date] = []
+    lastTimestamps.reserveCapacity(requiredAuthors.count)
+
+    for author in requiredAuthors {
+      guard let timestamp = getLastHistoryTransactionTimestamp(for: author) else {
+        return nil
       }
-    // If no author has recorded a timestamp, return nil
-    let lastTimestamp = lastTimestamps.min() ?? Date().addingTimeInterval(-1 * abs(maximumDuration))
-    return lastTimestamp
+      lastTimestamps.append(timestamp)
+    }
+
+    return lastTimestamps.min()
   }
 
   public func updateLastHistoryTransactionTimestamp(for author: String, to newDate: Date?) {
@@ -57,8 +58,7 @@ public struct TransactionTimestampManager: @unchecked Sendable, TransactionTimes
   /// - Parameters:
   ///   - userDefaults: UserDefaults instance for saving.
   ///   For AppGroup, should use an instance available to all members, e.g., UserDefaults(suiteName: Settings.AppGroup.groupID)
-  ///   - maximumDuration: Maximum duration transactions can be kept (seconds). If all author timestamps cannot be retrieved within this time,
-  ///   returns Date().addingTimeInterval(-1 * abs(maximumDuration)). Default is 604,800 seconds (7 days).
+  ///   - maximumDuration: Reserved for future cleanup readiness policies. Default is 604,800 seconds (7 days).
   ///   - uniqueString: Prefix for timestamp keys saved in UserDefaults. Default is "PersistentHistoryTrackingKit.lastToken."
   init(
     userDefaults: UserDefaults,
@@ -66,7 +66,7 @@ public struct TransactionTimestampManager: @unchecked Sendable, TransactionTimes
     uniqueString: String = "PersistentHistoryTrackingKit.lastToken."
   ) {
     self.userDefaults = userDefaults
-    self.maximumDuration = maximumDuration
     self.uniqueString = uniqueString
+    _ = maximumDuration
   }
 }

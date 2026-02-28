@@ -6,7 +6,7 @@
 
 ![Platform](https://img.shields.io/badge/Platform-iOS%2017%2B%20|%20macOS%2014%2B%20|%20tvOS%2017%2B%20|%20watchOS%2010%2B-blue)
 ![Swift](https://img.shields.io/badge/Swift-6.0-orange)
-![License](https://img.shields.io/badge/License-MIT-green)
+![License](https://img.shields.io/badge/License-MIT-green)[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/fatbobman/ObservableDefaults)
 
 [English Version](README.md)
 
@@ -23,7 +23,8 @@ V2 是一次基于现代 Swift 并发的完全重写：
 - ✅ **Hook 系统** —— 支持 Observer Hook 与 Merge Hook
 - ✅ **现代 API** —— 全面 async/await，Hook 使用 UUID 管理
 
-**迁移提示**：V2 需要 iOS 17+/macOS 14+/Swift 6，详见[迁移章节](#从-v1-迁移)。
+**迁移提示**：V2 需要 iOS 17+/macOS 14+/Swift 6，迁移步骤与行为变化详见
+[迁移指南](Docs/MigrationGuideCN.md)。
 
 ---
 
@@ -74,6 +75,8 @@ dependencies: [
 ```
 
 或直接使用 `version-1` 分支：[查看文档](https://github.com/fatbobman/PersistentHistoryTrackingKit/tree/version-1)
+
+如果你准备把已有的 V1 项目迁移到 V2，请先阅读[迁移指南](Docs/MigrationGuideCN.md)。
 
 ---
 
@@ -163,6 +166,9 @@ cleanStrategy: .none
 - **频繁交易**: 考虑 `.byDuration(seconds: 60 * 60 * 24 * 3)` (3 天)
 - **手动控制**: 使用 `.none`,在特定事件时清理(App 进入后台等)
 
+自动清理采用保守策略: 只有所有非 batch author 都已在共享 `UserDefaults` 中记录各自的
+merge 时间戳后,Kit 才会执行清理。只要有任何一个必要 author 尚未完成 merge,自动清理就会跳过。
+
 **⚠️ CloudKit 用户特别注意**:
 
 CloudKit 内部依赖持久化历史记录。如果历史清理过于激进,CloudKit 可能丢失其追踪标记,导致 `NSPersistentHistoryTokenExpiredError`(错误代码 134301),这可能会造成本地数据库清除和强制从 iCloud 重新同步。
@@ -249,25 +255,6 @@ await kit.registerMergeHook { input in
 }
 ```
 
-**实战示例：关闭 undoManager**
-
-```swift
-await kit.registerMergeHook { input in
-    for transaction in input.transactions {
-        let notification = transaction.objectIDNotification()
-        for context in input.contexts {
-            await context.perform {
-                let undo = context.undoManager
-                context.undoManager = nil
-                context.mergeChanges(fromContextDidSave: notification)
-                context.undoManager = undo
-            }
-        }
-    }
-    return .finish
-}
-```
-
 **实战示例：去重**
 
 ```swift
@@ -307,7 +294,7 @@ await kit.registerMergeHook { input in
 | `batchAuthors` | `[String]` | 只写入不合并的 author | `[]` |
 | `userDefaults` | `UserDefaults` | 存储时间戳 | 必填 |
 | `cleanStrategy` | `TransactionCleanStrategy` | 清理策略 | `.none` |
-| `maximumDuration` | `TimeInterval` | 保留时长 | 7 天 |
+| `maximumDuration` | `TimeInterval` | 为未来清理就绪策略预留 | 7 天 |
 | `uniqueString` | `String` | UserDefaults key 前缀 | 自动生成 |
 | `logger` | `PersistentHistoryTrackingKitLoggerProtocol?` | 自定义日志 | `DefaultLogger` |
 | `logLevel` | `Int` | 日志级别 (0-2) | `1` |
@@ -391,6 +378,7 @@ let hookB = await kit.registerMergeHook(before: hookA) { _ in print("Hook B"); r
 ## 文档
 
 - [Hook 机制指南](Docs/HookMechanism.md)
+- [迁移指南](Docs/MigrationGuideCN.md)
 - [持久化历史跟踪原理](https://fatbobman.com/zh/posts/persistenthistorytracking/)
 
 ---

@@ -6,7 +6,7 @@ A modern, production-ready library for handling Core Data's Persistent History T
 
 ![Platform](https://img.shields.io/badge/Platform-iOS%2017%2B%20|%20macOS%2014%2B%20|%20tvOS%2017%2B%20|%20watchOS%2010%2B-blue)
 ![Swift](https://img.shields.io/badge/Swift-6.0-orange)
-![License](https://img.shields.io/badge/License-MIT-green)
+![License](https://img.shields.io/badge/License-MIT-green)[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/fatbobman/ObservableDefaults)
 
 [English](https://github.com/fatbobman/PersistentHistoryTrackingKit/blob/main/README.md) | [中文版说明](https://github.com/fatbobman/PersistentHistoryTrackingKit/blob/main/READMECN.md)
 
@@ -23,7 +23,8 @@ Version 2 is a **complete rewrite** with modern Swift concurrency:
 - ✅ **Hook System** - Powerful Observer and Merge Hooks for custom behaviors
 - ✅ **Modern API** - Async/await throughout, UUID-based hook management
 
-**Migration from V1:** V2 requires iOS 17+, macOS 14+, and Swift 6. See [Migration Guide](#migration-from-v1) for details.
+**Migration from V1:** V2 requires iOS 17+, macOS 14+, and Swift 6. See the
+[Migration Guide](Docs/MigrationGuide.md) for migration steps and behavior changes.
 
 ---
 
@@ -78,6 +79,8 @@ dependencies: [
 ```
 
 Or use the `version-1` branch: [V1 Documentation](https://github.com/fatbobman/PersistentHistoryTrackingKit/tree/version-1)
+
+Moving an existing V1 app to V2? Read the [Migration Guide](Docs/MigrationGuide.md).
 
 ---
 
@@ -183,6 +186,10 @@ cleanStrategy: .none
 - **CloudKit users**: **Must** use `.byDuration(seconds: 60 * 60 * 24 * 7)` or longer to avoid `NSPersistentHistoryTokenExpiredError`
 - **Frequent transactions**: Consider `.byDuration(seconds: 60 * 60 * 24 * 3)` (3 days)
 - **Manual control**: Use `.none` and clean on specific events (app background, etc.)
+
+Automatic cleanup is conservative: the kit cleans only after every non-batch author has recorded
+its merge timestamp in the shared `UserDefaults` store. If one required author has not merged yet,
+automatic cleanup is skipped.
 
 **⚠️ Important for CloudKit Users**:
 
@@ -290,28 +297,6 @@ await kit.registerMergeHook { input in
 
 ### Real-World Examples
 
-**Disable Undo Manager During Merge:**
-
-```swift
-await kit.registerMergeHook { input in
-    for transaction in input.transactions {
-        let notification = transaction.objectIDNotification()
-
-        for context in input.contexts {
-            await context.perform {
-                let undoManager = context.undoManager
-                context.undoManager = nil
-
-                context.mergeChanges(fromContextDidSave: notification)
-
-                context.undoManager = undoManager
-            }
-        }
-    }
-    return .finish
-}
-```
-
 **Deduplication:**
 
 ```swift
@@ -356,7 +341,7 @@ await kit.registerMergeHook { input in
 | `batchAuthors` | `[String]` | Authors that only write, never merge | `[]` |
 | `userDefaults` | `UserDefaults` | Storage for timestamps | Required |
 | `cleanStrategy` | `TransactionCleanStrategy` | Cleanup strategy | `.none` |
-| `maximumDuration` | `TimeInterval` | Max transaction age | 7 days |
+| `maximumDuration` | `TimeInterval` | Reserved for future cleanup readiness policies | 7 days |
 | `uniqueString` | `String` | UserDefaults key prefix | Auto-generated |
 | `logger` | `PersistentHistoryTrackingKitLoggerProtocol?` | Custom logger | `DefaultLogger` |
 | `logLevel` | `Int` | Log verbosity (0-2) | `1` |
@@ -511,6 +496,7 @@ let hookB = await kit.registerMergeHook(before: hookA) { _ in
 ## Documentation
 
 - **[Hook Mechanism Guide](Docs/HookMechanism.md)** - Complete guide to Observer and Merge Hooks
+- **[Migration Guide](Docs/MigrationGuide.md)** - API, behavior, and platform changes from V1 to V2
 - **[Core Data Persistent History Tracking](https://fatbobman.com/en/posts/persistenthistorytracking/)** - Blog post on the fundamentals
 
 ---

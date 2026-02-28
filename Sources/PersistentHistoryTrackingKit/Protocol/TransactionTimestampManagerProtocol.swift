@@ -16,10 +16,12 @@ public import Foundation
 public protocol TransactionTimestampManagerProtocol {
   /// Get the timestamp safe for deletion from the given author list
   ///
-  /// If exclude is provided, only authors in (authors - batchAuthors) will be checked for timestamp validation
-  /// Cleaner will use this timestamp to instruct Core Data to delete Transactions before this timestamp
+  /// If exclude is provided, only authors in (authors - batchAuthors) will be checked for
+  /// timestamp validation.
+  /// Cleaner will use this timestamp to instruct Core Data to delete transactions before this
+  /// timestamp.
   /// - Returns: The date safe for deletion.
-  /// When nil, it means not all authors requiring timestamp updates have updated yet
+  /// When nil, at least one required author has not recorded a timestamp yet.
   func getLastCommonTransactionTimestamp(in authors: [String], exclude batchAuthors: [String])
     -> Date?
   /// Update the last update date for the specified author

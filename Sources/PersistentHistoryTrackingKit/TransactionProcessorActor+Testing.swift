@@ -144,6 +144,24 @@ import Foundation
       return (hasTimestamp, timestamp, isRecent)
     }
 
+    /// Count transactions matching the fetch filters.
+    /// - Parameters:
+    ///   - authors: Authors to include.
+    ///   - date: Optional lower-bound timestamp.
+    ///   - excludeAuthor: Optional author to exclude.
+    /// - Returns: Number of matching transactions.
+    func testTransactionCount(
+      from authors: [String],
+      after date: Date?,
+      excludeAuthor: String? = nil
+    ) throws -> Int {
+      try fetchTransactions(
+        from: authors,
+        after: date,
+        excludeAuthor: excludeAuthor
+      ).count
+    }
+
     /// Verify that hooks are triggered as expected.
     /// - Parameters:
     ///   - authors: Authors to process.

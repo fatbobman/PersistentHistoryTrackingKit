@@ -70,22 +70,22 @@ struct TransactionCleanStrategyByDuration: TransactionPurgePolicy, Sendable {
 /// Runs cleanup every N notifications. For example, `times = 1` means run every time, while `times = 3` runs every third notification.
 struct TransactionCleanStrategyByNotification: TransactionPurgePolicy, Sendable {
   private var count: Int
-  private var times: Int
+  private let times: Int
   init(strategy: TransactionCleanStrategy) {
     if case .byNotification(times: let times) = strategy {
-      self.times = times
-      self.count = times
+      self.times = max(1, times)
+      self.count = 0
     } else {
       fatalError("Transaction clean strategy should be byNotification")
     }
   }
 
   mutating func allowedToClean() -> Bool {
+    count += 1
     if count >= times {
-      count = 1
+      count = 0
       return true
     } else {
-      count += 1
       return false
     }
   }

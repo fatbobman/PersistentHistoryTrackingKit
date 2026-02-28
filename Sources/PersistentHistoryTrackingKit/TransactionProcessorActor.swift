@@ -171,10 +171,11 @@ actor TransactionProcessorActor {
         to: newTimestamp)
     }
 
-    // 5. Compute and execute cleanup.
-    if let cleanTimestamp = timestampManager.getLastCommonTransactionTimestamp(
-      in: authors,
-      exclude: batchAuthors)
+    // 5. Compute and execute cleanup when the configured strategy allows it.
+    if cleanStrategy.allowedToClean(),
+      let cleanTimestamp = timestampManager.getLastCommonTransactionTimestamp(
+        in: authors,
+        exclude: batchAuthors)
     {
       _ = try cleanTransactions(before: cleanTimestamp, for: authors)
     }
