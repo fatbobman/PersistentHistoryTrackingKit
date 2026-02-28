@@ -53,6 +53,15 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
   /// Background processing task.
   private var processingTask: Task<Void, Never>?
 
+  /// Legacy notification observer used on platforms without async notification sequences.
+  private var remoteChangeObserver: NSObjectProtocol?
+
+  /// Protects listener state shared across notification callbacks.
+  private let listenerStateLock = NSLock()
+
+  /// Identifier for the currently active notification listener.
+  private var activeListenerID: UUID?
+
   /// Persistent container (used to build manual cleaners).
   private let container: NSPersistentContainer
 
@@ -295,32 +304,31 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
 
   /// Start the background processing task.
   public func start() {
-    guard processingTask == nil else { return }
+    guard processingTask == nil, remoteChangeObserver == nil else { return }
+    let listenerID = activateNotificationListener()
 
-    processingTask = Task { @Sendable [weak self, coordinator] in
-      guard let self else { return }
-
-      log(.info, level: 1, "Persistent History Tracking Kit V2 Started")
-
-      // Listen for NSPersistentStoreRemoteChange notifications.
-      let center = NotificationCenter.default
-      let name = NSNotification.Name.NSPersistentStoreRemoteChange
-
-      for await _ in center.notifications(named: name, object: coordinator)
-      where !Task.isCancelled {
-        await self.handleRemoteChangeNotification()
-      }
-
-      log(.info, level: 1, "Persistent History Tracking Kit V2 Stopped")
+    if #available(macOS 12.0, iOS 15.0, tvOS 15.0, watchOS 8.0, macCatalyst 15.0, visionOS 1.0, *) {
+      startAsyncNotificationListener(listenerID: listenerID)
+    } else {
+      startLegacyNotificationObserver(listenerID: listenerID)
     }
 
+    log(.info, level: 1, "Persistent History Tracking Kit V2 Started")
     log(.info, level: 2, "Started transaction processing task")
   }
 
   /// Stop the background processing task.
   public func stop() {
+    guard processingTask != nil || remoteChangeObserver != nil else { return }
+    deactivateNotificationListener()
+
     processingTask?.cancel()
     processingTask = nil
+    if let remoteChangeObserver {
+      NotificationCenter.default.removeObserver(remoteChangeObserver)
+      self.remoteChangeObserver = nil
+    }
+    log(.info, level: 1, "Persistent History Tracking Kit V2 Stopped")
     log(.info, level: 2, "Stopped transaction processing task")
   }
 
@@ -359,5 +367,55 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
   private func log(_ type: PersistentHistoryTrackingKitLogType, level: Int, _ message: String) {
     guard level <= _logLevel else { return }
     logger.log(type: type, message: message)
+  }
+
+  @available(macOS 12.0, iOS 15.0, tvOS 15.0, watchOS 8.0, macCatalyst 15.0, visionOS 1.0, *)
+  private func startAsyncNotificationListener(listenerID: UUID) {
+    processingTask = Task { @Sendable [weak self, coordinator] in
+      guard let self else { return }
+
+      let center = NotificationCenter.default
+      let name = NSNotification.Name.NSPersistentStoreRemoteChange
+
+      for await _ in center.notifications(named: name, object: coordinator)
+      where !Task.isCancelled {
+        guard isActiveNotificationListener(listenerID) else { return }
+        await self.handleRemoteChangeNotification()
+      }
+    }
+  }
+
+  private func startLegacyNotificationObserver(listenerID: UUID) {
+    remoteChangeObserver = NotificationCenter.default.addObserver(
+      forName: .NSPersistentStoreRemoteChange,
+      object: coordinator,
+      queue: nil
+    ) { [weak self] _ in
+      Task { @Sendable [weak self] in
+        guard let self, self.isActiveNotificationListener(listenerID) else { return }
+        await self.handleRemoteChangeNotification()
+      }
+    }
+  }
+
+  private func activateNotificationListener() -> UUID {
+    listenerStateLock.lock()
+    defer { listenerStateLock.unlock() }
+
+    let listenerID = UUID()
+    activeListenerID = listenerID
+    return listenerID
+  }
+
+  private func deactivateNotificationListener() {
+    listenerStateLock.lock()
+    defer { listenerStateLock.unlock() }
+    activeListenerID = nil
+  }
+
+  private func isActiveNotificationListener(_ listenerID: UUID) -> Bool {
+    listenerStateLock.lock()
+    defer { listenerStateLock.unlock() }
+    return activeListenerID == listenerID
   }
 }

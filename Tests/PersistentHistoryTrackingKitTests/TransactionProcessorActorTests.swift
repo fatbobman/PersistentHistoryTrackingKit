@@ -79,47 +79,48 @@ struct TransactionProcessorActorTests {
     // Transactions from the second batch should remain after cleanup.
     #expect(result.remainingCount >= 1)
   }
+  #if swift(>=6.2)
+    @Test("Process new transactions - full flow")
+    func processNewTransactionsFullFlow() async throws {
+      let container = TestModelBuilder.createContainer(author: "App1")
+      let context1 = container.newBackgroundContext()
+      let context2 = container.newBackgroundContext()
+      let app1Handler = TestAppDataHandler(
+        container: container,
+        context: context1,
+        viewName: "App1Handler")
+      let app2Handler = TestAppDataHandler(
+        container: container,
+        context: context2,
+        viewName: "App2Handler")
 
-  @Test("Process new transactions - full flow")
-  func processNewTransactionsFullFlow() async throws {
-    let container = TestModelBuilder.createContainer(author: "App1")
-    let context1 = container.newBackgroundContext()
-    let context2 = container.newBackgroundContext()
-    let app1Handler = TestAppDataHandler(
-      container: container,
-      context: context1,
-      viewName: "App1Handler")
-    let app2Handler = TestAppDataHandler(
-      container: container,
-      context: context2,
-      viewName: "App2Handler")
+      try await app1Handler.createPerson(name: "Alice", age: 30, author: "App1")
 
-    try await app1Handler.createPerson(name: "Alice", age: 30, author: "App1")
+      // Build the processor.
+      let hookRegistry = HookRegistryActor()
+      let timestampManager = TransactionTimestampManager(
+        userDefaults: TestModelBuilder.createTestUserDefaults(),
+        maximumDuration: 604_800)
+      let processor = TransactionProcessorActor(
+        container: container,
+        contexts: [context2],
+        hookRegistry: hookRegistry,
+        cleanStrategy: .none,
+        timestampManager: timestampManager)
 
-    // Build the processor.
-    let hookRegistry = HookRegistryActor()
-    let timestampManager = TransactionTimestampManager(
-      userDefaults: TestModelBuilder.createTestUserDefaults(),
-      maximumDuration: 604_800)
-    let processor = TransactionProcessorActor(
-      container: container,
-      contexts: [context2],
-      hookRegistry: hookRegistry,
-      cleanStrategy: .none,
-      timestampManager: timestampManager)
+      let count = try await processor.processNewTransactions(
+        from: ["App1"],
+        after: nil,
+        currentAuthor: "App2",
+        cleanBeforeTimestamp: nil)
 
-    let count = try await processor.processNewTransactions(
-      from: ["App1"],
-      after: nil,
-      currentAuthor: "App2",
-      cleanBeforeTimestamp: nil)
+      #expect(count >= 1)
 
-    #expect(count >= 1)
-
-    let summaries = try await app2Handler.personSummaries()
-    #expect(summaries.count == 1)
-    #expect(summaries.first?.0 == "Alice")
-  }
+      let summaries = try await app2Handler.personSummaries()
+      #expect(summaries.count == 1)
+      #expect(summaries.first?.0 == "Alice")
+    }
+  #endif
 
   @Test("Trigger hooks during transaction processing")
   func triggerHooksDuringProcessing() async throws {

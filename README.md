@@ -4,7 +4,7 @@
 
 A modern, production-ready library for handling Core Data's Persistent History Tracking with full Swift 6 concurrency support.
 
-![Platform](https://img.shields.io/badge/Platform-iOS%2017%2B%20|%20macOS%2014%2B%20|%20tvOS%2017%2B%20|%20watchOS%2010%2B-blue)
+![Platform](https://img.shields.io/badge/Platform-iOS%2013%2B%20%7C%20macOS%2010.15%2B%20%7C%20macCatalyst%2013%2B%20%7C%20tvOS%2013%2B%20%7C%20watchOS%206%2B%20%7C%20visionOS%201%2B-blue)
 ![Swift](https://img.shields.io/badge/Swift-6.0-orange)
 ![License](https://img.shields.io/badge/License-MIT-green)[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/fatbobman/ObservableDefaults)
 
@@ -23,8 +23,9 @@ Version 2 is a **complete rewrite** with modern Swift concurrency:
 - ✅ **Hook System** - Powerful Observer and Merge Hooks for custom behaviors
 - ✅ **Modern API** - Async/await throughout, UUID-based hook management
 
-**Migration from V1:** V2 requires iOS 17+, macOS 14+, and Swift 6. See the
-[Migration Guide](Docs/MigrationGuide.md) for migration steps and behavior changes.
+**Migration from V1:** V2 declares iOS 13+, macOS 10.15+, macCatalyst 13+, tvOS 13+,
+watchOS 6+, visionOS 1+, and Swift 6. Current runtime validation has been performed on iOS 15+.
+See the [Migration Guide](Docs/MigrationGuide.md) for migration steps and behavior changes.
 
 ---
 
@@ -54,19 +55,20 @@ When you enable Persistent History Tracking, Core Data creates **transactions** 
 
 ### V2 (Current Branch)
 
-- **Minimum Requirements**: iOS 17+, macOS 14+, Swift 6.0+
+- **Minimum Requirements**: iOS 13+, macOS 10.15+, macCatalyst 13+, tvOS 13+, watchOS 6+, visionOS 1+, Swift 6.0+
 - **Features**: Actor-based architecture, Hook system, full Swift 6 concurrency
-- **Recommended for**: New projects targeting modern platforms
+- **Runtime Validation**: Currently tested on iOS 15+ with current Xcode toolchains
+- **Recommended for**: New projects adopting Swift 6
 
 ### V1 (Stable)
 
 - **Minimum Requirements**: iOS 13+, macOS 10.15+, Swift 5.5+
 - **Features**: Proven stability, lower system requirements
-- **Recommended for**: Projects that need to support older platforms
+- **Recommended for**: Projects that prefer a pre-Swift-6 toolchain or the battle-tested V1 API
 
 **Use V1 if:**
 
-- You need to support iOS 13-16 or macOS 10.15-13
+- You need to stay on a pre-Swift-6 toolchain
 - You're not ready to migrate to Swift 6
 - You prefer the battle-tested V1 API
 
@@ -487,9 +489,12 @@ let hookB = await kit.registerMergeHook(before: hookA) { _ in
 
 ## Requirements
 
-- iOS 17.0+ / macOS 14.0+ / tvOS 17.0+ / watchOS 10.0+
+- iOS 13.0+ / macOS 10.15+ / macCatalyst 13.0+ / tvOS 13.0+ / watchOS 6.0+ / visionOS 1.0+
 - Swift 6.0+
 - Xcode 16.0+
+
+Runtime validation in the current toolchain environment has been performed on iOS 15+.
+Older declared deployment targets are compiler-checked but have not been runtime-validated here.
 
 ---
 
@@ -504,6 +509,9 @@ let hookB = await kit.registerMergeHook(before: hookA) { _ in
 ## Testing
 
 Tests are validated under parallel execution. The test infrastructure serializes `NSPersistentContainer` creation internally to avoid Core Data store-loading crashes while preserving parallel suite execution.
+
+Current runtime validation has been performed on iOS 15+.
+Although the package declares support for older OS versions, iOS 13 and iOS 14 have not been runtime-validated in the current Xcode environment.
 
 ### Recommended: Use the test script
 

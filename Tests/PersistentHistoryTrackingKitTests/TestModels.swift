@@ -89,7 +89,9 @@ enum TestModelBuilder {
   /// - Returns: Configured container.
   static func createContainer(
     author: String,
-    testName: String = #function
+    testName: String = #function,
+    storeURL: URL? = nil,
+    resetStoreFiles: Bool? = nil
   ) -> NSPersistentContainer {
     Self.containerCreationLock.lock()
     defer { Self.containerCreationLock.unlock() }
@@ -99,16 +101,25 @@ enum TestModelBuilder {
 
     // Use an SQLite store (required for persistent history).
     // Add a UUID suffix so parallel tests get unique filenames.
-    let tempDir = FileManager.default.temporaryDirectory
-    let uniqueId = UUID().uuidString.prefix(8)
-    let storeURL = tempDir.appendingPathComponent("TestModel_\(testName)_\(uniqueId).sqlite")
+    let resolvedStoreURL: URL = {
+      if let storeURL {
+        return storeURL
+      }
 
-    // Remove any stale files; the UUID normally keeps paths unique.
-    try? FileManager.default.removeItem(at: storeURL)
-    try? FileManager.default.removeItem(at: storeURL.appendingPathExtension("sqlite-shm"))
-    try? FileManager.default.removeItem(at: storeURL.appendingPathExtension("sqlite-wal"))
+      let tempDir = FileManager.default.temporaryDirectory
+      let uniqueId = UUID().uuidString.prefix(8)
+      return tempDir.appendingPathComponent("TestModel_\(testName)_\(uniqueId).sqlite")
+    }()
 
-    let description = NSPersistentStoreDescription(url: storeURL)
+    let shouldResetStoreFiles = resetStoreFiles ?? (storeURL == nil)
+
+    if shouldResetStoreFiles {
+      try? FileManager.default.removeItem(at: resolvedStoreURL)
+      try? FileManager.default.removeItem(at: resolvedStoreURL.appendingPathExtension("sqlite-shm"))
+      try? FileManager.default.removeItem(at: resolvedStoreURL.appendingPathExtension("sqlite-wal"))
+    }
+
+    let description = NSPersistentStoreDescription(url: resolvedStoreURL)
     description.type = NSSQLiteStoreType
     description.shouldAddStoreAsynchronously = false
 

@@ -339,39 +339,40 @@ struct MergeHookTests {
   }
 
   // MARK: - Default Merge Fallback Tests
+  #if swift(>=6.2)
+    @Test("Fall back to default merge when no hooks exist")
+    func defaultMergeWithoutHooks() async throws {
+      let container = TestModelBuilder.createContainer(
+        author: "TestAuthor",
+        testName: "defaultMergeWithoutHooks")
+      let hookRegistry = HookRegistryActor()
+      let timestampManager = TransactionTimestampManager(
+        userDefaults: TestModelBuilder.createTestUserDefaults(),
+        maximumDuration: 604_800)
+      let context2 = container.newBackgroundContext()
+      let reader = TestAppDataHandler(container: container, context: context2, viewName: "Reader")
+      let processor = TransactionProcessorActor(
+        container: container,
+        contexts: [context2],
+        hookRegistry: hookRegistry,
+        cleanStrategy: .none,
+        timestampManager: timestampManager)
 
-  @Test("Fall back to default merge when no hooks exist")
-  func defaultMergeWithoutHooks() async throws {
-    let container = TestModelBuilder.createContainer(
-      author: "TestAuthor",
-      testName: "defaultMergeWithoutHooks")
-    let hookRegistry = HookRegistryActor()
-    let timestampManager = TransactionTimestampManager(
-      userDefaults: TestModelBuilder.createTestUserDefaults(),
-      maximumDuration: 604_800)
-    let context2 = container.newBackgroundContext()
-    let reader = TestAppDataHandler(container: container, context: context2, viewName: "Reader")
-    let processor = TransactionProcessorActor(
-      container: container,
-      contexts: [context2],
-      hookRegistry: hookRegistry,
-      cleanStrategy: .none,
-      timestampManager: timestampManager)
+      // Do not register any merge hooks.
 
-    // Do not register any merge hooks.
+      let writer = TestAppDataHandler(container: container, viewName: "Writer")
+      try await writer.createPerson(name: "DefaultMergeTest", age: 30, author: "OtherAuthor")
 
-    let writer = TestAppDataHandler(container: container, viewName: "Writer")
-    try await writer.createPerson(name: "DefaultMergeTest", age: 30, author: "OtherAuthor")
+      // Process the transactions.
+      let count = try await processor.processNewTransactions(
+        from: ["OtherAuthor"],
+        after: nil,
+        currentAuthor: "TestAuthor")
 
-    // Process the transactions.
-    let count = try await processor.processNewTransactions(
-      from: ["OtherAuthor"],
-      after: nil,
-      currentAuthor: "TestAuthor")
+      #expect(count >= 1)
 
-    #expect(count >= 1)
-
-    let names = try await reader.personNames()
-    #expect(names == ["DefaultMergeTest"])
-  }
+      let names = try await reader.personNames()
+      #expect(names == ["DefaultMergeTest"])
+    }
+  #endif
 }

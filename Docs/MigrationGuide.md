@@ -9,14 +9,17 @@ new extension points, and different cleanup semantics.
 
 Move to V2 if all of the following are true:
 
-- You target iOS 17+, macOS 14+, tvOS 17+, or watchOS 10+
+- You target iOS 13+, macOS 10.15+, macCatalyst 13+, tvOS 13+, watchOS 6+, or visionOS 1+
 - You are ready to adopt Swift 6
 - You want actor-based internals and async hook APIs
 - You want Observer Hooks, Merge Hooks, and tombstone support
 
+V2 now declares lower deployment targets than the initial V2 release, but current runtime
+validation has only been performed on iOS 15+ with modern Xcode toolchains.
+
 Stay on V1 if any of the following are true:
 
-- You still support older OS versions
+- You want to stay on a pre-Swift-6 toolchain
 - You are not ready to move to Swift 6
 - You prefer the existing V1 fetch / merge / cleaner customization model
 
@@ -48,11 +51,15 @@ Stay on V1 if any of the following are true:
 ### V2
 
 - Swift 6
-- iOS 17+
-- macOS 14+
-- macCatalyst 17+
-- tvOS 17+
-- watchOS 10+
+- iOS 13+
+- macOS 10.15+
+- macCatalyst 13+
+- tvOS 13+
+- watchOS 6+
+- visionOS 1+
+
+These are the declared deployment targets. In the current toolchain environment, runtime
+validation has only been performed on iOS 15+.
 
 ## Package and Dependency Changes
 
@@ -241,7 +248,7 @@ struct MyLogger: PersistentHistoryTrackingKitLoggerProtocol {
 
 ## Migration Checklist
 
-1. Confirm your deployment targets and Swift version meet V2 requirements.
+1. Confirm your deployment targets and Swift version meet V2 requirements, and note that current runtime validation has only been performed on iOS 15+.
 2. Replace any V1 merger or deduplicator customization with Merge Hooks.
 3. Add Observer Hooks where you need read-only monitoring.
 4. Re-evaluate `allAuthors` and `batchAuthors`.

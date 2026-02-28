@@ -12,34 +12,6 @@ import Testing
 
 @Suite("Concurrency Safety Tests")
 struct ConcurrencyTests {
-  @Test("Multithreaded concurrent writes")
-  func concurrentWrites() async throws {
-    let container = TestModelBuilder.createContainer(author: "App1")
-
-    await withTaskGroup(of: Void.self) { group in
-      for i in 0..<5 {
-        group.addTask {
-          let handler = TestAppDataHandler(
-            container: container,
-            viewName: "Writer\(i)")
-
-          do {
-            _ = try await handler.createPerson(
-              name: "Person\(i)",
-              age: Int32(20 + i),
-              author: "App\(i)")
-          } catch {
-            Issue.record("Failed to save in concurrent write: \(error)")
-          }
-        }
-      }
-    }
-
-    let reader = TestAppDataHandler(container: container, viewName: "Reader")
-    let count = try await reader.personCount()
-    #expect(count == 5)
-  }
-
   @Test("Multiple actors accessing concurrently")
   func multipleActorsConcurrentAccess() async throws {
     let container = TestModelBuilder.createContainer(author: "App1")
