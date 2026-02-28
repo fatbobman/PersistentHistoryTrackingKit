@@ -247,15 +247,17 @@ struct MyLogger: PersistentHistoryTrackingKitLoggerProtocol {
 4. Re-evaluate `allAuthors` and `batchAuthors`.
 5. Revisit cleanup expectations if you previously depended on forced cleanup.
 6. Use shared `UserDefaults` for App Group setups.
-7. Run tests serially, not in parallel.
+7. Run tests with the current parallel test baseline and keep Core Data concurrency assertions enabled.
 
 ## Testing Notes
 
-This repository's full test suite is expected to run serially.
+This repository's full test suite now runs in parallel.
 
-- Command line: `swift test --no-parallel`
+- Command line: `swift test --parallel`
 - Or use: `./test.sh`
-- In Xcode: disable parallel testing for the package
+- In Xcode: parallel execution is supported after the test infrastructure fixes
+- `TestModelBuilder.createContainer` is intentionally serialized because concurrent
+  `NSPersistentContainer` initialization can crash inside Core Data during store loading
 
 ## Related Docs
 

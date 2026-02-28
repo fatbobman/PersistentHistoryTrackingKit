@@ -239,15 +239,17 @@ struct MyLogger: PersistentHistoryTrackingKitLoggerProtocol {
 4. 重新审视 `allAuthors` 和 `batchAuthors`。
 5. 如果之前依赖强制清理，重新设计清理策略。
 6. App Group 场景使用共享 `UserDefaults`。
-7. 测试时使用串行执行，不要并行跑全量测试。
+7. 按当前并行测试基线运行测试，并保持 Core Data 并发断言开启。
 
 ## 测试说明
 
-当前仓库的全量测试应视为串行测试。
+当前仓库的全量测试已经切换为并行执行。
 
-- 命令行：`swift test --no-parallel`
+- 命令行：`swift test --parallel`
 - 或直接使用：`./test.sh`
-- Xcode 中请关闭 package 的并行测试
+- Xcode 中也支持并行测试
+- `TestModelBuilder.createContainer` 会刻意串行化，因为并发初始化 `NSPersistentContainer`
+  并加载 store 时，Core Data 内部可能出现崩溃
 
 ## 相关文档
 
