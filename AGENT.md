@@ -12,6 +12,7 @@
 - Keep Swift 6 concurrency rules in mind.
 - Avoid changing test timing or adding arbitrary sleeps unless there is a reproducible failure that requires it.
 - Do not assume flaky behavior is code-related until build cache, Xcode test settings, and toolchain state are ruled out.
+- Do not run `git commit` and `git push` in parallel. Always wait for the commit to finish before pushing.
 
 ## Test Guidance
 
