@@ -10,7 +10,7 @@ import Testing
 
 @testable import PersistentHistoryTrackingKit
 
-@Suite("ManualCleanerActor Tests", .serialized)
+@Suite("ManualCleanerActor Tests")
 struct ManualCleanerActorTests {
   @Test("Run cleanup - happy path")
   func cleanNormalFlow() async throws {

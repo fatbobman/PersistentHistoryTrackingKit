@@ -10,7 +10,7 @@ import Testing
 
 @testable import PersistentHistoryTrackingKit
 
-@Suite("PersistentHistoryTrackingKit V2 Integration Tests", .serialized)
+@Suite("PersistentHistoryTrackingKit V2 Integration Tests")
 struct IntegrationTests {
   @Test("Two apps perform a simple sync")
   func simpleTwoAppSync() async throws {

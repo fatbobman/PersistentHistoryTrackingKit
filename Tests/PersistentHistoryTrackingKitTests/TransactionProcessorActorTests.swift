@@ -10,7 +10,7 @@ import Testing
 
 @testable import PersistentHistoryTrackingKit
 
-@Suite("TransactionProcessorActor Tests", .serialized)
+@Suite("TransactionProcessorActor Tests")
 struct TransactionProcessorActorTests {
   @Test("Fetch transactions - excludes current author")
   func fetchTransactionsExcludeCurrentAuthor() async throws {

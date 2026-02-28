@@ -28,5 +28,5 @@ jobs:
       - name: Build
         run: swift build --enable-experimental-prebuilts
 
-      - name: Test
+      - name: Test (Parallel)
         run: bash test.sh --enable-experimental-prebuilts

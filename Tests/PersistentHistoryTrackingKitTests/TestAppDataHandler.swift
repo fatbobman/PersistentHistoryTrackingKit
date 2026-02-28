@@ -5,7 +5,6 @@
 //  Created by Codex on 2026-02-28.
 //
 
-import CoreData
 import CoreDataEvolution
 import Foundation
 

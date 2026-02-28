@@ -10,7 +10,7 @@ import Testing
 
 @testable import PersistentHistoryTrackingKit
 
-@Suite("Concurrency Safety Tests", .serialized)
+@Suite("Concurrency Safety Tests")
 struct ConcurrencyTests {
   @Test("Multithreaded concurrent writes")
   func concurrentWrites() async throws {

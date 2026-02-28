@@ -1,4 +1,4 @@
-# Persistent History Tracking Kit
+# Persistent History Tracking Kit 2
 
 **Swift 6 ready** • **Actor-based** • **Fully concurrent** • **Type-safe**
 
@@ -503,33 +503,31 @@ let hookB = await kit.registerMergeHook(before: hookA) { _ in
 
 ## Testing
 
-**⚠️ Important: Tests Must Run Serially**
-
-Due to Core Data's singleton nature and shared persistent stores, **tests must run serially**, not in parallel. Running tests in parallel will cause race conditions and failures.
+Tests are validated under parallel execution. The test infrastructure serializes `NSPersistentContainer` creation internally to avoid Core Data store-loading crashes while preserving parallel suite execution.
 
 ### Recommended: Use the test script
 
 ```bash
-# Run all tests serially (recommended)
+# Run all tests in parallel (recommended)
 ./test.sh
 ```
 
 The test script ensures:
 
-- ✅ All tests run sequentially
-- ✅ Proper cleanup between test suites
+- ✅ Full-suite parallel execution
+- ✅ Core Data concurrency assertions enabled
 - ✅ Reliable results
 
 ### Alternative: Manual testing (caution required)
 
-If you run tests manually, use filters with caution:
+If you run tests manually, prefer the same parallel settings:
 
 ```bash
-# ⚠️ Only use this for individual test suites
-swift test --filter HookRegistryActorTests
+# Run the full suite in parallel
+swift test --parallel
 
-# ❌ AVOID: Running all tests may cause failures due to Core Data conflicts
-swift test  # May fail - use test.sh instead
+# Or run an individual suite
+swift test --filter HookRegistryActorTests
 ```
 
 Test suites include:

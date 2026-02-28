@@ -10,7 +10,7 @@ import Testing
 
 @testable import PersistentHistoryTrackingKit
 
-@Suite("Observer Hook Grouping Tests", .serialized)
+@Suite("Observer Hook Grouping Tests")
 struct ObserverHookGroupingTests {
   @Test("Multiple inserts in same transaction are grouped into single hook trigger")
   func multipleInsertsGrouped() async throws {

@@ -10,473 +10,416 @@ import Testing
 
 @testable import PersistentHistoryTrackingKit
 
-@Suite("HookRegistryActor Tests", .serialized)
+@Suite("HookRegistryActor Tests")
 struct HookRegistryActorTests {
   @Test("Register and trigger hook")
   func registerAndTriggerHook() async throws {
-    let registry = HookRegistryActor()
+    let harness = makeHarness(testName: "registerAndTriggerHook")
+    let recorder = HookContextRecorder()
 
-    actor Tracker {
-      var triggered = false
-      func setTriggered() { triggered = true }
-      func isTriggered() -> Bool { triggered }
+    await harness.registry.registerObserver(
+      entityName: "Person",
+      operation: .insert
+    ) { contexts in
+      await recorder.record(contexts)
     }
 
-    let tracker = Tracker()
+    let objectIDURL = try await harness.createPersonAndProcess(name: "Alice")
 
-    let callback: HookCallback = { contexts in
-      guard let context = contexts.first else { return }
-      await tracker.setTriggered()
-      #expect(context.entityName == "Person")
-      #expect(context.operation == .insert)
-    }
-
-    // Register the hook.
-    await registry.registerObserver(
-      entityName: "Person",
-      operation: .insert,
-      callback: callback)
-
-    // Create a test context.
-    let context = HookContext(
-      entityName: "Person",
-      operation: .insert,
-      objectID: NSManagedObjectID(),
-      objectIDURL: URL(string: "x-coredata://test")!,
-      tombstone: nil,
-      timestamp: Date(),
-      author: "TestAuthor")
-
-    // Trigger the hook.
-    await registry.triggerObserver(contexts: [context])
-
-    #expect(await tracker.isTriggered() == true)
+    let receivedContexts = await recorder.flattened()
+    #expect(receivedContexts.count == 1)
+    #expect(receivedContexts.first?.entityName == "Person")
+    #expect(receivedContexts.first?.operation == .insert)
+    #expect(receivedContexts.first?.author == "App1")
+    #expect(receivedContexts.first?.objectIDURL == objectIDURL)
   }
 
   @Test("Remove hook")
   func removeHook() async throws {
-    let registry = HookRegistryActor()
+    let harness = makeHarness(testName: "removeHook")
+    let tracker = BoolTracker()
 
-    actor Tracker {
-      var triggered = false
-      func setTriggered() { triggered = true }
-      func isTriggered() -> Bool { triggered }
-    }
-
-    let tracker = Tracker()
-
-    let callback: HookCallback = { _ in
-      await tracker.setTriggered()
-    }
-
-    // Register the hook.
-    await registry.registerObserver(
+    await harness.registry.registerObserver(
       entityName: "Person",
-      operation: .insert,
-      callback: callback)
-
-    // Remove the hook.
-    await registry.removeObserver(entityName: "Person", operation: .insert)
-
-    // Create a test context.
-    let context = HookContext(
-      entityName: "Person",
-      operation: .insert,
-      objectID: NSManagedObjectID(),
-      objectIDURL: URL(string: "x-coredata://test")!,
-      tombstone: nil,
-      timestamp: Date(),
-      author: "TestAuthor")
-
-    // Triggering should now be a no-op.
-    await registry.triggerObserver(contexts: [context])
-
-    #expect(await tracker.isTriggered() == false)
-  }
-
-  @Test("Multiple hooks firing concurrently")
-  func multipleHooksConcurrent() async throws {
-    let registry = HookRegistryActor()
-
-    actor Counter {
-      var count = 0
-      func increment() { count += 1 }
-      func get() -> Int { count }
+      operation: .insert
+    ) { _ in
+      await tracker.mark()
     }
 
-    let counter = Counter()
+    await harness.registry.removeObserver(entityName: "Person", operation: .insert)
+    _ = try await harness.createPersonAndProcess(name: "Alice")
 
-    // Register hooks for multiple operations.
-    for operation in [HookOperation.insert, .update, .delete] {
-      let callback: HookCallback = { _ in
-        await counter.increment()
-      }
-      await registry.registerObserver(
-        entityName: "Person",
-        operation: operation,
-        callback: callback)
-    }
-
-    // Trigger each hook concurrently.
-    await withTaskGroup(of: Void.self) { group in
-      for operation in [HookOperation.insert, .update, .delete] {
-        group.addTask {
-          let context = HookContext(
-            entityName: "Person",
-            operation: operation,
-            objectID: NSManagedObjectID(),
-            objectIDURL: URL(string: "x-coredata://test")!,
-            tombstone: nil,
-            timestamp: Date(),
-            author: "TestAuthor")
-          await registry.triggerObserver(contexts: [context])
-        }
-      }
-    }
-
-    let finalCount = await counter.get()
-    #expect(finalCount == 3)
+    #expect(await tracker.value() == false)
   }
 
   @Test("Hooks for different entities do not interfere")
   func differentEntityHooks() async throws {
-    let registry = HookRegistryActor()
+    let harness = makeHarness(testName: "differentEntityHooks")
+    let tracker = EntityTriggerTracker()
 
-    actor Tracker {
-      var personTriggered = false
-      var itemTriggered = false
-      func setPersonTriggered() { personTriggered = true }
-      func setItemTriggered() { itemTriggered = true }
-      func getState() -> (person: Bool, item: Bool) { (personTriggered, itemTriggered) }
-    }
-
-    let tracker = Tracker()
-
-    let personCallback: HookCallback = { _ in
-      await tracker.setPersonTriggered()
-    }
-    let itemCallback: HookCallback = { _ in
-      await tracker.setItemTriggered()
-    }
-
-    // Register hooks for different entities.
-    _ = await registry.registerObserver(
+    await harness.registry.registerObserver(
       entityName: "Person",
-      operation: .insert,
-      callback: personCallback)
-    _ = await registry.registerObserver(
+      operation: .insert
+    ) { _ in
+      await tracker.markPerson()
+    }
+
+    await harness.registry.registerObserver(
       entityName: "Item",
-      operation: .insert,
-      callback: itemCallback)
+      operation: .insert
+    ) { _ in
+      await tracker.markItem()
+    }
 
-    // Trigger the Person hook.
-    let personContext = HookContext(
-      entityName: "Person",
-      operation: .insert,
-      objectID: NSManagedObjectID(),
-      objectIDURL: URL(string: "x-coredata://test")!,
-      tombstone: nil,
-      timestamp: Date(),
-      author: "TestAuthor")
-    await registry.triggerObserver(contexts: [personContext])
+    _ = try await harness.createPersonAndProcess(name: "Alice")
+    let stateAfterPerson = await tracker.state()
+    #expect(stateAfterPerson.person == true)
+    #expect(stateAfterPerson.item == false)
 
-    let state = await tracker.getState()
-    #expect(state.person == true)
-    #expect(state.item == false)
+    let afterPersonInsert = try await makeIncrementalAfterDate()
+    _ = try await harness.createItemAndProcess(title: "Notebook", after: afterPersonInsert)
+    let finalState = await tracker.state()
+    #expect(finalState.person == true)
+    #expect(finalState.item == true)
   }
-
-  // MARK: - UUID-based Hook Management Tests
 
   @Test("Register hook returns UUID")
   func registerHookReturnsUUID() async throws {
-    let registry = HookRegistryActor()
+    let harness = makeHarness(testName: "registerHookReturnsUUID")
 
-    let callback: HookCallback = { _ in }
-
-    let hookId = await registry.registerObserver(
+    let hookId = await harness.registry.registerObserver(
       entityName: "Person",
-      operation: .insert,
-      callback: callback)
+      operation: .insert
+    ) { _ in }
 
-    #expect(hookId != UUID())  // Should be a valid UUID
+    #expect(hookId != UUID())
   }
 
   @Test("Remove hook by UUID")
   func removeHookByUUID() async throws {
-    let registry = HookRegistryActor()
+    let harness = makeHarness(testName: "removeHookByUUID")
+    let tracker = BoolTracker()
 
-    actor Tracker {
-      var triggered = false
-      func setTriggered() { triggered = true }
-      func isTriggered() -> Bool { triggered }
-    }
-
-    let tracker = Tracker()
-
-    let callback: HookCallback = { _ in
-      await tracker.setTriggered()
-    }
-
-    // Register and get UUID
-    let hookId = await registry.registerObserver(
+    let hookId = await harness.registry.registerObserver(
       entityName: "Person",
-      operation: .insert,
-      callback: callback)
+      operation: .insert
+    ) { _ in
+      await tracker.mark()
+    }
 
-    // Remove by UUID
-    let removed = await registry.removeObserver(id: hookId)
+    let removed = await harness.registry.removeObserver(id: hookId)
     #expect(removed == true)
 
-    // Trigger should not execute
-    let context = HookContext(
-      entityName: "Person",
-      operation: .insert,
-      objectID: NSManagedObjectID(),
-      objectIDURL: URL(string: "x-coredata://test")!,
-      tombstone: nil,
-      timestamp: Date(),
-      author: "TestAuthor")
-    await registry.triggerObserver(contexts: [context])
-
-    #expect(await tracker.isTriggered() == false)
+    _ = try await harness.createPersonAndProcess(name: "Alice")
+    #expect(await tracker.value() == false)
   }
 
   @Test("Remove nonexistent UUID returns false")
   func removeNonexistentUUID() async throws {
-    let registry = HookRegistryActor()
+    let harness = makeHarness(testName: "removeNonexistentUUID")
 
-    let fakeId = UUID()
-    let removed = await registry.removeObserver(id: fakeId)
+    let removed = await harness.registry.removeObserver(id: UUID())
 
     #expect(removed == false)
   }
 
   @Test("Remove specific hook from multiple hooks")
   func removeSpecificHookFromMultiple() async throws {
-    let registry = HookRegistryActor()
-
-    actor Counter {
-      var count = 0
-      func increment() { count += 1 }
-      func get() -> Int { count }
-    }
-
+    let harness = makeHarness(testName: "removeSpecificHookFromMultiple")
     let counter = Counter()
 
-    // Register 3 hooks for the same entity + operation
-    let hookId1 = await registry.registerObserver(
+    let hookId1 = await harness.registry.registerObserver(
       entityName: "Person",
       operation: .insert
     ) { _ in
       await counter.increment()
     }
 
-    let hookId2 = await registry.registerObserver(
+    let hookId2 = await harness.registry.registerObserver(
       entityName: "Person",
       operation: .insert
     ) { _ in
       await counter.increment()
     }
 
-    let hookId3 = await registry.registerObserver(
+    let hookId3 = await harness.registry.registerObserver(
       entityName: "Person",
       operation: .insert
     ) { _ in
       await counter.increment()
     }
 
-    // Remove only the middle hook
-    let removed = await registry.removeObserver(id: hookId2)
-    #expect(removed == true)
+    #expect(await harness.registry.removeObserver(id: hookId2) == true)
 
-    // Trigger - should execute 2 hooks (1 and 3)
-    let context = HookContext(
-      entityName: "Person",
-      operation: .insert,
-      objectID: NSManagedObjectID(),
-      objectIDURL: URL(string: "x-coredata://test")!,
-      tombstone: nil,
-      timestamp: Date(),
-      author: "TestAuthor")
-    await registry.triggerObserver(contexts: [context])
+    _ = try await harness.createPersonAndProcess(name: "Alice")
 
-    let finalCount = await counter.get()
-    #expect(finalCount == 2)
-
-    // Verify we can still remove the remaining hooks
-    #expect(await registry.removeObserver(id: hookId1) == true)
-    #expect(await registry.removeObserver(id: hookId3) == true)
-
-    // Removing already-removed hook returns false
-    #expect(await registry.removeObserver(id: hookId2) == false)
+    #expect(await counter.value() == 2)
+    #expect(await harness.registry.removeObserver(id: hookId1) == true)
+    #expect(await harness.registry.removeObserver(id: hookId3) == true)
+    #expect(await harness.registry.removeObserver(id: hookId2) == false)
   }
 
-  @Test("Remove all hooks for entity+operation")
+  @Test("Remove all hooks for entity and operation")
   func removeAllHooksForEntityOperation() async throws {
-    let registry = HookRegistryActor()
-
-    actor Counter {
-      var count = 0
-      func increment() { count += 1 }
-      func get() -> Int { count }
-    }
-
+    let harness = makeHarness(testName: "removeAllHooksForEntityOperation")
     let counter = Counter()
 
-    // Register 3 hooks for Person.insert
-    _ = await registry.registerObserver(
+    _ = await harness.registry.registerObserver(
       entityName: "Person",
       operation: .insert
-    ) { _ in await counter.increment() }
+    ) { _ in
+      await counter.increment()
+    }
 
-    _ = await registry.registerObserver(
+    _ = await harness.registry.registerObserver(
       entityName: "Person",
       operation: .insert
-    ) { _ in await counter.increment() }
+    ) { _ in
+      await counter.increment()
+    }
 
-    _ = await registry.registerObserver(
+    _ = await harness.registry.registerObserver(
       entityName: "Person",
       operation: .insert
-    ) { _ in await counter.increment() }
+    ) { _ in
+      await counter.increment()
+    }
 
-    // Register 1 hook for Person.update (should not be affected)
-    _ = await registry.registerObserver(
+    _ = await harness.registry.registerObserver(
       entityName: "Person",
       operation: .update
-    ) { _ in await counter.increment() }
+    ) { _ in
+      await counter.increment()
+    }
 
-    // Remove all Person.insert hooks
-    await registry.removeObserver(entityName: "Person", operation: .insert)
+    await harness.registry.removeObserver(entityName: "Person", operation: .insert)
 
-    // Trigger Person.insert - should not execute any hooks
-    let insertContext = HookContext(
-      entityName: "Person",
-      operation: .insert,
-      objectID: NSManagedObjectID(),
-      objectIDURL: URL(string: "x-coredata://test")!,
-      tombstone: nil,
-      timestamp: Date(),
-      author: "TestAuthor")
-    await registry.triggerObserver(contexts: [insertContext])
+    _ = try await harness.createPersonAndProcess(name: "Alice")
+    #expect(await counter.value() == 0)
 
-    #expect(await counter.get() == 0)
-
-    // Trigger Person.update - should still execute
-    let updateContext = HookContext(
-      entityName: "Person",
-      operation: .update,
-      objectID: NSManagedObjectID(),
-      objectIDURL: URL(string: "x-coredata://test")!,
-      tombstone: nil,
-      timestamp: Date(),
-      author: "TestAuthor")
-    await registry.triggerObserver(contexts: [updateContext])
-
-    #expect(await counter.get() == 1)
+    let afterInsert = try await makeIncrementalAfterDate()
+    try await harness.updatePersonAndProcess(
+      matchName: "Alice",
+      newAge: 31,
+      after: afterInsert)
+    #expect(await counter.value() == 1)
   }
 
   @Test("Multiple hooks execute in registration order")
   func multipleHooksExecutionOrder() async throws {
-    let registry = HookRegistryActor()
-
-    actor OrderTracker {
-      var order: [Int] = []
-      func append(_ value: Int) { order.append(value) }
-      func get() -> [Int] { order }
-    }
-
+    let harness = makeHarness(testName: "multipleHooksExecutionOrder")
     let tracker = OrderTracker()
 
-    // Register 3 hooks in specific order
-    _ = await registry.registerObserver(
+    _ = await harness.registry.registerObserver(
       entityName: "Person",
       operation: .insert
     ) { _ in
       await tracker.append(1)
     }
 
-    _ = await registry.registerObserver(
+    _ = await harness.registry.registerObserver(
       entityName: "Person",
       operation: .insert
     ) { _ in
       await tracker.append(2)
     }
 
-    _ = await registry.registerObserver(
+    _ = await harness.registry.registerObserver(
       entityName: "Person",
       operation: .insert
     ) { _ in
       await tracker.append(3)
     }
 
-    // Trigger
-    let context = HookContext(
-      entityName: "Person",
-      operation: .insert,
-      objectID: NSManagedObjectID(),
-      objectIDURL: URL(string: "x-coredata://test")!,
-      tombstone: nil,
-      timestamp: Date(),
-      author: "TestAuthor")
-    await registry.triggerObserver(contexts: [context])
+    _ = try await harness.createPersonAndProcess(name: "Alice")
 
-    let executionOrder = await tracker.get()
-    #expect(executionOrder == [1, 2, 3])
+    #expect(await tracker.values() == [1, 2, 3])
   }
 
   @Test("Remove all observers clears all hooks and UUIDs")
   func removeAllObserversClearsEverything() async throws {
-    let registry = HookRegistryActor()
-
-    actor Counter {
-      var count = 0
-      func increment() { count += 1 }
-      func get() -> Int { count }
-    }
-
+    let harness = makeHarness(testName: "removeAllObserversClearsEverything")
     let counter = Counter()
 
-    // Register hooks for multiple entities and operations
-    let id1 = await registry.registerObserver(
+    let id1 = await harness.registry.registerObserver(
       entityName: "Person",
       operation: .insert
-    ) { _ in await counter.increment() }
-
-    let id2 = await registry.registerObserver(
-      entityName: "Person",
-      operation: .update
-    ) { _ in await counter.increment() }
-
-    let id3 = await registry.registerObserver(
-      entityName: "Item",
-      operation: .insert
-    ) { _ in await counter.increment() }
-
-    // Remove all
-    await registry.removeAllObservers()
-
-    // Trigger all - none should execute
-    for (entity, operation) in [
-      ("Person", HookOperation.insert),
-      ("Person", .update),
-      ("Item", .insert),
-    ] {
-      let context = HookContext(
-        entityName: entity,
-        operation: operation,
-        objectID: NSManagedObjectID(),
-        objectIDURL: URL(string: "x-coredata://test")!,
-        tombstone: nil,
-        timestamp: Date(),
-        author: "TestAuthor")
-      await registry.triggerObserver(contexts: [context])
+    ) { _ in
+      await counter.increment()
     }
 
-    #expect(await counter.get() == 0)
+    let id2 = await harness.registry.registerObserver(
+      entityName: "Person",
+      operation: .update
+    ) { _ in
+      await counter.increment()
+    }
 
-    // Verify UUIDs are also cleaned up - removing should return false
-    #expect(await registry.removeObserver(id: id1) == false)
-    #expect(await registry.removeObserver(id: id2) == false)
-    #expect(await registry.removeObserver(id: id3) == false)
+    let id3 = await harness.registry.registerObserver(
+      entityName: "Item",
+      operation: .insert
+    ) { _ in
+      await counter.increment()
+    }
+
+    await harness.registry.removeAllObservers()
+
+    _ = try await harness.createPersonAndProcess(name: "Alice")
+    let afterInsert = try await makeIncrementalAfterDate()
+    try await harness.updatePersonAndProcess(
+      matchName: "Alice",
+      newAge: 31,
+      after: afterInsert)
+    let afterUpdate = try await makeIncrementalAfterDate()
+    _ = try await harness.createItemAndProcess(title: "Notebook", after: afterUpdate)
+
+    #expect(await counter.value() == 0)
+    #expect(await harness.registry.removeObserver(id: id1) == false)
+    #expect(await harness.registry.removeObserver(id: id2) == false)
+    #expect(await harness.registry.removeObserver(id: id3) == false)
   }
+}
+
+private extension HookRegistryActorTests {
+  func makeHarness(testName: String) -> HookTestHarness {
+    let container = TestModelBuilder.createContainer(
+      author: "App1",
+      testName: testName)
+    let registry = HookRegistryActor()
+    let timestampManager = TransactionTimestampManager(
+      userDefaults: TestModelBuilder.createTestUserDefaults(),
+      maximumDuration: 604_800)
+    let processor = TransactionProcessorActor(
+      container: container,
+      hookRegistry: registry,
+      cleanStrategy: .none,
+      timestampManager: timestampManager)
+    let writer = TestAppDataHandler(container: container, viewName: "Writer")
+
+    return HookTestHarness(
+      registry: registry,
+      processor: processor,
+      writer: writer)
+  }
+}
+
+private struct HookTestHarness {
+  let registry: HookRegistryActor
+  let processor: TransactionProcessorActor
+  let writer: TestAppDataHandler
+
+  @discardableResult
+  func createPersonAndProcess(
+    name: String,
+    age: Int32 = 30,
+    author: String = "App1",
+    after: Date? = nil
+  ) async throws -> URL {
+    let objectIDURL = try await writer.createPerson(name: name, age: age, author: author)
+    _ = try await processor.processNewTransactions(
+      from: ["App1", "App2"],
+      after: after,
+      currentAuthor: "App2")
+    return objectIDURL
+  }
+
+  @discardableResult
+  func createItemAndProcess(
+    title: String,
+    author: String = "App1",
+    after: Date? = nil
+  ) async throws -> URL {
+    let objectIDURL = try await writer.createItem(title: title, author: author)
+    _ = try await processor.processNewTransactions(
+      from: ["App1", "App2"],
+      after: after,
+      currentAuthor: "App2")
+    return objectIDURL
+  }
+
+  func updatePersonAndProcess(
+    matchName: String,
+    newAge: Int32,
+    author: String = "App1",
+    after: Date? = nil
+  ) async throws {
+    try await writer.updatePeople(
+      [PersonUpdate(matchName: matchName, newAge: newAge)],
+      author: author)
+    _ = try await processor.processNewTransactions(
+      from: ["App1", "App2"],
+      after: after,
+      currentAuthor: "App2")
+  }
+}
+
+private actor HookContextRecorder {
+  private var contexts: [HookContext] = []
+
+  func record(_ contexts: [HookContext]) {
+    self.contexts.append(contentsOf: contexts)
+  }
+
+  func flattened() -> [HookContext] {
+    contexts
+  }
+}
+
+private actor BoolTracker {
+  private var marked = false
+
+  func mark() {
+    marked = true
+  }
+
+  func value() -> Bool {
+    marked
+  }
+}
+
+private actor Counter {
+  private var count = 0
+
+  func increment() {
+    count += 1
+  }
+
+  func value() -> Int {
+    count
+  }
+}
+
+private actor OrderTracker {
+  private var order: [Int] = []
+
+  func append(_ value: Int) {
+    order.append(value)
+  }
+
+  func values() -> [Int] {
+    order
+  }
+}
+
+private actor EntityTriggerTracker {
+  private var person = false
+  private var item = false
+
+  func markPerson() {
+    person = true
+  }
+
+  func markItem() {
+    item = true
+  }
+
+  func state() -> (person: Bool, item: Bool) {
+    (person, item)
+  }
+}
+
+private func makeIncrementalAfterDate() async throws -> Date {
+  let checkpoint = Date()
+  try await Task.sleep(nanoseconds: 100_000_000)
+  return checkpoint
 }

@@ -1,4 +1,4 @@
-# Persistent History Tracking Kit
+# Persistent History Tracking Kit 2
 
 **适配 Swift 6** • **Actor 架构** • **并发安全** • **类型安全**
 
@@ -385,13 +385,18 @@ let hookB = await kit.registerMergeHook(before: hookA) { _ in print("Hook B"); r
 
 ## 测试
 
-> **重要：测试必须串行执行**。Core Data 共享同一存储，若并发运行测试可能发生竞争导致失败。
+> 测试现已验证可并行执行。测试基础设施会在内部串行化 `NSPersistentContainer` 的创建，以规避 Core Data 在并发加载存储时的崩溃，同时保留 suite 级并行执行。
 
 ```bash
-./test.sh   # 推荐脚本，自动串行化
+./test.sh   # 推荐脚本，自动启用并行测试
 ```
 
-如需手动运行，请仅针对单个测试集使用 `swift test --filter ...`。
+如需手动运行，建议使用：
+
+```bash
+swift test --parallel
+swift test --filter HookRegistryActorTests
+```
 
 ---
 

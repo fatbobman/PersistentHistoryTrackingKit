@@ -11,6 +11,8 @@ import Foundation
 /// Core Data stack helper for tests.
 /// Builds an NSManagedObjectModel entirely in code with two entities: Person and Item.
 enum TestModelBuilder {
+  private static let containerCreationLock = NSLock()
+
   /// Shared NSManagedObjectModel instance (thread-safe lazy initialization).
   /// - Note: Core Data expects a single model instance per schema; mixing instances can create
   /// concurrency issues.
@@ -89,6 +91,9 @@ enum TestModelBuilder {
     author: String,
     testName: String = #function
   ) -> NSPersistentContainer {
+    Self.containerCreationLock.lock()
+    defer { Self.containerCreationLock.unlock() }
+
     let model = createModel()
     let container = NSPersistentContainer(name: "TestModel", managedObjectModel: model)
 

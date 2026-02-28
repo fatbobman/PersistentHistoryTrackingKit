@@ -10,7 +10,7 @@ import Testing
 
 @testable import PersistentHistoryTrackingKit
 
-@Suite("TransactionTimestampManager Tests", .serialized)
+@Suite("TransactionTimestampManager Tests")
 struct TransactionTimestampManagerTests {
   @Test("Returns nil when a required author is missing a timestamp")
   func returnsNilWhenRequiredAuthorIsMissingTimestamp() {

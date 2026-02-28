@@ -10,7 +10,7 @@ import Testing
 
 @testable import PersistentHistoryTrackingKit
 
-@Suite("Clean Strategy Tests", .serialized)
+@Suite("Clean Strategy Tests")
 struct CleanStrategyTests {
   @Test("None strategy disables automatic cleanup")
   func noneStrategyDisablesAutomaticCleanup() async throws {

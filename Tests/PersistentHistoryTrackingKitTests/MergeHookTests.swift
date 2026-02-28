@@ -10,7 +10,7 @@ import Testing
 
 @testable import PersistentHistoryTrackingKit
 
-@Suite("MergeHook Tests", .serialized)
+@Suite("MergeHook Tests")
 struct MergeHookTests {
   // MARK: - Basic Registration and Removal Tests
 

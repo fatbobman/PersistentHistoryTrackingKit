@@ -11,7 +11,7 @@ import Testing
 @testable import PersistentHistoryTrackingKit
 
 /// V2 kit end-to-end scenarios that simulate real usage.
-@Suite("Kit End-to-End Tests", .serialized)
+@Suite("Kit End-to-End Tests")
 struct KitEndToEndTests {
   @Test("Kit auto sync - start/stop")
   func kitAutoSyncStartStop() async throws {

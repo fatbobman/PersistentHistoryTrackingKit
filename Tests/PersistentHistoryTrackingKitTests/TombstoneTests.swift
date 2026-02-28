@@ -10,7 +10,7 @@ import Testing
 
 @testable import PersistentHistoryTrackingKit
 
-@Suite("Tombstone Tests", .serialized)
+@Suite("Tombstone Tests")
 struct TombstoneTests {
   @Test("Observer Hook sees tombstone when deleting objects")
   func tombstoneInObserverHook() async throws {
