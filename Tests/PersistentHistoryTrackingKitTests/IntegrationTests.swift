@@ -91,11 +91,12 @@ struct IntegrationTests {
   }
 
   #if swift(>=6.2)
-    @Test("Two apps perform a simple sync")
-    func simpleTwoAppSync() async throws {
+    @Test("Two apps merge updates into a registered object")
+    func twoAppsMergeUpdateIntoRegisteredObject() async throws {
       let container = TestModelBuilder.createContainer(author: "App1")
       let app1Context = container.newBackgroundContext()
       let app2Context = container.newBackgroundContext()
+      app2Context.retainsRegisteredObjects = true
       let app1Handler = TestAppDataHandler(
         container: container,
         context: app1Context,
@@ -105,10 +106,8 @@ struct IntegrationTests {
         context: app2Context,
         viewName: "App2Handler")
 
-      try await app1Handler.createPerson(name: "Alice", age: 30, author: "App1")
-
       let userDefaults = TestModelBuilder.createTestUserDefaults()
-      let uniqueString = "TestKit.SimpleTwoApp.\(UUID().uuidString)."
+      let uniqueString = "TestKit.RegisteredUpdate.\(UUID().uuidString)."
       let kit = PersistentHistoryTrackingKit(
         container: container,
         contexts: [app2Context],
@@ -119,15 +118,57 @@ struct IntegrationTests {
         logLevel: 0,
         autoStart: false)
 
+      let idURL = try await app1Handler.createPerson(name: "Alice", age: 30, author: "App1")
+
+      try await app2Handler.withContext { ctx in
+        guard
+          let coordinator = ctx.persistentStoreCoordinator,
+          let objectID = coordinator.managedObjectID(forURIRepresentation: idURL)
+        else {
+          Issue.record("Failed to resolve object ID for registered-object merge test")
+          return
+        }
+
+        let object = try ctx.existingObject(with: objectID)
+        #expect(object.value(forKey: "age") as? Int32 == 30)
+      }
+
+      try await app1Handler.updatePeople(
+        [PersonUpdate(matchName: "Alice", newAge: 31)],
+        author: "App1")
+
+      try await app2Handler.withContext { ctx in
+        guard
+          let coordinator = ctx.persistentStoreCoordinator,
+          let objectID = coordinator.managedObjectID(forURIRepresentation: idURL),
+          let object = ctx.registeredObject(for: objectID)
+        else {
+          Issue.record("Expected App2 context to have a registered object before merge")
+          return
+        }
+
+        #expect(object.value(forKey: "age") as? Int32 == 30)
+      }
+
       try await kit.transactionProcessor.processNewTransactions(
         from: ["App1", "App2"],
         after: nil,
         currentAuthor: "App2",
         cleanBeforeTimestamp: nil)
 
-      let summaries = try await app2Handler.personSummaries()
-      #expect(summaries.count == 1)
-      #expect(summaries.first?.0 == "Alice")
+      try await app2Handler.withContext { ctx in
+        guard
+          let coordinator = ctx.persistentStoreCoordinator,
+          let objectID = coordinator.managedObjectID(forURIRepresentation: idURL),
+          let object = ctx.registeredObject(for: objectID)
+        else {
+          Issue.record("Expected App2 context to keep the object registered after merge")
+          return
+        }
+
+        #expect(object.value(forKey: "name") as? String == "Alice")
+        #expect(object.value(forKey: "age") as? Int32 == 31)
+      }
     }
 
     @Test("Manual cleaner integration test")
