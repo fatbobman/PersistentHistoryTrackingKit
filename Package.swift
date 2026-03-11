@@ -22,7 +22,7 @@ let package = Package(
   dependencies: [
     // CoreDataEvolution - Swift 6
     .package(
-      url: "https://github.com/fatbobman/CoreDataEvolution.git", .upToNextMajor(from: "0.7.5"))
+      url: "https://github.com/fatbobman/CoreDataEvolution.git", .upToNextMajor(from: "0.8.0"))
   ],
   targets: [
     .target(
