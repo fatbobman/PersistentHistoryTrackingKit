@@ -255,26 +255,7 @@ await kit.registerMergeHook { input in
 }
 ```
 
-**实战示例：去重**
-
-```swift
-await kit.registerMergeHook { input in
-    for context in input.contexts {
-        await context.perform {
-            for transaction in input.transactions {
-                guard let changes = transaction.changes else { continue }
-                for change in changes where change.changeType == .insert {
-                    guard let object = try? context.existingObject(with: change.changedObjectID),
-                          let uniqueID = object.value(forKey: "uniqueID") as? String else { continue }
-                    // 根据 uniqueID 查找重复项并删除
-                }
-            }
-            try? context.save()
-        }
-    }
-    return .goOn
-}
-```
+Merge Hook 可以直接介入合并流水线，例如在应用 history transaction 时临时禁用 `undoManager`。
 
 完整 Hook 指南：[`Docs/HookMechanismCN.md`](Docs/HookMechanismCN.md)
 

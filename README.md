@@ -299,31 +299,7 @@ await kit.registerMergeHook { input in
 
 ### Real-World Examples
 
-**Deduplication:**
-
-```swift
-await kit.registerMergeHook { input in
-    for context in input.contexts {
-        await context.perform {
-            for transaction in input.transactions {
-                guard let changes = transaction.changes else { continue }
-
-                for change in changes where change.changeType == .insert {
-                    guard let object = try? context.existingObject(with: change.changedObjectID),
-                          let uniqueID = object.value(forKey: "uniqueID") as? String else {
-                        continue
-                    }
-
-                    // Find duplicates and remove
-                    // ... deduplication logic
-                }
-            }
-            try? context.save()
-        }
-    }
-    return .goOn
-}
-```
+Merge Hooks can customize the merge pipeline itself, for example by temporarily disabling `undoManager` while applying history transactions.
 
 **📚 Complete Hook Documentation:** [Docs/HookMechanism.md](Docs/HookMechanism.md)
 
