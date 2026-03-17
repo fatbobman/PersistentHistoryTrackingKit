@@ -6,7 +6,7 @@
 
 ![Platform](https://img.shields.io/badge/Platform-iOS%2017%2B%20|%20macOS%2014%2B%20|%20tvOS%2017%2B%20|%20watchOS%2010%2B-blue)
 ![Swift](https://img.shields.io/badge/Swift-6.0-orange)
-![License](https://img.shields.io/badge/License-MIT-green)[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/fatbobman/ObservableDefaults)
+![License](https://img.shields.io/badge/License-MIT-green)[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/fatbobman/PersistentHistoryTrackingKit)
 
 [English Version](README.md)
 

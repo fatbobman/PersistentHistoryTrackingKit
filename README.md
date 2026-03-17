@@ -6,7 +6,7 @@ A modern, production-ready library for handling Core Data's Persistent History T
 
 ![Platform](https://img.shields.io/badge/Platform-iOS%2013%2B%20%7C%20macOS%2010.15%2B%20%7C%20macCatalyst%2013%2B%20%7C%20tvOS%2013%2B%20%7C%20watchOS%206%2B%20%7C%20visionOS%201%2B-blue)
 ![Swift](https://img.shields.io/badge/Swift-6.0-orange)
-![License](https://img.shields.io/badge/License-MIT-green)[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/fatbobman/ObservableDefaults)
+![License](https://img.shields.io/badge/License-MIT-green)[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/fatbobman/PersistentHistoryTrackingKit)
 
 [English](https://github.com/fatbobman/PersistentHistoryTrackingKit/blob/main/README.md) | [中文版说明](https://github.com/fatbobman/PersistentHistoryTrackingKit/blob/main/READMECN.md)
 
