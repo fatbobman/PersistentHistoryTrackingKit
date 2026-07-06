@@ -43,6 +43,8 @@ PersistentHistoryTrackingKit V2 提供两类 Hook：
 - 回调签名：`@Sendable ([HookContext]) async -> Void`
 - `HookContext` 数组按「同一事务 + 实体名 + 操作」分组，每次触发提供该组内的全部上下文
 - 单个 `HookContext` 包含实体名、操作类型、对象 ID、URL、tombstone、时间戳和 author
+- 执行上下文：回调由 `HookRegistryActor` 按顺序 `await`，但当前版本不启用 Swift 6.2 的
+  `NonisolatedNonsendingByDefault`，回调体不隔离在内部 registry actor 上
 
 注册示例：
 
@@ -74,11 +76,13 @@ await kit.removeAllObservers()                                       // 全部�
 
 特点：
 
-- 由 `TransactionProcessorActor` 管理，确保非 Sendable Core Data 类型在同一 actor 内访问
-- 回调按注册顺序串行执行
+- 由 `TransactionProcessorActor` 管理，并按注册顺序串行 `await` 每个回调
 - 回调签名：`@Sendable (MergeHookInput) async throws -> MergeHookResult`
-- `MergeHookInput` 封装 `[NSPersistentHistoryTransaction]` 与 `[NSManagedObjectContext]`
+- `MergeHookInput` 通过 `@unchecked Sendable` 封装 `[NSPersistentHistoryTransaction]`
+  与 `[NSManagedObjectContext]`
 - 返回 `.goOn` 继续下一 Hook，返回 `.finish` 停止流水线并跳过默认合并
+- 执行上下文：流水线由 `TransactionProcessorActor` 串行 `await`，但回调体不隔离在内部
+  processor actor 上；修改 Core Data 时仍应使用 `await context.perform { ... }` 或自己的 actor 隔离
 
 注册示例：
 
@@ -218,8 +222,9 @@ await kit.registerMergeHook { _ in
 
 ## 线程安全
 
-- Observer Hook：`HookRegistryActor` 负责注册和触发，`HookContext` 为 `Sendable`
-- Merge Hook：全部逻辑在 `TransactionProcessorActor` 内串行执行，`MergeHookInput` 使用 `@unchecked Sendable` 封装 Core Data 类型
+- Observer Hook：`HookRegistryActor` 负责注册并按顺序 `await` 回调，`HookContext` 为 `Sendable`
+- Merge Hook：`TransactionProcessorActor` 负责按顺序 `await` 流水线，`MergeHookInput` 使用 `@unchecked Sendable` 封装 Core Data 类型
+- 当前版本不启用 Swift 6.2 的 `NonisolatedNonsendingByDefault`，用户回调体不承诺在内部 actor 隔离上运行
 
 ## 性能提示
 

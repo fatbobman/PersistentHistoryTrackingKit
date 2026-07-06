@@ -1,11 +1,11 @@
 # Persistent History Tracking Kit 2
 
-**Swift 6 ready** • **Actor-based** • **Fully concurrent** • **Type-safe**
+**Swift 6.2 ready** • **Actor-based** • **Fully concurrent** • **Type-safe**
 
-A modern, production-ready library for handling Core Data's Persistent History Tracking with full Swift 6 concurrency support.
+A modern, production-ready library for handling Core Data's Persistent History Tracking with full Swift 6.2 concurrency support.
 
 ![Platform](https://img.shields.io/badge/Platform-iOS%2013%2B%20%7C%20macOS%2010.15%2B%20%7C%20macCatalyst%2013%2B%20%7C%20tvOS%2013%2B%20%7C%20watchOS%206%2B%20%7C%20visionOS%201%2B-blue)
-![Swift](https://img.shields.io/badge/Swift-6.0-orange)
+![Swift](https://img.shields.io/badge/Swift-6.2-orange)
 ![License](https://img.shields.io/badge/License-MIT-green)[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/fatbobman/PersistentHistoryTrackingKit)
 
 [English](https://github.com/fatbobman/PersistentHistoryTrackingKit/blob/main/README.md) | [中文版说明](https://github.com/fatbobman/PersistentHistoryTrackingKit/blob/main/READMECN.md)
@@ -16,7 +16,7 @@ A modern, production-ready library for handling Core Data's Persistent History T
 
 Version 2 is a **complete rewrite** with modern Swift concurrency:
 
-- ✅ **Full Swift 6 Compliance** - Concurrency-safe design tuned for Swift 6
+- ✅ **Full Swift 6.2 Compliance** - Concurrency-safe design tuned for Swift 6.2
 - ✅ **Actor-Based Architecture** - Thread-safe by design with `HookRegistryActor` and `TransactionProcessorActor`
 - ✅ **Zero Memory Leaks** - No retain cycles, properly managed lifecycle
 - ✅ **Data Race Free** - Comprehensive concurrency testing with Swift Testing
@@ -24,7 +24,7 @@ Version 2 is a **complete rewrite** with modern Swift concurrency:
 - ✅ **Modern API** - Async/await throughout, UUID-based hook management
 
 **Migration from V1:** V2 declares iOS 13+, macOS 10.15+, macCatalyst 13+, tvOS 13+,
-watchOS 6+, visionOS 1+, and Swift 6. Current runtime validation has been performed on iOS 15+.
+watchOS 6+, visionOS 1+, and Swift 6.2. Current runtime validation has been performed on iOS 15+.
 See the [Migration Guide](Docs/MigrationGuide.md) for migration steps and behavior changes.
 
 ---
@@ -55,7 +55,7 @@ When you enable Persistent History Tracking, Core Data creates **transactions** 
 
 ### V2 (Current Branch)
 
-- **Minimum Requirements**: iOS 13+, macOS 10.15+, macCatalyst 13+, tvOS 13+, watchOS 6+, visionOS 1+, Swift 6.0+
+- **Minimum Requirements**: iOS 13+, macOS 10.15+, macCatalyst 13+, tvOS 13+, watchOS 6+, visionOS 1+, Swift 6.2+, Xcode 26+
 - **Features**: Actor-based architecture, Hook system, full Swift 6 concurrency
 - **Runtime Validation**: Currently tested on iOS 15+ with current Xcode toolchains
 - **Recommended for**: New projects adopting Swift 6
@@ -271,6 +271,8 @@ await kit.removeObserver(entityName: "Person", operation: .insert)
 
 **Context batching:** The callback receives `[HookContext]` that groups changes **per transaction + entity + operation**. Insert multiple `Person` objects in one transaction → one callback with an array of contexts.
 
+**Execution context:** Observer callbacks are awaited sequentially by `HookRegistryActor`, but this release does not enable Swift 6.2 `NonisolatedNonsendingByDefault`. Callback bodies are not isolated to the internal registry actor; keep them read-only and hop to your own actor when mutating app state.
+
 **Use cases:** Logging, analytics, notifications, cache invalidation
 
 ### Merge Hooks (Custom Merge Logic)
@@ -296,6 +298,8 @@ await kit.registerMergeHook { input in
 ```
 
 **Use cases:** Conflict resolution, deduplication, validation, custom merge strategies
+
+**Execution context:** Merge Hooks are awaited sequentially by `TransactionProcessorActor` in registration order, but this release does not enable Swift 6.2 `NonisolatedNonsendingByDefault`. Callback bodies are not isolated to the internal processor actor; use `await context.perform { ... }` or your own actor isolation for mutable work.
 
 ### Real-World Examples
 
@@ -466,8 +470,8 @@ let hookB = await kit.registerMergeHook(before: hookA) { _ in
 ## Requirements
 
 - iOS 13.0+ / macOS 10.15+ / macCatalyst 13.0+ / tvOS 13.0+ / watchOS 6.0+ / visionOS 1.0+
-- Swift 6.0+
-- Xcode 16.0+
+- Swift 6.2+
+- Xcode 26.0+
 
 Runtime validation in the current toolchain environment has been performed on iOS 15+.
 Older declared deployment targets are compiler-checked but have not been runtime-validated here.

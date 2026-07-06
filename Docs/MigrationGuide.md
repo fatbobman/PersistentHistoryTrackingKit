@@ -10,7 +10,7 @@ new extension points, and different cleanup semantics.
 Move to V2 if all of the following are true:
 
 - You target iOS 13+, macOS 10.15+, macCatalyst 13+, tvOS 13+, watchOS 6+, or visionOS 1+
-- You are ready to adopt Swift 6
+- You are ready to adopt Swift 6.2 with Xcode 26 or newer
 - You want actor-based internals and async hook APIs
 - You want Observer Hooks, Merge Hooks, and tombstone support
 
@@ -50,7 +50,8 @@ Stay on V1 if any of the following are true:
 
 ### V2
 
-- Swift 6
+- Swift 6.2
+- Xcode 26+
 - iOS 13+
 - macOS 10.15+
 - macCatalyst 13+
@@ -127,6 +128,11 @@ let hookID = await kit.registerMergeHook { input in
 
 Use `.finish` when your hook has fully handled merging and the default merge should be skipped.
 
+Merge Hooks are awaited sequentially by `TransactionProcessorActor`, but V2 does not enable Swift
+6.2 `NonisolatedNonsendingByDefault`. Your callback body is not isolated to the internal processor
+actor, so continue using `await context.perform { ... }` or your own actor isolation for mutable
+work.
+
 ## Deduplication Logic
 
 ### V1
@@ -167,6 +173,10 @@ let id = await kit.registerObserver(entityName: "Person", operation: .insert) { 
 ```
 
 Observer callbacks are grouped by transaction, entity name, and operation.
+
+Observer callbacks are awaited sequentially by `HookRegistryActor`, but their bodies are not
+isolated to the internal registry actor in this release. Keep them read-only and hop to your own
+actor when updating application state.
 
 ## Delete Handling and Tombstones
 
@@ -248,7 +258,7 @@ struct MyLogger: PersistentHistoryTrackingKitLoggerProtocol {
 
 ## Migration Checklist
 
-1. Confirm your deployment targets and Swift version meet V2 requirements, and note that current runtime validation has only been performed on iOS 15+.
+1. Confirm your deployment targets and Swift 6.2 / Xcode 26 toolchain meet V2 requirements, and note that current runtime validation has only been performed on iOS 15+.
 2. Replace any V1 merger or deduplicator customization with Merge Hooks.
 3. Add Observer Hooks where you need read-only monitoring.
 4. Re-evaluate `allAuthors` and `batchAuthors`.

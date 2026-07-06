@@ -100,6 +100,9 @@ public enum HookOperation: String, Sendable {
 /// Observer Hook callback function type (for notification/monitoring, does not modify data)
 /// - Note: Receives an array of contexts grouped by transaction, entity, and operation.
 ///         All contexts in the array share the same transaction, entity name, and operation type.
+/// - Note: Observer callbacks are awaited sequentially by `HookRegistryActor`. This package does
+///         not enable Swift 6.2's `NonisolatedNonsendingByDefault`, so callback bodies are not
+///         isolated to the registry actor.
 public typealias HookCallback = @Sendable ([HookContext]) async -> Void
 
 // MARK: - Merge Hook
@@ -113,8 +116,10 @@ public enum MergeHookResult: Sendable {
 }
 
 /// Merge Hook input parameter container
-/// - Note: Uses @unchecked Sendable to wrap non-Sendable Core Data types,
-///         ensuring safe usage within TransactionProcessorActor
+/// - Note: Uses @unchecked Sendable because the input carries non-Sendable Core Data types.
+///         `TransactionProcessorActor` awaits merge callbacks serially, but callback bodies are
+///         not isolated to the processor actor. Mutable Core Data work still needs
+///         `await context.perform { ... }` or caller-owned actor isolation.
 public struct MergeHookInput: @unchecked Sendable {
   public let transactions: [NSPersistentHistoryTransaction]
   public let contexts: [NSManagedObjectContext]
@@ -130,8 +135,9 @@ public struct MergeHookInput: @unchecked Sendable {
 
 /// Merge Hook callback function type (for custom merge logic, may modify data)
 ///
-/// - Note: This callback executes within TransactionProcessorActor, and the pipeline runs serially
-/// in registration order.
+/// - Note: Merge callbacks are awaited sequentially by `TransactionProcessorActor` in registration
+///         order. This package does not enable Swift 6.2's `NonisolatedNonsendingByDefault`, so
+///         callback bodies are not isolated to the processor actor.
 ///
 /// - Warning: If performing async operations in the hook, **you must use `await` to wait for
 /// completion**,

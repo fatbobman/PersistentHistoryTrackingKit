@@ -114,6 +114,7 @@ Observer Hooks are designed for **monitoring and notification purposes only**. T
 - **Sequential Execution**: Multiple hooks for the same entity/operation execute sequentially in registration order
 - **Read-Only**: Should not modify Core Data objects
 - **Sendable Context**: Receives `[HookContext]` (grouped by transaction + entity + operation). Each element contains only Sendable types.
+- **Execution Context**: Callbacks are awaited sequentially by `HookRegistryActor`, but this release does not enable Swift 6.2 `NonisolatedNonsendingByDefault`; callback bodies are not isolated to the internal registry actor.
 
 #### Registration:
 
@@ -296,7 +297,7 @@ Merge Hooks allow **custom merge logic** and can modify data. They execute in a 
 - **Serial Execution**: Guaranteed sequential execution
 - **Can Modify Data**: Full access to `NSPersistentHistoryTransaction` and `NSManagedObjectContext`
 - **Short-Circuit Support**: Returning `.finish` stops the pipeline and skips default merge
-- **Actor Isolation**: Managed inside `TransactionProcessorActor` to handle non-Sendable Core Data types
+- **Execution Context**: Managed by `TransactionProcessorActor` and awaited serially, but callback bodies are not isolated to the internal processor actor in this release. Use `await context.perform { ... }` or your own actor isolation for mutable work.
 
 #### Registration:
 
@@ -889,10 +890,10 @@ let throttleHookId = await kit.registerObserver(entityName: "Message", operation
 - Callbacks marked `@Sendable` - must be thread-safe
 
 ### Merge Hooks
-- Managed by `TransactionProcessorActor` - fully thread-safe
-- Callbacks execute serially within the actor
-- Direct access to non-Sendable Core Data types
-- `MergeHookInput` uses `@unchecked Sendable` - safe only within the actor
+- `TransactionProcessorActor` awaits merge callbacks sequentially in registration order
+- Callback bodies are not isolated to the internal processor actor in this release
+- Mutable Core Data work must use `await context.perform { ... }` or caller-owned actor isolation
+- `MergeHookInput` uses `@unchecked Sendable` because it carries non-Sendable Core Data types
 
 ## Performance Considerations
 

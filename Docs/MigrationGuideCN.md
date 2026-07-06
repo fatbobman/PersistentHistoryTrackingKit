@@ -8,8 +8,8 @@ V2 不是兼容性小版本，而是一次完整重写。它引入了新的并�
 
 满足以下条件时，建议迁移到 V2：
 
-- 目标平台已经是 iOS 17+、macOS 14+、tvOS 17+ 或 watchOS 10+
-- 准备切换到 Swift 6
+- 目标平台已经是 iOS 13+、macOS 10.15+、macCatalyst 13+、tvOS 13+、watchOS 6+ 或 visionOS 1+
+- 准备使用 Swift 6.2 与 Xcode 26 或更新版本
 - 希望使用 actor 架构和 async Hook API
 - 希望获得 Observer Hook、Merge Hook 与 tombstone 支持
 
@@ -46,12 +46,14 @@ V2 不是兼容性小版本，而是一次完整重写。它引入了新的并�
 
 ### V2
 
-- Swift 6
-- iOS 17+
-- macOS 14+
-- macCatalyst 17+
-- tvOS 17+
-- watchOS 10+
+- Swift 6.2
+- Xcode 26+
+- iOS 13+
+- macOS 10.15+
+- macCatalyst 13+
+- tvOS 13+
+- watchOS 6+
+- visionOS 1+
 
 ## 包和依赖变化
 
@@ -114,6 +116,10 @@ let hookID = await kit.registerMergeHook { input in
 
 如果你的 Hook 已经完整处理了合并流程，并且不希望再执行默认 merge，请返回 `.finish`。
 
+Merge Hook 由 `TransactionProcessorActor` 按顺序 `await`，但 V2 当前不启用 Swift 6.2 的
+`NonisolatedNonsendingByDefault`。回调体不隔离在内部 processor actor 上；如需修改数据，
+仍应使用 `await context.perform { ... }` 或自己的 actor 隔离。
+
 ## 去重逻辑
 
 ### V1
@@ -154,6 +160,9 @@ let id = await kit.registerObserver(entityName: "Person", operation: .insert) { 
 ```
 
 Observer 回调会按照“事务 + 实体名 + 操作类型”分组。
+
+Observer 回调由 `HookRegistryActor` 按顺序 `await`，但当前版本的回调体不隔离在内部
+registry actor 上。请保持只读，并在更新应用状态时切换到自己的 actor。
 
 ## 删除处理与 Tombstone
 
@@ -233,7 +242,7 @@ struct MyLogger: PersistentHistoryTrackingKitLoggerProtocol {
 
 ## 迁移检查清单
 
-1. 确认部署目标和 Swift 版本满足 V2 要求。
+1. 确认部署目标、Swift 6.2 与 Xcode 26 工具链满足 V2 要求。
 2. 把 V1 的 merger / deduplicator 定制迁移到 Merge Hook。
 3. 把只读监控逻辑迁移到 Observer Hook。
 4. 重新审视 `allAuthors` 和 `batchAuthors`。

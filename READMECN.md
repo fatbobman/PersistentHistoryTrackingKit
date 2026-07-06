@@ -1,11 +1,11 @@
 # Persistent History Tracking Kit 2
 
-**适配 Swift 6** • **Actor 架构** • **并发安全** • **类型安全**
+**适配 Swift 6.2** • **Actor 架构** • **并发安全** • **类型安全**
 
-面向生产环境的 Core Data 持久化历史跟踪解决方案，完整支持 Swift 6 并发。
+面向生产环境的 Core Data 持久化历史跟踪解决方案，完整支持 Swift 6.2 并发。
 
-![Platform](https://img.shields.io/badge/Platform-iOS%2017%2B%20|%20macOS%2014%2B%20|%20tvOS%2017%2B%20|%20watchOS%2010%2B-blue)
-![Swift](https://img.shields.io/badge/Swift-6.0-orange)
+![Platform](https://img.shields.io/badge/Platform-iOS%2013%2B%20%7C%20macOS%2010.15%2B%20%7C%20macCatalyst%2013%2B%20%7C%20tvOS%2013%2B%20%7C%20watchOS%206%2B%20%7C%20visionOS%201%2B-blue)
+![Swift](https://img.shields.io/badge/Swift-6.2-orange)
 ![License](https://img.shields.io/badge/License-MIT-green)[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/fatbobman/PersistentHistoryTrackingKit)
 
 [English Version](README.md)
@@ -16,15 +16,16 @@
 
 V2 是一次基于现代 Swift 并发的完全重写：
 
-- ✅ **全面支持 Swift 6** —— 以并发安全为目标设计
+- ✅ **全面支持 Swift 6.2** —— 以并发安全为目标设计
 - ✅ **Actor 架构** —— `HookRegistryActor` 与 `TransactionProcessorActor` 确保线程安全
 - ✅ **零内存泄漏** —— 没有保留环，生命周期清晰
 - ✅ **数据竞争防护** —— 使用 Swift Testing 进行并发测试
 - ✅ **Hook 系统** —— 支持 Observer Hook 与 Merge Hook
 - ✅ **现代 API** —— 全面 async/await，Hook 使用 UUID 管理
 
-**迁移提示**：V2 需要 iOS 17+/macOS 14+/Swift 6，迁移步骤与行为变化详见
-[迁移指南](Docs/MigrationGuideCN.md)。
+**迁移提示**：V2 声明支持 iOS 13+、macOS 10.15+、macCatalyst 13+、tvOS 13+、
+watchOS 6+、visionOS 1+，并需要 Swift 6.2 / Xcode 26。当前运行验证覆盖 iOS 15+，
+迁移步骤与行为变化详见[迁移指南](Docs/MigrationGuideCN.md)。
 
 ---
 
@@ -56,7 +57,7 @@ V2 是一次基于现代 Swift 并发的完全重写：
 
 ### V2（当前分支）
 
-- **最低要求**：iOS 17+ / macOS 14+ / Swift 6.0+
+- **最低要求**：iOS 13+ / macOS 10.15+ / macCatalyst 13+ / tvOS 13+ / watchOS 6+ / visionOS 1+ / Swift 6.2+ / Xcode 26+
 - **特点**：Actor 架构、Hook 系统、全面并发安全
 - **适用场景**：面向现代系统的新项目
 
@@ -233,12 +234,16 @@ let hookId = await kit.registerObserver(
 
 await kit.removeObserver(id: hookId)
 await kit.removeObserver(entityName: "Person", operation: .insert)
+```
 
 > ℹ️ 同一事务中若多次对同一实体执行同一操作，回调只触发一次，
 > 但 `contexts` 数组会包含该事务中所有对应的 `HookContext`，可一次性处理。
-```
 
 适合日志、统计、推送、缓存失效等场景。
+
+**执行上下文**：Observer 回调由 `HookRegistryActor` 按顺序 `await`，但当前版本不启用
+Swift 6.2 的 `NonisolatedNonsendingByDefault`。回调体不隔离在内部 registry actor 上；
+请保持只读，并在需要修改应用状态时切换到自己的 actor。
 
 ### Merge Hook（自定义合并）
 
@@ -256,6 +261,10 @@ await kit.registerMergeHook { input in
 ```
 
 Merge Hook 可以直接介入合并流水线，例如在应用 history transaction 时临时禁用 `undoManager`。
+
+**执行上下文**：Merge Hook 由 `TransactionProcessorActor` 按注册顺序串行 `await`，但当前版本不启用
+Swift 6.2 的 `NonisolatedNonsendingByDefault`。回调体不隔离在内部 processor actor 上；
+如需修改 Core Data，请使用 `await context.perform { ... }` 或自己的 actor 隔离。
 
 完整 Hook 指南：[`Docs/HookMechanismCN.md`](Docs/HookMechanismCN.md)
 
@@ -347,12 +356,9 @@ let hookB = await kit.registerMergeHook(before: hookA) { _ in print("Hook B"); r
 
 ## 系统需求
 
-- iOS 17.0+
-- macOS 14.0+
-- tvOS 17.0+
-- watchOS 10.0+
-- Swift 6.0+
-- Xcode 16.0+
+- iOS 13.0+ / macOS 10.15+ / macCatalyst 13.0+ / tvOS 13.0+ / watchOS 6.0+ / visionOS 1.0+
+- Swift 6.2+
+- Xcode 26.0+
 
 ---
 

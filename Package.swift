@@ -1,4 +1,4 @@
-// swift-tools-version: 6.0
+// swift-tools-version: 6.2
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -20,7 +20,7 @@ let package = Package(
     )
   ],
   dependencies: [
-    // CoreDataEvolution - Swift 6
+    // CoreDataEvolution - Swift 6.2 toolchain
     .package(
       url: "https://github.com/fatbobman/CoreDataEvolution.git", .upToNextMajor(from: "0.8.0"))
   ],

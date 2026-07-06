@@ -358,7 +358,8 @@ actor TransactionProcessorActor {
   /// Run the Merge Hook pipeline.
   /// - Parameters:
   ///   - transactions: Transactions flowing through the pipeline.
-  /// - Note: All operations execute inside the same actor, so there are no concurrency concerns.
+  /// - Note: The actor awaits hooks in order; callback bodies must still use Core Data context
+  ///         isolation or their own actor isolation for mutable work.
   private func triggerMergeHooks(
     transactions: [NSPersistentHistoryTransaction]
   ) async throws {
