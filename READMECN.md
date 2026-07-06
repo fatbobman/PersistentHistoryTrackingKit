@@ -169,10 +169,11 @@ cleanStrategy: .none
 
 自动清理采用保守策略: 只有所有非 batch author 都已在共享 `UserDefaults` 中记录各自的
 merge 时间戳后,Kit 才会执行清理。只要有任何一个必要 author 尚未完成 merge,自动清理就会跳过。
+这会保护尚未合并的 author；如果某个 author 长期不运行,共同清理点也会长期无法形成,历史记录可能持续增长。
 
 **⚠️ CloudKit 用户特别注意**:
 
-CloudKit 内部依赖持久化历史记录。如果历史清理过于激进,CloudKit 可能丢失其追踪标记,导致 `NSPersistentHistoryTokenExpiredError`(错误代码 134301),这可能会造成本地数据库清除和强制从 iCloud 重新同步。
+CloudKit 内部依赖持久化历史记录。如果历史清理过于激进,CloudKit 可能丢失其追踪标记,导致 `NSPersistentHistoryTokenExpiredError`(错误代码 134301),这可能会造成本地数据库清除和强制从 iCloud 重新同步。长期缺席的 author 虽然会让自动清理跳过以保护未合并数据,但也会增加历史增长与 CloudKit token 压力。
 
 **使用 CloudKit 时务必使用足够长时间的基于时间的清理**(7 天以上):
 
@@ -364,7 +365,8 @@ let hookB = await kit.registerMergeHook(before: hookA) { _ in print("Hook B"); r
 
 ## 文档
 
-- [Hook 机制指南](Docs/HookMechanism.md)
+- [Hook 机制指南（中文）](Docs/HookMechanismCN.md)
+- [Hook Mechanism Guide](Docs/HookMechanism.md)
 - [迁移指南](Docs/MigrationGuideCN.md)
 - [持久化历史跟踪原理](https://fatbobman.com/zh/posts/persistenthistorytracking/)
 

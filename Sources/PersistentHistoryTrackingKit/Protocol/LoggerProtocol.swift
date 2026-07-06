@@ -20,7 +20,7 @@ public protocol PersistentHistoryTrackingKitLoggerProtocol: Sendable {
   func log(type: PersistentHistoryTrackingKitLogType, message: String)
 }
 
-/// Log types. Although 5 types are defined, currently only debug and error are used.
+/// Log types accepted by the logger. Custom loggers should handle every case so current and future log output has a safe destination.
 public enum PersistentHistoryTrackingKitLogType: String, Sendable {
   case debug, info, notice, error, fault
 }
