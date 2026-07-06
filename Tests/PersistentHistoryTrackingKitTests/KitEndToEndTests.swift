@@ -73,6 +73,64 @@ struct KitEndToEndTests {
     #expect(stoppedTimestamp == firstProcessedTimestamp)
   }
 
+  @Test("Kit releases active listener without explicit stop")
+  func kitReleasesActiveListenerWithoutExplicitStop() async throws {
+    let storeURL = FileManager.default.temporaryDirectory
+      .appendingPathComponent("TestModel_KitListenerRelease_\(UUID().uuidString).sqlite")
+
+    let writerContainer = TestModelBuilder.createContainer(
+      author: "App1",
+      testName: #function,
+      storeURL: storeURL,
+      resetStoreFiles: true)
+    let listenerContainer = TestModelBuilder.createContainer(
+      author: "App2",
+      testName: #function,
+      storeURL: storeURL,
+      resetStoreFiles: false)
+
+    let writerContext = writerContainer.newBackgroundContext()
+    let listenerContext = listenerContainer.newBackgroundContext()
+    let app1Handler = TestAppDataHandler(
+      container: writerContainer,
+      context: writerContext,
+      viewName: "App1Handler")
+
+    let userDefaults = TestModelBuilder.createTestUserDefaults()
+    let uniqueString = "TestKit.ListenerRelease.\(UUID().uuidString)."
+    let timestampKey = uniqueString + "App2"
+
+    var kit: PersistentHistoryTrackingKit? = PersistentHistoryTrackingKit(
+      container: listenerContainer,
+      contexts: [listenerContext],
+      currentAuthor: "App2",
+      allAuthors: ["App1", "App2"],
+      userDefaults: userDefaults,
+      uniqueString: uniqueString,
+      logLevel: 0,
+      autoStart: false)
+    weak let weakKit = kit
+
+    kit?.start()
+
+    try await app1Handler.createPerson(name: "ReleaseProbe", age: 33, author: "App1")
+    NotificationCenter.default.post(
+      name: .NSPersistentStoreRemoteChange,
+      object: listenerContainer.persistentStoreCoordinator)
+    _ = try await waitForStoredTimestamp(
+      in: userDefaults,
+      key: timestampKey)
+
+    kit = nil
+
+    for _ in 0..<20 {
+      if weakKit == nil { break }
+      await Task.yield()
+    }
+
+    #expect(weakKit == nil)
+  }
+
   #if swift(>=6.2)
     @Test("Kit manual cleaner via cleanerBuilder")
     func kitManualCleaner() async throws {

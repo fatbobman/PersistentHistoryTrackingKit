@@ -186,6 +186,74 @@ struct ConcurrencyTests {
     // Test passes if no crash or Issue.record was triggered
   }
 
+  @Test("Repeated start keeps a single active listener")
+  func repeatedStartKeepsSingleActiveListener() {
+    let container = TestModelBuilder.createContainer(author: "App1")
+    let testDefaults = TestModelBuilder.createTestUserDefaults()
+    let uniqueString = "TestKit.RepeatedStart.\(UUID().uuidString)."
+
+    let kit = PersistentHistoryTrackingKit(
+      container: container,
+      contexts: [container.newBackgroundContext()],
+      currentAuthor: "App2",
+      allAuthors: ["App1", "App2"],
+      userDefaults: testDefaults,
+      uniqueString: uniqueString,
+      logLevel: 0,
+      autoStart: false)
+    defer { kit.stop() }
+
+    kit.start()
+    let firstState = kit.testListenerStateSnapshot()
+
+    kit.start()
+    let secondState = kit.testListenerStateSnapshot()
+
+    let firstListenerCount = [firstState.hasProcessingTask, firstState.hasRemoteChangeObserver]
+      .filter { $0 }.count
+
+    #expect(firstListenerCount == 1)
+    #expect(firstState.activeListenerID != nil)
+    #expect(secondState.activeListenerID == firstState.activeListenerID)
+    #expect(secondState.hasProcessingTask == firstState.hasProcessingTask)
+    #expect(secondState.hasRemoteChangeObserver == firstState.hasRemoteChangeObserver)
+  }
+
+  @Test("Concurrent start and stop synchronize listener state")
+  func concurrentStartStopSynchronizesListenerState() async {
+    let container = TestModelBuilder.createContainer(author: "App1")
+    let testDefaults = TestModelBuilder.createTestUserDefaults()
+    let uniqueString = "TestKit.ConcurrentStartStop.\(UUID().uuidString)."
+
+    let kit = PersistentHistoryTrackingKit(
+      container: container,
+      contexts: [container.newBackgroundContext()],
+      currentAuthor: "App2",
+      allAuthors: ["App1", "App2"],
+      userDefaults: testDefaults,
+      uniqueString: uniqueString,
+      logLevel: 0,
+      autoStart: false)
+
+    await withTaskGroup(of: Void.self) { group in
+      for _ in 0..<40 {
+        group.addTask {
+          kit.start()
+        }
+        group.addTask {
+          kit.stop()
+        }
+      }
+    }
+
+    kit.stop()
+
+    let stoppedState = kit.testListenerStateSnapshot()
+    #expect(stoppedState.hasProcessingTask == false)
+    #expect(stoppedState.hasRemoteChangeObserver == false)
+    #expect(stoppedState.activeListenerID == nil)
+  }
+
   @Test("Cleaners executing concurrently")
   func concurrentCleaners() async throws {
     let container = TestModelBuilder.createContainer(author: "App1")
