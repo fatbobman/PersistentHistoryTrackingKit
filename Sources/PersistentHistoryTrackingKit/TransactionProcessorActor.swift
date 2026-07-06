@@ -203,25 +203,29 @@ actor TransactionProcessorActor {
       NSPersistentHistoryChangeRequest
       .fetchHistory(after: date ?? .distantPast)
 
-    // Configure fetchRequest and skip the current author.
-    if let fetchRequest = NSPersistentHistoryTransaction.fetchRequest {
-      let predicates = authors.compactMap { author -> NSPredicate? in
-        // Skip the author if it matches the exclude target.
-        if let exclude = excludeAuthor, author == exclude {
-          return nil
-        }
-        return NSPredicate(
-          format: "%K = %@",
-          #keyPath(NSPersistentHistoryTransaction.author),
-          author)
-      }
-
-      if !predicates.isEmpty {
-        fetchRequest
-          .predicate = NSCompoundPredicate(orPredicateWithSubpredicates: predicates)
-        historyChangeRequest.fetchRequest = fetchRequest
+    let includedAuthors = authors.filter { author in
+      if let excludeAuthor {
+        author != excludeAuthor
+      } else {
+        true
       }
     }
+
+    // No remaining declared authors means there is nothing to fetch. Omitting the predicate would
+    // turn this into an unfiltered persistent-history query.
+    guard !includedAuthors.isEmpty else { return [] }
+
+    guard let fetchRequest = NSPersistentHistoryTransaction.fetchRequest else { return [] }
+
+    let predicates = includedAuthors.map { author in
+      NSPredicate(
+        format: "%K = %@",
+        #keyPath(NSPersistentHistoryTransaction.author),
+        author)
+    }
+    fetchRequest
+      .predicate = NSCompoundPredicate(orPredicateWithSubpredicates: predicates)
+    historyChangeRequest.fetchRequest = fetchRequest
 
     // Execute the fetch request.
     let result = try modelContext.execute(historyChangeRequest) as? NSPersistentHistoryResult

@@ -43,6 +43,70 @@ struct TransactionProcessorActorTests {
     #expect(result.allExcluded == true)  // All transactions exclude App2
   }
 
+  @Test("Empty effective author set fetches nothing and skips hooks")
+  func emptyEffectiveAuthorSetFetchesNothingAndSkipsHooks() async throws {
+    let container = TestModelBuilder.createContainer(
+      author: "App1",
+      testName: "emptyEffectiveAuthorSetFetchesNothingAndSkipsHooks")
+    let app1Handler = TestAppDataHandler(container: container, viewName: "App1Handler")
+    let externalHandler = TestAppDataHandler(container: container, viewName: "ExternalHandler")
+
+    try await app1Handler.createPerson(name: "Alice", age: 30, author: "App1")
+    try await externalHandler.createPerson(name: "External", age: 40, author: "ExternalAuthor")
+
+    let hookRegistry = HookRegistryActor()
+
+    actor HookTracker {
+      var observerCount = 0
+      var mergeCount = 0
+
+      func recordObserver() { observerCount += 1 }
+      func recordMerge() { mergeCount += 1 }
+
+      func counts() -> (observer: Int, merge: Int) {
+        (observerCount, mergeCount)
+      }
+    }
+
+    let tracker = HookTracker()
+
+    await hookRegistry.registerObserver(entityName: "Person", operation: .insert) { _ in
+      await tracker.recordObserver()
+    }
+
+    let timestampManager = TransactionTimestampManager(
+      userDefaults: TestModelBuilder.createTestUserDefaults(),
+      maximumDuration: 604_800)
+    let processor = TransactionProcessorActor(
+      container: container,
+      hookRegistry: hookRegistry,
+      cleanStrategy: .none,
+      timestampManager: timestampManager)
+
+    await processor.registerMergeHook { _ in
+      await tracker.recordMerge()
+      return .finish
+    }
+
+    let fetchResult = try await processor.testFetchTransactionsExcludesAuthor(
+      from: ["App1"],
+      after: nil,
+      excludeAuthor: "App1")
+    #expect(fetchResult.count == 0)
+    #expect(fetchResult.allExcluded == true)
+
+    let processedCount = try await processor.processNewTransactions(
+      from: ["App1"],
+      after: nil,
+      currentAuthor: "App1",
+      cleanBeforeTimestamp: nil)
+    #expect(processedCount == 0)
+
+    let counts = await tracker.counts()
+    #expect(counts.observer == 0)
+    #expect(counts.merge == 0)
+  }
+
   @Test("Clean transactions - timestamp and author filter")
   func cleanTransactionsByTimestampAndAuthors() async throws {
     let container = TestModelBuilder.createContainer(author: "App1")
