@@ -94,6 +94,41 @@ struct ManualCleanerActorTests {
     // Test passes if cleanup completes without crashing
   }
 
+  @Test("Skip cleanup when a required author has no timestamp")
+  func skipCleanupWhenRequiredAuthorHasNoTimestamp() async throws {
+    let container = TestModelBuilder.createContainer(
+      author: "App1",
+      testName: "skipCleanupWhenRequiredAuthorHasNoTimestamp")
+    let writer = TestAppDataHandler(container: container, viewName: "Writer")
+
+    try await writer.createPerson(name: "Alice", age: 30, author: "App1")
+    let app1Timestamp = Date()
+
+    try await Task.sleep(nanoseconds: 100_000_000)
+
+    try await writer.createPerson(name: "Bob", age: 31, author: "App1")
+
+    let userDefaults = TestModelBuilder.createTestUserDefaults()
+    let uniqueString = "TestKit.MissingAuthor.\(UUID().uuidString)."
+    userDefaults.set(app1Timestamp, forKey: uniqueString + "App1")
+
+    let cleaner = ManualCleanerActor(
+      container: container,
+      authors: ["App1", "App2"],
+      userDefaults: userDefaults,
+      uniqueString: uniqueString,
+      logger: DefaultLogger(),
+      logLevel: 0)
+
+    await cleaner.clean()
+
+    let processor = makeTransactionCounter(container: container)
+    let remainingTransactions = try await processor.testTransactionCount(
+      from: ["App1", "App2"],
+      after: nil)
+    #expect(remainingTransactions == 2)
+  }
+
   @Test("Verify transaction count after cleanup")
   func verifyTransactionCountAfterClean() async throws {
     let container = TestModelBuilder.createContainer(author: "App1")
@@ -126,5 +161,19 @@ struct ManualCleanerActorTests {
 
     let count = try await app1Handler.personCount()
     #expect(count == 2)
+  }
+
+  private func makeTransactionCounter(
+    container: NSPersistentContainer
+  ) -> TransactionProcessorActor {
+    let hookRegistry = HookRegistryActor()
+    let timestampManager = TransactionTimestampManager(
+      userDefaults: TestModelBuilder.createTestUserDefaults())
+    return TransactionProcessorActor(
+      container: container,
+      contexts: [container.newBackgroundContext()],
+      hookRegistry: hookRegistry,
+      cleanStrategy: .none,
+      timestampManager: timestampManager)
   }
 }

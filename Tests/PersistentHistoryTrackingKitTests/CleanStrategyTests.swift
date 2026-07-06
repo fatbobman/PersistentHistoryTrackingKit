@@ -166,6 +166,86 @@ struct CleanStrategyTests {
     #expect(remainingCount == 2)
   }
 
+  @Test("Duration strategy starts throttle only when cleanup can run")
+  func durationStrategyStartsThrottleOnlyWhenCleanupCanRun() async throws {
+    let container = TestModelBuilder.createContainer(
+      author: "App1",
+      testName: "durationStrategyStartsThrottleOnlyWhenCleanupCanRun")
+    let userDefaults = TestModelBuilder.createTestUserDefaults()
+    let writer = TestAppDataHandler(container: container, viewName: "Writer")
+
+    try await writer.createPerson(name: "Alice", age: 30, author: "App1")
+
+    let processor = makeProcessor(
+      container: container,
+      userDefaults: userDefaults,
+      cleanStrategy: .byDuration(seconds: 60 * 60))
+
+    _ = try await processor.processNewTransactionsWithTimestampManagement(
+      from: ["App1", "App2"],
+      after: nil,
+      currentAuthor: "App2")
+
+    let lastTimestampResult = await processor.testGetLastTransactionTimestamp(for: "App2")
+    let lastTimestamp = try #require(lastTimestampResult.timestamp)
+
+    userDefaults.set(Date(), forKey: "PersistentHistoryTrackingKit.lastToken.App1")
+
+    try await Task.sleep(nanoseconds: 100_000_000)
+
+    try await writer.createPerson(name: "Bob", age: 31, author: "App1")
+
+    _ = try await processor.processNewTransactionsWithTimestampManagement(
+      from: ["App1", "App2"],
+      after: lastTimestamp,
+      currentAuthor: "App2")
+
+    let remainingCount = try await processor.testTransactionCount(
+      from: ["App1", "App2"],
+      after: nil)
+    #expect(remainingCount == 1)
+  }
+
+  @Test("Notification strategy counts only cleanup-ready notifications")
+  func notificationStrategyCountsOnlyCleanupReadyNotifications() async throws {
+    let container = TestModelBuilder.createContainer(
+      author: "App1",
+      testName: "notificationStrategyCountsOnlyCleanupReadyNotifications")
+    let userDefaults = TestModelBuilder.createTestUserDefaults()
+    let writer = TestAppDataHandler(container: container, viewName: "Writer")
+
+    try await writer.createPerson(name: "Alice", age: 30, author: "App1")
+
+    let processor = makeProcessor(
+      container: container,
+      userDefaults: userDefaults,
+      cleanStrategy: .byNotification(times: 2))
+
+    _ = try await processor.processNewTransactionsWithTimestampManagement(
+      from: ["App1", "App2"],
+      after: nil,
+      currentAuthor: "App2")
+
+    let lastTimestampResult = await processor.testGetLastTransactionTimestamp(for: "App2")
+    let lastTimestamp = try #require(lastTimestampResult.timestamp)
+
+    userDefaults.set(Date(), forKey: "PersistentHistoryTrackingKit.lastToken.App1")
+
+    try await Task.sleep(nanoseconds: 100_000_000)
+
+    try await writer.createPerson(name: "Bob", age: 31, author: "App1")
+
+    _ = try await processor.processNewTransactionsWithTimestampManagement(
+      from: ["App1", "App2"],
+      after: lastTimestamp,
+      currentAuthor: "App2")
+
+    let remainingCount = try await processor.testTransactionCount(
+      from: ["App1", "App2"],
+      after: nil)
+    #expect(remainingCount == 2)
+  }
+
   @Test("Batch authors do not block cleanup readiness")
   func batchAuthorsDoNotBlockCleanupReadiness() async throws {
     let container = TestModelBuilder.createContainer(

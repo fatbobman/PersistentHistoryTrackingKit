@@ -27,8 +27,7 @@ public actor ManualCleanerActor {
   private let authors: [String]
   private let logger: PersistentHistoryTrackingKitLoggerProtocol
   private let logLevel: Int
-  private let userDefaults: UserDefaults
-  private let uniqueString: String
+  private let timestampManager: TransactionTimestampManager
 
   public init(
     container: NSPersistentContainer,
@@ -41,8 +40,9 @@ public actor ManualCleanerActor {
     self.authors = authors
     self.logger = logger
     self.logLevel = logLevel
-    self.userDefaults = userDefaults
-    self.uniqueString = uniqueString
+    timestampManager = TransactionTimestampManager(
+      userDefaults: userDefaults,
+      uniqueString: uniqueString)
 
     // Manually initialize the properties normally provided by @NSModelActor.
     let context = container.newBackgroundContext()
@@ -53,12 +53,12 @@ public actor ManualCleanerActor {
   /// Execute the cleanup task.
   ///
   /// Cleanup flow:
-  /// 1. Read the latest timestamp for each author.
-  /// 2. Find the minimum timestamp (the last shared checkpoint).
+  /// 1. Find the latest shared checkpoint across all required authors.
+  /// 2. Skip cleanup until every required author has recorded a timestamp.
   /// 3. Delete history before that timestamp.
   public func clean() {
     do {
-      // 1. Get the shared (minimum) timestamp across all authors.
+      // 1. Get the shared cleanup checkpoint across required authors.
       guard let cleanTimestamp = getLastCommonTimestamp() else {
         log(.info, level: 2, "No common timestamp found, skipping clean")
         return
@@ -72,18 +72,9 @@ public actor ManualCleanerActor {
     }
   }
 
-  /// Retrieve the minimum timestamp across all authors.
+  /// Retrieve the shared cleanup checkpoint across all required authors.
   private func getLastCommonTimestamp() -> Date? {
-    let timestamps = authors.compactMap { author -> Date? in
-      let key = uniqueString + author
-      return userDefaults.object(forKey: key) as? Date
-    }
-
-    // Return nil if no timestamps are recorded.
-    guard !timestamps.isEmpty else { return nil }
-
-    // Return the minimum timestamp (shared point).
-    return timestamps.min()
+    timestampManager.getLastCommonTransactionTimestamp(in: authors)
   }
 
   /// Delete transactions that occurred before the provided timestamp.

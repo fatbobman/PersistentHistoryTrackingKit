@@ -171,11 +171,11 @@ actor TransactionProcessorActor {
         to: newTimestamp)
     }
 
-    // 5. Compute and execute cleanup when the configured strategy allows it.
-    if cleanStrategy.allowedToClean(),
-      let cleanTimestamp = timestampManager.getLastCommonTransactionTimestamp(
-        in: authors,
-        exclude: batchAuthors)
+    // 5. Cleanup readiness must be checked before consuming notification/duration quota.
+    if let cleanTimestamp = timestampManager.getLastCommonTransactionTimestamp(
+      in: authors,
+      exclude: batchAuthors),
+      cleanStrategy.allowedToClean()
     {
       _ = try cleanTransactions(before: cleanTimestamp, for: authors)
     }
