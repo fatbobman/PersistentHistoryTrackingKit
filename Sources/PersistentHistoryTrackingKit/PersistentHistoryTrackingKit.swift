@@ -98,6 +98,7 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
     batchAuthors: [String] = [],
     userDefaults: UserDefaults,
     cleanStrategy: TransactionCleanStrategy = .none,
+    mergeBehavior: TransactionMergeBehavior = .automatic,
     maximumDuration: TimeInterval = 60 * 60 * 24 * 7,
     uniqueString: String = "PersistentHistoryTrackingKit.lastToken.",
     logger: PersistentHistoryTrackingKitLoggerProtocol? = nil,
@@ -138,7 +139,10 @@ public final class PersistentHistoryTrackingKit: @unchecked Sendable {
       contexts: self.contexts,
       hookRegistry: hookRegistry,
       cleanStrategy: cleanStrategy,
-      timestampManager: timestampManager)
+      timestampManager: timestampManager,
+      mergeBehavior: mergeBehavior,
+      logger: self.logger,
+      logLevel: _logLevel)
 
     if autoStart {
       start()

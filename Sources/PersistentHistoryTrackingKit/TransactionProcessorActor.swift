@@ -24,6 +24,15 @@ actor TransactionProcessorActor {
   /// Contexts that receive merged transactions.
   private let mergeContexts: [NSManagedObjectContext]
 
+  /// Merge behavior applied consistently by every processing entry point.
+  private let mergeBehavior: TransactionMergeBehavior
+
+  /// Logger instance.
+  private let logger: PersistentHistoryTrackingKitLoggerProtocol
+
+  /// Log verbosity level from 0-2.
+  private let logLevel: Int
+
   // MARK: - Merge Hooks (stored as actor state; callback bodies are not isolated to this actor)
 
   private struct MergeHookItem {
@@ -38,11 +47,17 @@ actor TransactionProcessorActor {
     contexts: [NSManagedObjectContext]? = nil,
     hookRegistry: HookRegistryActor,
     cleanStrategy: TransactionCleanStrategy,
-    timestampManager: consuming TransactionTimestampManager
+    timestampManager: consuming TransactionTimestampManager,
+    mergeBehavior: TransactionMergeBehavior = .automatic,
+    logger: PersistentHistoryTrackingKitLoggerProtocol = DefaultLogger(),
+    logLevel: Int = 1
   ) {
     self.hookRegistry = hookRegistry
     self.timestampManager = timestampManager
     mergeContexts = contexts ?? [container.viewContext]
+    self.mergeBehavior = mergeBehavior
+    self.logger = logger
+    self.logLevel = logLevel
 
     // Initialize the cleanup strategy configuration.
     switch cleanStrategy {
@@ -82,6 +97,14 @@ actor TransactionProcessorActor {
       mergeHooks.insert(newItem, at: index)
     } else {
       mergeHooks.append(newItem)
+    }
+
+    if mergeBehavior == .disabled {
+      log(
+        .notice,
+        level: 1,
+        "Merge hook registered while mergeBehavior is .disabled; merge hooks and default merge will be skipped."
+      )
     }
 
     return newId
@@ -368,6 +391,10 @@ actor TransactionProcessorActor {
   private func triggerMergeHooks(
     transactions: [NSPersistentHistoryTransaction]
   ) async throws {
+    // `.disabled` is an observer-only mode: skip both custom merge hooks and the default merge,
+    // while preserving observer hooks, timestamp advancement, and cleanup behavior.
+    guard mergeBehavior == .automatic else { return }
+
     let input = MergeHookInput(transactions: transactions, contexts: mergeContexts)
 
     // Execute each merge hook sequentially.
@@ -425,5 +452,11 @@ actor TransactionProcessorActor {
   /// - Returns: The latest processed transaction timestamp.
   func getLastTransactionTimestamp(for author: String) -> Date? {
     timestampManager.getLastHistoryTransactionTimestamp(for: author)
+  }
+
+  /// Log helper respecting the configured verbosity.
+  private func log(_ type: PersistentHistoryTrackingKitLogType, level: Int, _ message: String) {
+    guard level <= logLevel else { return }
+    logger.log(type: type, message: message)
   }
 }

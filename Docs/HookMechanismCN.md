@@ -9,6 +9,7 @@ PersistentHistoryTrackingKit V2 将 Hook 分成两类：用于观察事务的 Ob
 | 记录日志、发送统计、触发通知、让缓存失效 | Observer Hook | 只读、按事务变更分组回调，不参与合并 |
 | 调整合并策略、处理冲突、去重、修改 Core Data 对象 | Merge Hook | 位于合并流水线中，可在正确 context 内修改数据 |
 | 已完整实现自定义合并并希望跳过默认合并 | Merge Hook 并返回 `.finish` | `.finish` 会停止后续 Hook，并跳过默认合并 |
+| 只想观察事务，不希望 Kit 合并 context | `mergeBehavior: .disabled` + Observer Hook | 关闭整个 merge 阶段，保留观察、时间戳与清理 |
 | 只想知道某个实体发生了插入、更新或删除 | Observer Hook | `HookContext` 提供 entity、operation、objectID、timestamp、author 与 tombstone |
 
 简单规则：
@@ -42,6 +43,11 @@ PersistentHistoryTrackingKit V2 将 Hook 分成两类：用于观察事务的 Ob
 ```
 
 这意味着 Observer Hook 总是在 merge 前完成；Merge Hook 则决定默认合并是否继续。
+
+如果初始化时设置 `mergeBehavior: .disabled`，第 3 和第 4 步会整体跳过：已注册的
+Merge Hook 不运行，默认合并也不会更新你的 context。Observer Hook、当前 author 时间戳推进和清理策略仍会照常执行。此时 processed count 表示事务已被观察并推进时间戳，不表示已合并。
+
+在关闭 merge 的同时启用清理时，应用需要自行断言没有其他消费者仍需要即将被清理的 history；CloudKit 镜像清理风险与自动模式相同。
 
 ## Hook 类型对比
 
@@ -189,6 +195,8 @@ public enum MergeHookResult: Sendable {
 
 - `.goOn`：继续执行下一个 Merge Hook；如果流水线结束，则进入默认合并。
 - `.finish`：停止后续 Merge Hook，并跳过默认合并。只有当你已经完成必要合并，或明确要拒绝这批 transaction 时才应返回。
+
+> ℹ️ 如果 Kit 使用 `mergeBehavior: .disabled` 初始化，Merge Hook 仍可注册和移除，但事务处理时不会执行；注册时会输出 `.notice` 日志，提示该 Hook 在当前配置下不会生效。
 
 ### 插入顺序与移除
 

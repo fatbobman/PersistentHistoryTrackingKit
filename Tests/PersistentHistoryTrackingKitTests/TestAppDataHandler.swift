@@ -198,12 +198,28 @@ actor TestAppDataHandler {
     let request = NSFetchRequest<NSManagedObject>(entityName: "Person")
     request.sortDescriptors = [NSSortDescriptor(key: "name", ascending: true)]
     return try modelContext.fetch(request).compactMap { person in
-      guard
-        let name = person.value(forKey: "name") as? String,
-        let age = person.value(forKey: "age") as? Int32
-      else { return nil }
-      return (name, age)
+      personSummary(from: person)
     }
+  }
+
+  func loadPersonSummary(for objectIDURL: URL) throws -> (String, Int32)? {
+    guard
+      let coordinator = modelContext.persistentStoreCoordinator,
+      let objectID = coordinator.managedObjectID(forURIRepresentation: objectIDURL)
+    else { return nil }
+
+    let person = try modelContext.existingObject(with: objectID)
+    return personSummary(from: person)
+  }
+
+  func registeredPersonSummary(for objectIDURL: URL) -> (String, Int32)? {
+    guard
+      let coordinator = modelContext.persistentStoreCoordinator,
+      let objectID = coordinator.managedObjectID(forURIRepresentation: objectIDURL),
+      let person = modelContext.registeredObject(for: objectID)
+    else { return nil }
+
+    return personSummary(from: person)
   }
 
   func itemCount() throws -> Int {
@@ -261,5 +277,14 @@ actor TestAppDataHandler {
     request.predicate = NSPredicate(format: "name == %@", name)
     request.fetchLimit = 1
     return try modelContext.fetch(request).first
+  }
+
+  private func personSummary(from person: NSManagedObject) -> (String, Int32)? {
+    guard
+      let name = person.value(forKey: "name") as? String,
+      let age = person.value(forKey: "age") as? Int32
+    else { return nil }
+
+    return (name, age)
   }
 }

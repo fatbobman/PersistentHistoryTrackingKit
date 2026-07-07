@@ -7,6 +7,11 @@ PersistentHistoryTrackingKit V2 provides a powerful Hook system for monitoring a
 1. **Observer Hooks**: Read-only notification callbacks for monitoring data changes
 2. **Merge Hooks**: Pipeline-based callbacks that can customize merge logic and modify data
 
+The optional `mergeBehavior` setting controls whether step 3 and step 4 of the processing pipeline
+run. The default `.automatic` behavior runs Merge Hooks and then default merge. `.disabled` is an
+observer-only mode: Observer Hooks still run, timestamps still advance, and cleanup still follows
+`cleanStrategy`, but registered Merge Hooks and the default merge are skipped.
+
 ## Architecture Diagram
 
 ```
@@ -100,6 +105,16 @@ PersistentHistoryTrackingKit V2 provides a powerful Hook system for monitoring a
                           │     Old History      │  based on cleanup strategy
                           └──────────────────────┘
 ```
+
+With `mergeBehavior: .disabled`, the pipeline still fetches transactions, triggers Observer Hooks,
+advances the current author's timestamp, and evaluates cleanup. It skips the whole merge phase:
+registered Merge Hooks do not run, and the default merge does not update your contexts. The
+processed count reports how many transactions were observed and timestamped; it does not prove that
+anything was merged.
+
+If cleanup is enabled in this observer-only mode, the app is responsible for asserting that no other
+consumer still needs the history that may be deleted. CloudKit mirroring cleanup risks remain the
+same as in automatic mode.
 
 ## Hook Types
 
@@ -298,6 +313,10 @@ Merge Hooks allow **custom merge logic** and can modify data. They execute in a 
 - **Can Modify Data**: Full access to `NSPersistentHistoryTransaction` and `NSManagedObjectContext`
 - **Short-Circuit Support**: Returning `.finish` stops the pipeline and skips default merge
 - **Execution Context**: Managed by `TransactionProcessorActor` and awaited serially, but callback bodies are not isolated to the internal processor actor in this release. Use `await context.perform { ... }` or your own actor isolation for mutable work.
+
+> ℹ️ If `PersistentHistoryTrackingKit` is initialized with `mergeBehavior: .disabled`, Merge Hooks
+> can still be registered and removed, but they will not execute during transaction processing.
+> Registration emits a `.notice` log to make the inactive configuration visible.
 
 #### Registration:
 

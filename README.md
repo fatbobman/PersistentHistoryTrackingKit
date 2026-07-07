@@ -195,6 +195,37 @@ automatic cleanup is skipped. This protects authors that have not merged yet; th
 if an author stays inactive for a long time, the shared cleanup checkpoint never forms and history
 may keep growing.
 
+### Merge Behavior
+
+By default, the kit runs the merge hook pipeline and then falls back to its default merge:
+
+```swift
+mergeBehavior: .automatic
+```
+
+Use `.disabled` when you want observer-only processing:
+
+```swift
+let kit = PersistentHistoryTrackingKit(
+    container: container,
+    contexts: [container.viewContext],
+    currentAuthor: "MainApp",
+    allAuthors: ["MainApp", "WidgetExtension"],
+    userDefaults: .standard,
+    cleanStrategy: .byDuration(seconds: 60 * 60 * 24 * 7),
+    mergeBehavior: .disabled
+)
+```
+
+With `.disabled`, Observer Hooks still run, the current author's timestamp still advances, and
+cleanup still follows `cleanStrategy`. The whole merge phase is skipped: registered Merge Hooks do
+not run, and the default merge does not merge transactions into your contexts. A processed count
+greater than zero means transactions were observed and timestamped; it does **not** mean they were
+merged into a context.
+
+If cleanup is enabled while merge is disabled, your app is asserting that no other consumer still
+needs the history being cleaned. CloudKit cleanup guidance still applies.
+
 **⚠️ Important for CloudKit Users**:
 
 CloudKit relies on persistent history internally. If history is cleaned up too aggressively, CloudKit may lose its tracking tokens, causing `NSPersistentHistoryTokenExpiredError` (error code 134301), which can lead to local database purges and forced re-sync from iCloud. A long-absent author keeps automatic cleanup skipped to protect its unmerged data, but this also increases history growth and CloudKit token pressure.
@@ -303,6 +334,10 @@ await kit.registerMergeHook { input in
 
 **Execution context:** Merge Hooks are awaited sequentially by `TransactionProcessorActor` in registration order, but this release does not enable Swift 6.2 `NonisolatedNonsendingByDefault`. Callback bodies are not isolated to the internal processor actor; use `await context.perform { ... }` or your own actor isolation for mutable work.
 
+**Observer-only mode:** If the kit is initialized with `mergeBehavior: .disabled`, Merge Hooks can
+still be registered and removed, but they will not run during transaction processing. Registration
+emits a `.notice` log because the hook is inactive under that configuration.
+
 ### Real-World Examples
 
 Merge Hooks can customize the merge pipeline itself, for example by temporarily disabling `undoManager` while applying history transactions.
@@ -325,6 +360,7 @@ Merge Hooks can customize the merge pipeline itself, for example by temporarily 
 | `batchAuthors` | `[String]` | Authors that only write, never merge | `[]` |
 | `userDefaults` | `UserDefaults` | Storage for timestamps | Required |
 | `cleanStrategy` | `TransactionCleanStrategy` | Cleanup strategy | `.none` |
+| `mergeBehavior` | `TransactionMergeBehavior` | Merge pipeline behavior | `.automatic` |
 | `maximumDuration` | `TimeInterval` | Reserved for future cleanup readiness policies | 7 days |
 | `uniqueString` | `String` | UserDefaults key prefix | Auto-generated |
 | `logger` | `PersistentHistoryTrackingKitLoggerProtocol?` | Custom logger | `DefaultLogger` |

@@ -171,6 +171,33 @@ cleanStrategy: .none
 merge 时间戳后,Kit 才会执行清理。只要有任何一个必要 author 尚未完成 merge,自动清理就会跳过。
 这会保护尚未合并的 author；如果某个 author 长期不运行,共同清理点也会长期无法形成,历史记录可能持续增长。
 
+### Merge 行为
+
+默认情况下，Kit 会先运行 Merge Hook 流水线，再在没有 Hook 返回 `.finish` 时执行默认合并：
+
+```swift
+mergeBehavior: .automatic
+```
+
+如果只想使用观察与通知能力，可以关闭整个 merge 阶段：
+
+```swift
+let kit = PersistentHistoryTrackingKit(
+    container: container,
+    contexts: [container.viewContext],
+    currentAuthor: "MainApp",
+    allAuthors: ["MainApp", "WidgetExtension"],
+    userDefaults: .standard,
+    cleanStrategy: .byDuration(seconds: 60 * 60 * 24 * 7),
+    mergeBehavior: .disabled
+)
+```
+
+在 `.disabled` 下，Observer Hook 仍会触发，当前 author 的时间戳仍会推进，清理仍按
+`cleanStrategy` 执行。但整个 merge 阶段会被跳过：已注册的 Merge Hook 不会运行，默认合并也不会把事务合并进你的 context。返回的 processed count 大于 0 只表示这些事务已被观察并推进时间戳，不代表已经合并。
+
+如果在关闭 merge 的同时启用清理，你需要自行断言没有其他消费者仍需要即将被清理的 history。CloudKit 相关清理警告依然适用。
+
 **⚠️ CloudKit 用户特别注意**:
 
 CloudKit 内部依赖持久化历史记录。如果历史清理过于激进,CloudKit 可能丢失其追踪标记,导致 `NSPersistentHistoryTokenExpiredError`(错误代码 134301),这可能会造成本地数据库清除和强制从 iCloud 重新同步。长期缺席的 author 虽然会让自动清理跳过以保护未合并数据,但也会增加历史增长与 CloudKit token 压力。
@@ -267,6 +294,9 @@ Merge Hook 可以直接介入合并流水线，例如在应用 history transacti
 Swift 6.2 的 `NonisolatedNonsendingByDefault`。回调体不隔离在内部 processor actor 上；
 如需修改 Core Data，请使用 `await context.perform { ... }` 或自己的 actor 隔离。
 
+**Observer-only 模式**：如果初始化时设置 `mergeBehavior: .disabled`，Merge Hook 仍可注册和移除，
+但处理事务时不会执行。注册时会输出一条 `.notice` 日志，提示该 Hook 在当前配置下不会生效。
+
 完整 Hook 指南：[`Docs/HookMechanismCN.md`](Docs/HookMechanismCN.md)
 
 ---
@@ -285,6 +315,7 @@ Swift 6.2 的 `NonisolatedNonsendingByDefault`。回调体不隔离在内部 pro
 | `batchAuthors` | `[String]` | 只写入不合并的 author | `[]` |
 | `userDefaults` | `UserDefaults` | 存储时间戳 | 必填 |
 | `cleanStrategy` | `TransactionCleanStrategy` | 清理策略 | `.none` |
+| `mergeBehavior` | `TransactionMergeBehavior` | Merge 流水线行为 | `.automatic` |
 | `maximumDuration` | `TimeInterval` | 为未来清理就绪策略预留 | 7 天 |
 | `uniqueString` | `String` | UserDefaults key 前缀 | 自动生成 |
 | `logger` | `PersistentHistoryTrackingKitLoggerProtocol?` | 自定义日志 | `DefaultLogger` |
