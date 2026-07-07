@@ -24,7 +24,7 @@ actor TransactionProcessorActor {
   /// Contexts that receive merged transactions.
   private let mergeContexts: [NSManagedObjectContext]
 
-  // MARK: - Merge Hooks (managed inside the same actor to avoid passing non-Sendable types)
+  // MARK: - Merge Hooks (stored as actor state; callback bodies are not isolated to this actor)
 
   private struct MergeHookItem {
     let id: UUID
@@ -65,7 +65,8 @@ actor TransactionProcessorActor {
   /// Register a Merge Hook (pipeline style, allowing custom merge logic).
   /// - Parameters:
   ///   - before: Optional hook ID to insert before; appends to the end if nil.
-  ///   - callback: Callback executed within the same actor.
+  ///   - callback: Callback awaited serially by this actor; its body is not isolated to the
+  ///     actor.
   /// - Returns: The UUID of the hook for later removal.
   @discardableResult
   func registerMergeHook(
@@ -126,7 +127,7 @@ actor TransactionProcessorActor {
     await triggerObserverHooks(for: transactions)
 
     // 3. Trigger Merge Hooks (pipeline, may mutate data).
-    // Runs within the same actor to avoid cross-actor non-Sendable transfers.
+    // Hooks are awaited in order; callback bodies are not isolated to this actor.
     try await triggerMergeHooks(transactions: transactions)
 
     // 4. Run cleanup when a timestamp is provided.

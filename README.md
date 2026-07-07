@@ -191,11 +191,13 @@ cleanStrategy: .none
 
 Automatic cleanup is conservative: the kit cleans only after every non-batch author has recorded
 its merge timestamp in the shared `UserDefaults` store. If one required author has not merged yet,
-automatic cleanup is skipped.
+automatic cleanup is skipped. This protects authors that have not merged yet; the flip side is that
+if an author stays inactive for a long time, the shared cleanup checkpoint never forms and history
+may keep growing.
 
 **⚠️ Important for CloudKit Users**:
 
-CloudKit relies on persistent history internally. If history is cleaned up too aggressively, CloudKit may lose its tracking tokens, causing `NSPersistentHistoryTokenExpiredError` (error code 134301), which can lead to local database purges and forced re-sync from iCloud.
+CloudKit relies on persistent history internally. If history is cleaned up too aggressively, CloudKit may lose its tracking tokens, causing `NSPersistentHistoryTokenExpiredError` (error code 134301), which can lead to local database purges and forced re-sync from iCloud. A long-absent author keeps automatic cleanup skipped to protect its unmerged data, but this also increases history growth and CloudKit token pressure.
 
 **Always use time-based cleanup with sufficient duration** (7+ days) when using CloudKit:
 
