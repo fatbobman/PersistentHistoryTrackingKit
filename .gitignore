@@ -8,4 +8,12 @@ xcuserdata/
 DerivedData/
 .swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
 /.vscode
-/.claude
+**/skills/fatbobman/
+.claude/settings.local.json
+.claude/skills/frame
+.claude/skills/pm
+.claude/skills/design
+.claude/skills/dev
+.claude/skills/qa
+.claude/skills/public-*-release
+.claude/skills/oss-readme

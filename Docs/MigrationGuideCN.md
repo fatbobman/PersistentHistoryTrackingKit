@@ -263,5 +263,5 @@ struct MyLogger: PersistentHistoryTrackingKitLoggerProtocol {
 ## 相关文档
 
 - [Hook 机制指南](HookMechanismCN.md)
-- [README 中文版](../READMECN.md)
+- [README 中文版](../README_zh.md)
 - [English Migration Guide](MigrationGuide.md)
