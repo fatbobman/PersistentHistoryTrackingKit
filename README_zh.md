@@ -80,7 +80,3 @@ If this project helps you, please consider supporting my work:
 
 - 📮 Subscribe to [Fatbobman's Swift Weekly](https://weekly.fatbobman.com) — fresh Swift and Apple-ecosystem insights every week
 - ☕️ [Buy Me a Coffee](https://buymeacoffee.com/fatbobman)
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=fatbobman/PersistentHistoryTrackingKit&type=Date)](https://www.star-history.com/#fatbobman/PersistentHistoryTrackingKit&Date)
